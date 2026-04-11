@@ -2,7 +2,7 @@
 core-rdf:
   type: Package
   publisher: kanonak.org
-  version: 1.0.1
+  version: 1.0.0
 
 Property:
   type: Class

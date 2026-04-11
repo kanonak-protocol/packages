@@ -2,16 +2,16 @@
 core-owl:
   type: Package
   publisher: kanonak.org
-  version: 2.0.2
+  version: 2.0.0
   imports:
     - publisher: kanonak.org
       packages:
         - package: core-rdf
           match: ^
-          version: 1.0.1
+          version: 1.0.0
         - package: core-xsd
           match: ^
-          version: 1.0.1
+          version: 1.0.0
 
 # Core OWL Classes
 

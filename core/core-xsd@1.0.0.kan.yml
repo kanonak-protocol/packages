@@ -2,13 +2,13 @@
 core-xsd:
   type: Package
   publisher: kanonak.org
-  version: 1.0.1
+  version: 1.0.0
   imports:
     - publisher: kanonak.org
       packages:
         - package: core-rdf
           match: ^
-          version: 1.0.1
+          version: 1.0.0
 
 anySimpleType:
   type: Datatype
