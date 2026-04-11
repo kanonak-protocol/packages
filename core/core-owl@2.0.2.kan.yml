@@ -1,0 +1,368 @@
+# Package declaration
+core-owl:
+  type: Package
+  publisher: kanonak.org
+  version: 2.0.2
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.1
+        - package: core-xsd
+          match: ^
+          version: 1.0.1
+
+# Core OWL Classes
+
+Class:
+  type: Class
+  label: Class
+  comment: The class of all OWL classes
+  subClassOf: Class
+
+Thing:
+  type: Class
+  label: Thing
+  comment: The class of all individuals
+  subClassOf: Resource
+
+Nothing:
+  type: Class
+  label: Nothing
+  comment: The empty class
+  subClassOf: Thing
+
+Ontology:
+  type: Class
+  label: Ontology
+  comment: The class of ontologies
+  subClassOf: Resource
+
+# Property Classes
+
+ObjectProperty:
+  type: Class
+  label: Object Property
+  comment: The class of object properties that relate individuals to individuals
+  subClassOf: Property
+
+DatatypeProperty:
+  type: Class
+  label: Datatype Property
+  comment: The class of datatype properties that relate individuals to data values
+  subClassOf: Property
+
+AnnotationProperty:
+  type: Class
+  label: Annotation Property
+  comment: The class of annotation properties
+  subClassOf: Property
+
+# Property Characteristic Classes
+
+FunctionalProperty:
+  type: Class
+  label: Functional Property
+  comment: The class of properties that can have at most one value for each individual
+  subClassOf: Property
+
+InverseFunctionalProperty:
+  type: Class
+  label: Inverse Functional Property
+  comment: The class of properties that are inverse functional
+  subClassOf: ObjectProperty
+
+TransitiveProperty:
+  type: Class
+  label: Transitive Property
+  comment: The class of transitive properties
+  subClassOf: ObjectProperty
+
+SymmetricProperty:
+  type: Class
+  label: Symmetric Property
+  comment: The class of symmetric properties
+  subClassOf: ObjectProperty
+
+AsymmetricProperty:
+  type: Class
+  label: Asymmetric Property
+  comment: The class of asymmetric properties
+  subClassOf: ObjectProperty
+
+ReflexiveProperty:
+  type: Class
+  label: Reflexive Property
+  comment: The class of reflexive properties
+  subClassOf: ObjectProperty
+
+IrreflexiveProperty:
+  type: Class
+  label: Irreflexive Property
+  comment: The class of irreflexive properties
+  subClassOf: ObjectProperty
+
+# Class Expression Classes
+
+Restriction:
+  type: Class
+  label: Restriction
+  comment: The class of property restrictions
+  subClassOf: Class
+
+DataRange:
+  type: Class
+  label: Data Range
+  comment: The class of OWL data ranges
+  subClassOf: Datatype
+
+# Deprecated Classes
+
+DeprecatedClass:
+  type: Class
+  label: Deprecated Class
+  comment: The class of deprecated classes
+  subClassOf: Class
+
+DeprecatedProperty:
+  type: Class
+  label: Deprecated Property
+  comment: The class of deprecated properties
+  subClassOf: Property
+
+# Individual Classes
+
+NamedIndividual:
+  type: Class
+  label: Named Individual
+  comment: The class of named individuals
+  subClassOf: Thing
+
+# OWL Properties
+
+# Restriction Properties
+
+onProperty:
+  type: ObjectProperty
+  label: On Property
+  comment: The property that determines the property that a restriction refers to
+  domain: Restriction
+  range: Property
+
+onClass:
+  type: ObjectProperty
+  label: On Class
+  comment: The property that determines the class that a qualified restriction refers to
+  domain: Restriction
+  range: Class
+
+onDataRange:
+  type: ObjectProperty
+  label: On Data Range
+  comment: The property that determines the data range that a qualified restriction refers to
+  domain: Restriction
+  range: DataRange
+
+# Cardinality Properties
+
+cardinality:
+  type: DatatypeProperty
+  label: Cardinality
+  comment: The property that determines the exact cardinality of a restriction
+  domain: Restriction
+  range: nonNegativeInteger
+
+minCardinality:
+  type: DatatypeProperty
+  label: Min Cardinality
+  comment: The property that determines the minimum cardinality of a restriction
+  domain: Restriction
+  range: nonNegativeInteger
+
+maxCardinality:
+  type: DatatypeProperty
+  label: Max Cardinality
+  comment: The property that determines the maximum cardinality of a restriction
+  domain: Restriction
+  range: nonNegativeInteger
+
+qualifiedCardinality:
+  type: DatatypeProperty
+  label: Qualified Cardinality
+  comment: The property that determines the exact qualified cardinality of a restriction
+  domain: Restriction
+  range: nonNegativeInteger
+
+minQualifiedCardinality:
+  type: DatatypeProperty
+  label: Min Qualified Cardinality
+  comment: The property that determines the minimum qualified cardinality of a restriction
+  domain: Restriction
+  range: nonNegativeInteger
+
+maxQualifiedCardinality:
+  type: DatatypeProperty
+  label: Max Qualified Cardinality
+  comment: The property that determines the maximum qualified cardinality of a restriction
+  domain: Restriction
+  range: nonNegativeInteger
+
+# Value Restriction Properties
+
+hasValue:
+  type: ObjectProperty
+  label: Has Value
+  comment: The property that determines the individual value that a restriction refers to
+  domain: Restriction
+  range: Resource
+
+allValuesFrom:
+  type: ObjectProperty
+  label: All Values From
+  comment: The property that determines the class that all values of a property must belong to
+  domain: Restriction
+  range: Class
+
+someValuesFrom:
+  type: ObjectProperty
+  label: Some Values From
+  comment: The property that determines the class that at least one value of a property must belong to
+  domain: Restriction
+  range: Class
+
+# Property Relationship Properties
+
+equivalentProperty:
+  type: ObjectProperty
+  label: Equivalent Property
+  comment: The property for declaring two properties as equivalent
+  domain: Property
+  range: Property
+
+inverseOf:
+  type: ObjectProperty
+  label: Inverse Of
+  comment: The property for specifying inverse properties
+  domain: ObjectProperty
+  range: ObjectProperty
+
+propertyDisjointWith:
+  type: ObjectProperty
+  label: Property Disjoint With
+  comment: The property for declaring two properties as disjoint
+  domain: Property
+  range: Property
+
+# Class Relationship Properties
+
+equivalentClass:
+  type: ObjectProperty
+  label: Equivalent Class
+  comment: The property for declaring two classes as equivalent
+  domain: Class
+  range: Class
+
+disjointWith:
+  type: ObjectProperty
+  label: Disjoint With
+  comment: The property for declaring two classes as disjoint
+  domain: Class
+  range: Class
+
+complementOf:
+  type: ObjectProperty
+  label: Complement Of
+  comment: The property for specifying class complements
+  domain: Class
+  range: Class
+
+unionOf:
+  type: ObjectProperty
+  label: Union Of
+  comment: The property for defining a class as a union of other classes
+  domain: Class
+  range: List
+
+intersectionOf:
+  type: ObjectProperty
+  label: Intersection Of
+  comment: The property for defining a class as an intersection of other classes
+  domain: Class
+  range: List
+
+oneOf:
+  type: ObjectProperty
+  label: One Of
+  comment: The property for defining a class by enumeration of its individuals
+  domain: Class
+  range: List
+
+# Individual Properties
+
+sameAs:
+  type: ObjectProperty
+  label: Same As
+  comment: The property for declaring two individuals as identical
+  domain: Thing
+  range: Thing
+
+differentFrom:
+  type: ObjectProperty
+  label: Different From
+  comment: The property for declaring two individuals as distinct
+  domain: Thing
+  range: Thing
+
+distinctMembers:
+  type: ObjectProperty
+  label: Distinct Members
+  comment: The property for declaring a list of pairwise different individuals
+  domain: Class
+  range: List
+
+# Versioning Properties
+
+versionInfo:
+  type: AnnotationProperty
+  label: Version Info
+  comment: Provides version information for an ontology or resource
+  domain: Resource
+  range: string
+
+priorVersion:
+  type: ObjectProperty
+  label: Prior Version
+  comment: References a prior version of an ontology
+  domain: Ontology
+  range: Ontology
+
+backwardCompatibleWith:
+  type: ObjectProperty
+  label: Backward Compatible With
+  comment: References an ontology that this version is backward compatible with
+  domain: Ontology
+  range: Ontology
+
+incompatibleWith:
+  type: ObjectProperty
+  label: Incompatible With
+  comment: References an ontology that this version is incompatible with
+  domain: Ontology
+  range: Ontology
+
+deprecated:
+  type: AnnotationProperty
+  label: Deprecated
+  comment: Indicates that a resource is deprecated
+  domain: Resource
+  range: boolean
+
+# Ontology Properties
+
+owlImports:
+  type: ObjectProperty
+  label: Imports
+  comment: References an ontology to be imported
+  domain: Ontology
+  range: Ontology

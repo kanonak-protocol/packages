@@ -1,2 +1,3 @@
-# packages
-Kanonak Protocol Packages
+# Kanonak Protocol Packages
+
+Source of the Kanonak Protocol packages.

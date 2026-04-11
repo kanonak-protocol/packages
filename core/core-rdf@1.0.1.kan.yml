@@ -1,0 +1,93 @@
+# Package declaration
+core-rdf:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.1
+
+Property:
+  type: Class
+  label: Property
+  comment: The class of RDF properties
+  subClassOf: Resource
+type:
+  type: Property
+  comment: States that a resource is an instance of a class
+  label: type
+  domain: Resource
+  range: Class
+Resource:
+  type: Class
+  label: Resource
+  comment: The class resource, everything
+Class:
+  type: Class
+  label: Class
+  comment: The class of classes
+  subClassOf: Resource
+Datatype:
+  type: Class
+  label: Datatype
+  comment: The class of RDF datatypes
+  subClassOf: Class
+Literal:
+  type: Class
+  label: Literal
+  comment: The class of literal values, e.g. textual strings and integers
+  subClassOf: Resource
+List:
+  type: Class
+  label: List
+  comment: The class of RDF Lists
+  subClassOf: Resource
+label:
+  type: Property
+  comment: A human-readable name for the subject
+  label: Label
+  domain: Resource
+  range: Literal
+comment:
+  type: Property
+  comment: A description of the subject resource
+  label: Comment
+  domain: Resource
+  range: Literal
+domain:
+  type: Property
+  comment: A domain of a property
+  label: Domain
+  domain: Property
+  range: Class
+range:
+  type: Property
+  comment: A range of a property
+  label: Range
+  domain: Property
+  range: Class
+subClassOf:
+  type: Property
+  label: Subclass Of
+  comment: The subject is a subclass of a class
+  domain: Class
+  range: Class
+subPropertyOf:
+  type: Property
+  label: Subproperty Of
+  comment: The subject is a subproperty of a property
+  domain: Property
+  range: Property
+first:
+  type: Property
+  label: First
+  comment: The first item in the subject RDF list
+  domain: List
+  range: Resource
+rest:
+  type: Property
+  label: Rest
+  comment: The rest of the subject RDF list after the first item
+  domain: List
+  range: List
+nil:
+  type: List
+  label: Nil
+  comment: The empty list, with no items in it
