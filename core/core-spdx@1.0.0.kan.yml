@@ -1,0 +1,420 @@
+core-spdx:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+
+License:
+  type: rdfs.Class
+  label: License
+  comment: >-
+    A software license defining terms for use, modification, and
+    distribution. Based on SPDX (Software Package Data Exchange) license
+    definitions. Can be referenced by name (e.g., license: MIT) or
+    embedded inline for custom licenses (type inferred from the license
+    property's range).
+
+spdxId:
+  type: owl.DatatypeProperty
+  domain: License
+  range: xsd.string
+  label: SPDX Identifier
+  comment: >-
+    Standard SPDX license identifier (e.g., "MIT", "Apache-2.0").
+    Optional - only applicable for licenses listed at
+    https://spdx.org/licenses/.
+
+name:
+  type: owl.DatatypeProperty
+  domain: License
+  range: xsd.string
+  label: Name
+  comment: Full human-readable license name.
+
+url:
+  type: owl.DatatypeProperty
+  domain: License
+  range: xsd.anyURI
+  label: URL
+  comment: Canonical URL to the full license text.
+
+isOsiApproved:
+  type: owl.DatatypeProperty
+  domain: License
+  range: xsd.boolean
+  label: OSI Approved
+  comment: Whether this license is approved by the Open Source Initiative.
+
+isFsfFree:
+  type: owl.DatatypeProperty
+  domain: License
+  range: xsd.boolean
+  label: FSF Free
+  comment: >-
+    Whether this license is considered free by the Free Software
+    Foundation.
+
+Permission:
+  type: rdfs.Class
+  label: Permission
+  comment: >-
+    What a license permits. Extensible - publishers can define custom
+    permissions in their own packages.
+
+Condition:
+  type: rdfs.Class
+  label: Condition
+  comment: >-
+    A condition required by a license. Extensible - publishers can
+    define custom conditions in their own packages.
+
+Limitation:
+  type: rdfs.Class
+  label: Limitation
+  comment: >-
+    What a license does not grant. Extensible - publishers can define
+    custom limitations in their own packages.
+
+permissions:
+  type: owl.ObjectProperty
+  domain: License
+  range: Permission
+  label: Permissions
+  comment: What the license permits.
+
+conditions:
+  type: owl.ObjectProperty
+  domain: License
+  range: Condition
+  label: Conditions
+  comment: Conditions required by the license.
+
+limitations:
+  type: owl.ObjectProperty
+  domain: License
+  range: Limitation
+  label: Limitations
+  comment: What the license does not grant.
+
+commercial-use:
+  type: Permission
+  label: Commercial Use
+  comment: Use the licensed work for commercial purposes.
+
+modification:
+  type: Permission
+  label: Modification
+  comment: Modify the licensed work.
+
+distribution:
+  type: Permission
+  label: Distribution
+  comment: Distribute the licensed work.
+
+patent-use:
+  type: Permission
+  label: Patent Use
+  comment: Practice patent claims of contributors to the code.
+
+private-use:
+  type: Permission
+  label: Private Use
+  comment: Use the licensed work for private purposes.
+
+include-copyright:
+  type: Condition
+  label: Include Copyright
+  comment: Include the original copyright and license notice in distributions.
+
+state-changes:
+  type: Condition
+  label: State Changes
+  comment: Document changes made to the licensed work.
+
+disclose-source:
+  type: Condition
+  label: Disclose Source
+  comment: Source code must be made available when distributing.
+
+same-license:
+  type: Condition
+  label: Same License
+  comment: Derivative works must be distributed under the same license.
+
+same-license-file:
+  type: Condition
+  label: Same License (File)
+  comment: Modified files must be distributed under the same license.
+
+network-use-is-distribution:
+  type: Condition
+  label: Network Use Is Distribution
+  comment: Users who interact with the software over a network get source access.
+
+no-liability:
+  type: Limitation
+  label: No Liability
+  comment: The license includes a limitation of liability.
+
+no-warranty:
+  type: Limitation
+  label: No Warranty
+  comment: The license explicitly states it does not provide any warranty.
+
+no-trademark-use:
+  type: Limitation
+  label: No Trademark Use
+  comment: The license does not grant trademark rights.
+
+no-patent-use:
+  type: Limitation
+  label: No Patent Use
+  comment: The license does not grant patent rights.
+
+MIT:
+  type: License
+  spdxId: MIT
+  name: MIT License
+  url: https://opensource.org/licenses/MIT
+  isOsiApproved: true
+  isFsfFree: true
+  permissions:
+    - commercial-use
+    - modification
+    - distribution
+    - private-use
+  conditions:
+    - include-copyright
+  limitations:
+    - no-liability
+    - no-warranty
+
+Apache-2-0:
+  type: License
+  spdxId: Apache-2.0
+  name: Apache License 2.0
+  url: https://opensource.org/licenses/Apache-2.0
+  isOsiApproved: true
+  isFsfFree: true
+  permissions:
+    - commercial-use
+    - modification
+    - distribution
+    - patent-use
+    - private-use
+  conditions:
+    - include-copyright
+    - state-changes
+  limitations:
+    - no-liability
+    - no-warranty
+    - no-trademark-use
+
+GPL-3-0:
+  type: License
+  spdxId: GPL-3.0-only
+  name: GNU General Public License v3.0
+  url: https://www.gnu.org/licenses/gpl-3.0.html
+  isOsiApproved: true
+  isFsfFree: true
+  permissions:
+    - commercial-use
+    - modification
+    - distribution
+    - patent-use
+    - private-use
+  conditions:
+    - include-copyright
+    - state-changes
+    - disclose-source
+    - same-license
+  limitations:
+    - no-liability
+    - no-warranty
+
+GPL-2-0:
+  type: License
+  spdxId: GPL-2.0-only
+  name: GNU General Public License v2.0
+  url: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+  isOsiApproved: true
+  isFsfFree: true
+  permissions:
+    - commercial-use
+    - modification
+    - distribution
+    - private-use
+  conditions:
+    - include-copyright
+    - state-changes
+    - disclose-source
+    - same-license
+  limitations:
+    - no-liability
+    - no-warranty
+
+BSD-3-Clause:
+  type: License
+  spdxId: BSD-3-Clause
+  name: BSD 3-Clause License
+  url: https://opensource.org/licenses/BSD-3-Clause
+  isOsiApproved: true
+  isFsfFree: true
+  permissions:
+    - commercial-use
+    - modification
+    - distribution
+    - private-use
+  conditions:
+    - include-copyright
+  limitations:
+    - no-liability
+    - no-warranty
+
+BSD-2-Clause:
+  type: License
+  spdxId: BSD-2-Clause
+  name: BSD 2-Clause License
+  url: https://opensource.org/licenses/BSD-2-Clause
+  isOsiApproved: true
+  isFsfFree: true
+  permissions:
+    - commercial-use
+    - modification
+    - distribution
+    - private-use
+  conditions:
+    - include-copyright
+  limitations:
+    - no-liability
+    - no-warranty
+
+LGPL-2-1:
+  type: License
+  spdxId: LGPL-2.1-only
+  name: GNU Lesser General Public License v2.1
+  url: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+  isOsiApproved: true
+  isFsfFree: true
+  permissions:
+    - commercial-use
+    - modification
+    - distribution
+    - private-use
+  conditions:
+    - include-copyright
+    - state-changes
+    - disclose-source
+    - same-license-file
+  limitations:
+    - no-liability
+    - no-warranty
+
+MPL-2-0:
+  type: License
+  spdxId: MPL-2.0
+  name: Mozilla Public License 2.0
+  url: https://opensource.org/licenses/MPL-2.0
+  isOsiApproved: true
+  isFsfFree: true
+  permissions:
+    - commercial-use
+    - modification
+    - distribution
+    - patent-use
+    - private-use
+  conditions:
+    - include-copyright
+    - disclose-source
+    - same-license-file
+  limitations:
+    - no-liability
+    - no-warranty
+    - no-trademark-use
+
+ISC:
+  type: License
+  spdxId: ISC
+  name: ISC License
+  url: https://opensource.org/licenses/ISC
+  isOsiApproved: true
+  isFsfFree: true
+  permissions:
+    - commercial-use
+    - modification
+    - distribution
+    - private-use
+  conditions:
+    - include-copyright
+  limitations:
+    - no-liability
+    - no-warranty
+
+AGPL-3-0:
+  type: License
+  spdxId: AGPL-3.0-only
+  name: GNU Affero General Public License v3.0
+  url: https://www.gnu.org/licenses/agpl-3.0.html
+  isOsiApproved: true
+  isFsfFree: true
+  permissions:
+    - commercial-use
+    - modification
+    - distribution
+    - patent-use
+    - private-use
+  conditions:
+    - include-copyright
+    - state-changes
+    - disclose-source
+    - same-license
+    - network-use-is-distribution
+  limitations:
+    - no-liability
+    - no-warranty
+
+Unlicense:
+  type: License
+  spdxId: Unlicense
+  name: The Unlicense
+  url: https://unlicense.org
+  isOsiApproved: true
+  isFsfFree: true
+  permissions:
+    - commercial-use
+    - modification
+    - distribution
+    - private-use
+  limitations:
+    - no-liability
+    - no-warranty
+
+CC0-1-0:
+  type: License
+  spdxId: CC0-1.0
+  name: Creative Commons Zero v1.0 Universal
+  url: https://creativecommons.org/publicdomain/zero/1.0/
+  isFsfFree: true
+  permissions:
+    - commercial-use
+    - modification
+    - distribution
+    - private-use
+  limitations:
+    - no-liability
+    - no-warranty
+    - no-patent-use
