@@ -1,0 +1,88 @@
+# Core Kanonak ontology - defines Package, Publisher, and Import classes
+
+core-kanonak:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+
+# Publisher class - identifies a package publisher by domain
+Publisher:
+  type: Class
+  label: Publisher
+  comment: A package publisher identified by domain
+
+# Package class - a Kanonak package with version and dependencies
+Package:
+  type: Class
+  label: Package
+  comment: A Kanonak package with version and dependencies
+
+# Import class - a package import specification
+Import:
+  type: Class
+  label: Import
+  comment: A package import specification
+
+# PublisherImport class - groups imports by publisher
+PublisherImport:
+  type: Class
+  label: Publisher Import
+  comment: A group of package imports from a single publisher
+
+# Properties for Package
+publisher:
+  type: ObjectProperty
+  label: Publisher
+  comment: The publisher of a package or import group
+  domain: Package, Import, PublisherImport
+  range: Publisher
+
+version:
+  type: DatatypeProperty
+  label: Version
+  comment: The semantic version of a package or import constraint
+  domain: Package, Import
+  range: string
+
+imports:
+  type: ObjectProperty
+  label: Imports
+  comment: List of package imports grouped by publisher
+  domain: Package
+  range: PublisherImport
+
+# Properties for PublisherImport
+packages:
+  type: ObjectProperty
+  label: Packages
+  comment: List of package imports from this publisher
+  domain: PublisherImport
+  range: Import
+
+# Properties for Import
+package:
+  type: ObjectProperty
+  label: Package
+  comment: The package being imported
+  domain: Import
+  range: Package
+
+match:
+  type: DatatypeProperty
+  label: Match
+  comment: Version match operator (*, ~, ^, =)
+  domain: Import
+  range: string
+
+alias:
+  type: DatatypeProperty
+  label: Alias
+  comment: Optional namespace alias for the import
+  domain: Import
+  range: string
