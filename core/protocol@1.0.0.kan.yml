@@ -1,0 +1,148 @@
+
+protocol:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+
+Protocol:
+  type: Class
+  label: Protocol
+  comment: A protocol - a named set of conventions governing how a system is used or implemented
+  subClassOf: Resource
+
+Convention:
+  type: Class
+  label: Convention
+  comment: A named grouping of rules and examples covering one aspect of a protocol
+  subClassOf: Resource
+
+Rule:
+  type: Class
+  label: Rule
+  comment: A statement governing how an aspect of a protocol should be followed
+  subClassOf: Resource
+
+RequiredRule:
+  type: Class
+  label: Required Rule
+  comment: A rule that MUST be followed
+  subClassOf: Rule
+
+RecommendedRule:
+  type: Class
+  label: Recommended Rule
+  comment: A rule that SHOULD be followed
+  subClassOf: Rule
+
+ForbiddenRule:
+  type: Class
+  label: Forbidden Rule
+  comment: A rule that MUST NOT be followed
+  subClassOf: Rule
+
+Example:
+  type: Class
+  label: Example
+  comment: A concrete example illustrating a convention
+  subClassOf: Resource
+
+ValidExample:
+  type: Class
+  label: Valid Example
+  comment: An example that conforms to a convention
+  subClassOf: Example
+
+InvalidExample:
+  type: Class
+  label: Invalid Example
+  comment: An example that violates a convention
+  subClassOf: Example
+
+hasConvention:
+  type: ObjectProperty
+  label: Has Convention
+  comment: Links a protocol to a convention it defines
+  domain: Protocol
+  range: Convention
+
+summary:
+  type: DatatypeProperty
+  label: Summary
+  comment: Brief description of what this convention covers
+  domain: Convention
+  range: string
+
+hasRequiredRule:
+  type: ObjectProperty
+  label: Has Required Rule
+  comment: A required rule (MUST) that is part of this convention
+  domain: Convention
+  range: RequiredRule
+
+hasRecommendedRule:
+  type: ObjectProperty
+  label: Has Recommended Rule
+  comment: A recommended rule (SHOULD) that is part of this convention
+  domain: Convention
+  range: RecommendedRule
+
+hasForbiddenRule:
+  type: ObjectProperty
+  label: Has Forbidden Rule
+  comment: A forbidden rule (MUST NOT) that is part of this convention
+  domain: Convention
+  range: ForbiddenRule
+
+hasValidExample:
+  type: ObjectProperty
+  label: Has Valid Example
+  comment: A valid example illustrating conformance to this convention
+  domain: Convention
+  range: ValidExample
+
+hasInvalidExample:
+  type: ObjectProperty
+  label: Has Invalid Example
+  comment: An invalid example illustrating a violation of this convention
+  domain: Convention
+  range: InvalidExample
+
+text:
+  type: DatatypeProperty
+  label: Text
+  comment: The normative text of the rule
+  domain: Rule
+  range: string
+
+rationale:
+  type: DatatypeProperty
+  label: Rationale
+  comment: The reasoning behind the rule
+  domain: Rule
+  range: string
+
+value:
+  type: DatatypeProperty
+  label: Value
+  comment: The literal value demonstrated by the example
+  domain: Example
+  range: string
+
+description:
+  type: DatatypeProperty
+  label: Description
+  comment: Explanation of what the example demonstrates
+  domain: Example
+  range: string

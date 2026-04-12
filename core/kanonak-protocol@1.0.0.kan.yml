@@ -1,0 +1,434 @@
+
+kanonak-protocol:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: protocol
+          match: ^
+          version: 1.0.0
+
+Kanonak:
+  type: Protocol
+  label: Kanonak Protocol
+  comment: The Kanonak Protocol - an open protocol for defining, versioning, and sharing semantic ontologies across distributed publishers
+  hasConvention:
+
+    UriStructure:
+      summary: Kanonak URIs uniquely identify entities using the format publisher/package@version/name
+      hasRequiredRule:
+        UriFormatRule:
+          text: Kanonak URIs MUST follow the format publisher/package@version/name where all components are required
+          rationale: Standardized URI format ensures global uniqueness and enables automatic resolution across namespaces and package registries
+        UriUniquenessRule:
+          text: Each Kanonak URI MUST uniquely identify exactly one entity across the entire Kanonak ecosystem
+          rationale: Guarantees unambiguous entity references and prevents naming conflicts through publisher namespacing
+      hasValidExample:
+        CoreRdfClassUri:
+          value: kanonak.org/core-rdf@1.0.0/Class
+          description: Valid Kanonak URI referencing the Class entity from the core-rdf package
+      hasInvalidExample:
+        MissingPublisherAndVersion:
+          value: mypackage/Entity
+          description: Invalid - missing publisher domain and version components
+
+    PublisherNaming:
+      summary: Publishers must be domain-based identifiers to establish ownership and enable registry discovery
+      hasRequiredRule:
+        PublisherDomainRule:
+          text: Publisher identifiers MUST be valid domain names containing at least one dot character
+          rationale: Domain-based publishers establish clear organizational ownership, enable automatic registry discovery via .well-known endpoints, and prevent naming conflicts through DNS
+        PublisherOwnershipRule:
+          text: Publishers MUST control the domain name used in their publisher identifier
+          rationale: Ensures authenticity and prevents namespace squatting by requiring verifiable domain ownership
+      hasValidExample:
+        KanonakOrg:
+          value: kanonak.org
+          description: Official Kanonak Protocol publisher using a .org domain
+        AcmeCom:
+          value: acme.com
+          description: Company publisher using a .com domain
+      hasInvalidExample:
+        NotADomain:
+          value: myproject
+          description: Invalid - not a domain name. Must use domain-based identifier like myproject.org or myproject.dev
+
+    PackageNaming:
+      summary: Package names identify collections of related entities within a publisher namespace
+      hasRequiredRule:
+        PackageFormatRule:
+          text: Package names MUST start with a lowercase letter and contain only lowercase letters, numbers, and hyphens (no periods)
+          rationale: Lowercase with hyphens ensures compatibility with file systems, URLs, and OCI registries while maintaining readability. Periods are reserved for alias.resource reference syntax.
+      hasRecommendedRule:
+        PackageHyphenationRule:
+          text: Use hyphen notation to create descriptive package names for related ontologies
+          rationale: Hyphen notation enables logical grouping of related packages while avoiding conflicts with alias.resource reference syntax
+      hasValidExample:
+        CoreRdfPackage:
+          value: core-rdf
+          description: Core RDF vocabulary using hyphen notation
+        TravelSchemaPackage:
+          value: travel-schema
+          description: Travel domain schema using hyphens for multi-word readability
+      hasInvalidExample:
+        UppercasePackage:
+          value: MyPackage
+          description: Invalid - contains uppercase letters. Must use lowercase only
+
+    Versioning:
+      summary: Versions follow semantic versioning to communicate compatibility and breaking changes
+      hasRequiredRule:
+        SemanticVersioningRule:
+          text: Versions MUST follow semantic versioning format major.minor.patch where each component is a non-negative integer
+          rationale: Semantic versioning provides a standard way to communicate backward compatibility and breaking changes to package consumers
+        MajorVersionBreakingRule:
+          text: Increment major version when making backward-incompatible changes to the package
+          rationale: Major version increments signal to consumers that manual migration may be required due to breaking changes
+        MinorVersionCompatibleRule:
+          text: Increment minor version when adding backward-compatible functionality and patch version for backward-compatible bug fixes
+          rationale: Allows consumers to safely update within the same major version while preventing unexpected breaking changes
+      hasValidExample:
+        StandardSemver:
+          value: 2.1.3
+          description: Valid semantic version with major 2, minor 1, patch 3
+      hasInvalidExample:
+        MissingPatchWithVPrefix:
+          value: v1.0
+          description: Invalid - missing patch component and has v prefix. Must be 1.0.0
+
+    ImportOperators:
+      summary: Import operators, existence, and cycle constraints for package dependencies
+      hasRequiredRule:
+        ExactOperatorRule:
+          text: Use exact version operator (=) to lock imports to a specific version for reproducible builds
+          rationale: Exact version matching guarantees reproducible builds and prevents unexpected breaking changes from dependency updates
+        ImportExistenceRule:
+          text: All declared imports MUST resolve to existing packages in the repository or package cache
+          rationale: Missing imports break transitive resolution and prevent entity lookup. All dependencies must be available either in local workspace or installed package cache.
+        ImportCycleRule:
+          text: Package imports MUST NOT create circular dependency chains between published packages
+          rationale: Circular package dependencies (A imports B, B imports A) create unresolvable import cycles that prevent package managers from building dependency graphs. Kanonak handles cycles gracefully at runtime but published packages cannot have circular dependencies.
+      hasRecommendedRule:
+        CompatibleOperatorRule:
+          text: Use compatible version operator (~) to allow patch updates within the same minor version
+          rationale: Enables bug fixes and security patches while preventing breaking changes from minor version updates
+        MajorOperatorRule:
+          text: Use major version operator (^) to allow minor and patch updates within the same major version
+          rationale: Follows semantic versioning conventions where breaking changes only occur in major version increments
+      hasForbiddenRule:
+        AnyOperatorRule:
+          text: Avoid any version operator (*) in production packages as it allows all future versions including breaking changes
+          rationale: Creates unpredictable behavior and can introduce breaking changes without warning or control
+      hasValidExample:
+        ExactOperatorExample:
+          value: core-rdf = 1.0.0
+          description: Locks to exactly version 1.0.0 of core-rdf
+        CompatibleOperatorExample:
+          value: core-xsd ~ 1.2.3
+          description: Allows versions 1.2.3 through 1.2.x (patch updates only)
+        MajorOperatorExample:
+          value: core-owl ^ 2.0.0
+          description: Allows versions 2.0.0 through 2.x.x (minor and patch updates within major version 2)
+        OneWayDependency:
+          value: |
+            # Package A has no imports (base package)
+            # Package B imports A - one-way dependency
+          description: One-way dependency chain with no cycles
+      hasInvalidExample:
+        CircularDependency:
+          value: |
+            # Package A imports B, Package B imports A
+            # Creates an unresolvable circular dependency
+          description: A imports B and B imports A - circular dependency
+
+    VersionResolution:
+      summary: Version resolution selects the highest compatible version from available packages
+      hasRequiredRule:
+        HighestCompatibleRule:
+          text: When resolving an import, Kanonak MUST select the highest version that satisfies the version operator constraints
+          rationale: Automatic version resolution ensures packages get the latest compatible updates while respecting semantic versioning constraints. This enables bug fixes and patches without manual intervention while preventing breaking changes.
+        MajorZeroSpecialCaseRule:
+          text: For major version 0 (pre-1.0), the caret operator (^) MUST behave like tilde (~), allowing only patch updates
+          rationale: Semantic versioning treats 0.x.y as unstable where breaking changes can occur in minor versions. Caret operator for ^0.x.y allows only patches (0.x.z) to prevent unexpected breaking changes during pre-release development.
+      hasValidExample:
+        TildeResolution:
+          value: |
+            Import:      "core-xsd ~ 1.2.3"
+            Available:   1.2.1, 1.2.5, 1.3.0, 2.0.0
+            Constraints: MinVersion=1.2.3, MaxVersion=1.2.999
+            Selected:    1.2.5 (highest in compatible range)
+          description: Version resolution selects 1.2.5 as highest compatible patch version
+
+    FileNaming:
+      summary: Kanonak documents follow a standard file naming pattern for discoverability
+      hasRequiredRule:
+        CanonicalFileNameRule:
+          text: Kanonak document files MUST be named using the pattern package@version.kan.yml
+          rationale: Standardized file naming enables automatic discovery, prevents conflicts, and makes the namespace structure visible in the file system. The .kan.yml extension distinguishes Kanonak files from other YAML files.
+      hasRecommendedRule:
+        DirectoryStructureRule:
+          text: Kanonak documents SHOULD be organized in directories matching the publisher name
+          rationale: Directory structure mirrors namespace organization making it easy to locate packages and understand ownership. Publisher directories prevent naming conflicts and enable per-publisher configuration.
+      hasValidExample:
+        CoreRdfFile:
+          value: kanonak.org/core-rdf@1.0.0.kan.yml
+          description: Correct file naming with publisher directory and version
+        CompanyProductsFile:
+          value: mycompany.com/products@2.1.3.kan.yml
+          description: Company package with semantic version
+
+    YamlParsing:
+      summary: Kanonak YAML parsing preserves types and detects structural errors
+      hasRequiredRule:
+        TypePreservationRule:
+          text: Kanonak YAML parsers MUST preserve primitive types (integer, boolean, string) from YAML into the Kanonak object model
+          rationale: Type preservation ensures that integer values remain integers, booleans remain booleans, and strings remain strings through the parse-serialize round-trip. This maintains semantic meaning and enables accurate code generation.
+        DuplicateKeyDetectionRule:
+          text: Kanonak YAML parsers MUST detect and report duplicate keys with line and column information
+          rationale: Duplicate keys in YAML are ambiguous and indicate authoring errors. Early detection with precise location information helps users quickly fix structural problems before semantic validation.
+        Utf8BomHandlingRule:
+          text: Kanonak YAML parsers MUST strip UTF-8 BOM (Byte Order Mark) if present for cross-platform compatibility
+          rationale: Windows editors may add UTF-8 BOM at file start. Stripping BOM ensures files created on Windows parse correctly on Linux/Mac and vice versa, enabling seamless cross-platform collaboration.
+      hasValidExample:
+        PrimitiveTypesPreserved:
+          value: |
+            age: 30        # Parsed as integer (not string "30")
+            isActive: true # Parsed as boolean (not string "true")
+            name: "Alice"  # Parsed as string
+          description: YAML primitive types preserved through parsing
+      hasInvalidExample:
+        DuplicateKey:
+          value: |
+            Person:
+              name: "Alice"
+              name: "Bob"  # ERROR: Duplicate key 'name'
+          description: Parser detects duplicate keys and reports error with line number
+
+    ResourceNaming:
+      summary: Distinct casing conventions per entity role make role immediately obvious and align with code generation
+      hasRecommendedRule:
+        ResourceCasingRule:
+          text: >-
+            Kanonak uses three naming conventions based on entity role: classes use
+            PascalCase (Person, OrderStatus), instances use kebab-case (romeo-montague,
+            key-2026-03), and properties use camelCase (subClassOf, hasAddress).
+          rationale: Distinct casing per role makes it immediately obvious whether an entity is a type definition (PascalCase), a data instance (kebab-case), or a property (camelCase). This improves readability, prevents confusion, and aligns with code generation conventions in target languages.
+        ResourceCharsetRule:
+          text: Resource names SHOULD start with a letter and contain only letters, numbers, hyphens, and underscores
+          rationale: Following naming conventions ensures compatibility with code generation targets and URI construction. Names that violate conventions generate warnings to encourage consistency.
+      hasForbiddenRule:
+        NoReservedPrefixRule:
+          text: Resource names MUST NOT use reserved RDF/OWL prefixes like 'rdfs:', 'xsd:', 'owl:' - use imports and qualified references instead
+          rationale: Prefixed names (rdfs:Class) are RDF/Turtle syntax, not Kanonak YAML syntax. Kanonak uses imports with aliases for namespace qualification. Prefixes in resource names cause parser errors and violate Kanonak conventions.
+      hasValidExample:
+        PascalCaseClasses:
+          value: Person, OrderStatus, SigningKey, BlogPost
+          description: PascalCase - used for class (type) definitions
+        KebabCaseInstances:
+          value: romeo-montague, key-2026-03, commercial-use, alice-johnson
+          description: kebab-case - used for instances (data entities)
+        CamelCaseProperties:
+          value: subClassOf, hasAddress, signingKeyId, characterName
+          description: camelCase - used for property definitions
+      hasInvalidExample:
+        ReservedRdfsPrefix:
+          value: rdfs:Class
+          description: Invalid - uses RDF prefix syntax. Use 'Class' with imports and qualified reference 'rdfs.Class' instead
+
+    PackageStructure:
+      summary: Every Kanonak document declares exactly one package with required metadata
+      hasRequiredRule:
+        PackageRequiredRule:
+          text: Every Kanonak document MUST contain exactly one Package declaration (a resource with type Package)
+          rationale: The Package declaration provides essential metadata (publisher, version) needed for namespace resolution and dependency management. Without it, the document cannot participate in the Kanonak ecosystem.
+        PackagePropertiesRule:
+          text: Package declarations MUST include 'publisher' and 'version' properties, and import entries MUST have valid publisher, package, match, and version fields
+          rationale: Publisher and version are required to construct the namespace URI. Import entries must be well-formed to enable dependency resolution.
+      hasValidExample:
+        MinimalPackage:
+          value: |
+            core-rdf:
+              type: Package
+              publisher: kanonak.org
+              version: 1.0.0
+          description: Correct package declaration with type, publisher, and version
+      hasInvalidExample:
+        NoPackageDeclaration:
+          value: |
+            # A document with only entities but no Package declaration
+            Person:
+              type: Class
+          description: Invalid - no top-level entity with type Package
+
+    Embedding:
+      summary: When to model data as an embedded object versus a named top-level entity
+      hasRecommendedRule:
+        EmbeddedForCoupledRule:
+          text: Use embedded objects for data that is tightly coupled to its parent, has no need for independent identity, and is not referenced from anywhere else
+          rationale: Embedding reduces naming overhead, makes the ownership relationship explicit in the structure, and accurately maps to RDF blank nodes - which represent resources without global identity. Promoting such data to a named top-level entity creates URIs that will never be referenced, cluttering the namespace.
+        NamedForIdentityRule:
+          text: Use named top-level entities for data that needs a stable identity, is referenced from multiple places, or represents a significant concept with an independent lifecycle
+          rationale: Named entities receive a globally unique URI (publisher/package@version/name) that enables cross-document references, stable citation, and independent versioning. Any data that tooling or other entities need to point to must be named so that the pointer is well-defined.
+      hasForbiddenRule:
+        EmbeddedNoTypeRule:
+          text: Embedded objects MUST NOT have an explicit 'type' property - the type is inferred from the parent property's range
+          rationale: The parent property's range already declares the type of embedded values. Allowing an explicit type on an embedded object creates the possibility of conflicts with the range and undermines the type inference model. Enforcing the rule keeps embedded data faithful to the property that contains it.
+      hasValidExample:
+        EmbeddedCoupledAddress:
+          value: |
+            alice:
+              type: Person
+              hasAddress:
+                street: "123 Main St"
+                city: "Springfield"
+          description: Address is embedded because it is owned by alice and never referenced elsewhere - becomes an RDF blank node
+        NamedSharedAddress:
+          value: |
+            acme-headquarters:
+              type: Address
+              street: "1 Acme Plaza"
+              city: "Metropolis"
+
+            alice:
+              type: Employee
+              worksAt: acme-headquarters
+
+            bob:
+              type: Employee
+              worksAt: acme-headquarters
+          description: Headquarters is named because multiple employees reference the same address and the entity has identity beyond any single parent
+      hasInvalidExample:
+        ExplicitTypeOnEmbedded:
+          value: |
+            alice:
+              type: Person
+              hasAddress:
+                type: Address  # FORBIDDEN on an embedded object
+                street: "123 Main St"
+          description: Embedded objects cannot declare their own type - it is inferred from the parent property's range
+
+    TypeSystem:
+      summary: Rules governing how entities declare their type and how properties declare their range
+      hasRequiredRule:
+        SubjectTypeRequiredRule:
+          text: Top-level entities MUST have a 'type' property declaring what kind of entity they are
+          rationale: Top-level entities need explicit type declaration to enable type checking, validation, and code generation. Unlike embedded objects, top-level entities have no parent property whose range can supply a type.
+        PropertyRangeRequiredRule:
+          text: ObjectProperty and DatatypeProperty declarations MUST declare a 'range' specifying the type of values
+          rationale: The range defines what values are valid for a property. Without range, type checking is impossible and the property's purpose is unclear. Range is required for both datatype properties (e.g., string, integer) and object properties (e.g., Person, Address).
+        XsdImportRule:
+          text: When using XSD datatypes (string, integer, boolean, etc.) as property ranges, the core-xsd package MUST be imported
+          rationale: XSD datatypes are defined in the core-xsd package. Without importing it, the type resolver cannot verify that range references point to valid datatypes.
+        ClassDefinitionRule:
+          text: All classes referenced in 'type' properties MUST be defined in the current namespace or imported packages
+          rationale: Using an undefined class as a type creates entities with unknown structure. The validator ensures every type reference resolves to an actual Class definition.
+      hasRecommendedRule:
+        PropertyTypeSpecificityRule:
+          text: Properties SHOULD use specific types (DatatypeProperty or ObjectProperty) instead of generic 'Property'
+          rationale: Generic Property type provides no semantic information about whether the property holds literal values or entity references. Using specific types enables better validation, code generation, and tooling support.
+      hasValidExample:
+        TopLevelWithType:
+          value: |
+            romeo-montague:
+              type: Character
+              characterName: "Romeo"
+          description: Top-level entity with explicit type declaration
+        DatatypePropertyWithRange:
+          value: |
+            name:
+              type: DatatypeProperty
+              domain: Person
+              range: string
+          description: Property with specific DatatypeProperty type and declared range
+      hasInvalidExample:
+        TopLevelMissingType:
+          value: |
+            romeo-montague:
+              characterName: "Romeo"
+          description: Invalid - top-level entity has no type property
+        PropertyMissingRange:
+          value: |
+            name:
+              type: DatatypeProperty
+              domain: Person
+          description: Invalid - property has no range declaration
+
+    References:
+      summary: Rules for resolving entity references across namespaces, including shadowing and disambiguation
+      hasRequiredRule:
+        ResolvableReferenceRule:
+          text: ObjectProperty values MUST reference entities that exist in the current namespace or imports (including transitive imports)
+          rationale: Broken references create semantic gaps where data points to non-existent entities. This prevents typos, missing imports, and data integrity issues. All references must resolve to actual entities.
+        LocalShadowingRule:
+          text: When the same name exists in both the local namespace and an imported namespace, unqualified references MUST resolve to the local definition (local shadowing)
+          rationale: Local shadowing allows intentional overriding, enables namespace-specific customizations, and prevents breaking changes when dependencies add new entities with colliding names.
+        QualifiedDisambiguationRule:
+          text: When multiple imported packages define entities with the same name, references MUST use qualified syntax (alias.name) to disambiguate
+          rationale: Ambiguous references make it impossible to determine which entity is intended. Qualified references (pkg.Entity) explicitly specify the source package, preventing confusion and ensuring correct type resolution.
+      hasValidExample:
+        LocalReference:
+          value: |
+            verona-city:
+              type: City
+
+            romeo:
+              type: Character
+              livesIn: verona-city
+          description: Reference to a locally defined entity
+        QualifiedReference:
+          value: |
+            myEntity:
+              type: pkgA.Resource
+          description: Qualified reference disambiguates between packages that both define Resource
+      hasInvalidExample:
+        BrokenReference:
+          value: |
+            romeo:
+              type: Character
+              livesIn: verona-city  # verona-city is not defined or imported
+          description: Invalid - reference to an entity that does not exist
+
+    Hierarchy:
+      summary: Class and property hierarchies must be acyclic and reference their own kind
+      hasRequiredRule:
+        ClassHierarchyAcyclicRule:
+          text: Class inheritance (subClassOf) MUST NOT create circular chains
+          rationale: Circular inheritance (A subClassOf B subClassOf A) is logically impossible and breaks reasoning systems. Class hierarchies must form directed acyclic graphs where every class has a finite path to the root Resource class.
+        SubClassOfClassRule:
+          text: The subClassOf property MUST reference an entity that is itself a Class
+          rationale: subClassOf establishes inheritance between classes. Referencing a non-class entity (like a property or instance) is semantically invalid and breaks type system integrity.
+        PropertyHierarchyAcyclicRule:
+          text: Property inheritance (subPropertyOf) MUST NOT create circular chains
+          rationale: Circular property inheritance (A subPropertyOf B subPropertyOf A) is logically impossible. Property hierarchies must form directed acyclic graphs.
+        SubPropertyOfPropertyRule:
+          text: The subPropertyOf property MUST reference an entity that is itself a Property
+          rationale: subPropertyOf establishes inheritance between properties. Referencing a non-property entity (like a Class or instance) is semantically invalid.
+      hasValidExample:
+        LinearClassHierarchy:
+          value: |
+            Person:
+              type: Class
+            Character:
+              type: Class
+              subClassOf: Person
+          description: Correct linear class hierarchy with no cycles
+      hasInvalidExample:
+        CircularClassHierarchy:
+          value: |
+            Character:
+              type: Class
+              subClassOf: Hero
+            Hero:
+              type: Class
+              subClassOf: Character
+          description: Invalid - Character and Hero reference each other creating a cycle
+        SubClassOfProperty:
+          value: |
+            name:
+              type: DatatypeProperty
+            Character:
+              type: Class
+              subClassOf: name
+          description: Invalid - subClassOf must reference a Class, not a Property
