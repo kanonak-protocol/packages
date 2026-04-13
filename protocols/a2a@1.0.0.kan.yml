@@ -21,7 +21,7 @@ agent-to-agent-protocol:
   steward: linux-foundation
   layer: communication-layer
   complements: mcp.model-context-protocol
-  specificationUrl: https://a2a-protocol.org/specification
+  specificationUrl: https://a2a-protocol.org/latest/specification/
   createdDate: 2025-04-09
   hasConvention:
 
