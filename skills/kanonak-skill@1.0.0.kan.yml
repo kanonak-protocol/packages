@@ -1,0 +1,417 @@
+kanonak-skill:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: agent-skills
+          match: ^
+          version: 1.0.0
+          alias: skills
+        - package: core-spdx
+          match: ^
+          version: 1.0.0
+          alias: spdx
+
+kanonak-protocol-skill:
+  type: skills.Skill
+  skills.name: kanonak-protocol
+  description: >-
+    Teaches an AI agent how to be effective with the Kanonak Protocol and
+    its CLI. Covers the core concepts (publishers, packages, imports,
+    URIs, type system), the .kan.yml document format, naming and
+    structural conventions, embedded versus named resources, the dict-keyed
+    versus list-form YAML styles, how to validate and resolve files with
+    the kanonak CLI, how to author new ontologies, common validation
+    errors and their fixes, how capabilities extend the CLI, and how to
+    publish your own packages. Use when working with .kan.yml files,
+    invoking the kanonak CLI, writing Kanonak ontologies, reviewing
+    existing Kanonak packages, or bootstrapping a new Kanonak publisher.
+  license: spdx.Apache-2-0
+  compatibility: Requires the kanonak CLI (npm i -g @kanonak-protocol/cli) and network access to the publisher domains of any packages you import.
+  allowedTools:
+    - skills.read
+    - skills.grep
+    - skills.glob
+    - skills.web-fetch
+    - skills.bash
+  hasSection:
+
+    - title: Overview
+      body: |
+        Kanonak Protocol is an open protocol for defining, versioning, and
+        sharing semantic ontologies across distributed publishers. Every
+        class, property, and instance is identified by a stable URI of the
+        form `publisher/package@version/name`, and packages declare their
+        dependencies via explicit imports that are resolved over HTTP from
+        each publisher's own domain.
+
+        The ecosystem has three layers:
+
+        1. **Core vocabularies** - `core-rdf`, `core-owl`, `core-xsd`,
+           `core-spdx`, `core-kanonak`. RDF/OWL primitives, XSD datatypes,
+           SPDX licenses, and Kanonak's meta-package (Package/Publisher/
+           Import classes).
+        2. **Meta-ontologies** - `protocol`, `capabilities`, `agent-skills`.
+           Higher-level classes used to describe how Kanonak itself and its
+           surrounding ecosystem work.
+        3. **Instance documents** - concrete data that uses the
+           meta-ontologies, e.g. `kanonak-protocol` (the protocol spec
+           itself) or this skill.
+
+        Canonical reference: https://kanonak.org.
+
+    - title: Core concepts
+      body: |
+        **Publisher.** A domain name that owns a namespace (e.g.
+        `kanonak.org`, `acme.com`). Packages are fetched from the
+        publisher's HTTPS origin. A publisher SHOULD expose
+        `/.well-known/kanonak.json` so the CLI knows where to find
+        `index.txt` and individual package files.
+
+        **Package.** A named, semver-versioned collection of entities.
+        Every Kanonak document starts with a top-level key whose value
+        has `type: Package` and at minimum a `publisher` and `version`.
+
+        **Version.** Semantic `major.minor.patch`. Imports pin with one
+        of four operators: `=` (exact), `~` (patch only), `^` (minor
+        and patch within the same major), or `*` (any - forbidden in
+        production packages). For `^0.x.y` the caret behaves like tilde
+        because pre-1.0 minor versions are allowed to break.
+
+        **Import.** A declared dependency on another package. Each import
+        has a `publisher`, `package`, `match` operator, `version`, and an
+        optional `alias`. The alias lets you write `alias.EntityName` to
+        disambiguate references when multiple imported packages define
+        the same name.
+
+        **Entity.** Any top-level key inside a Kanonak document. The three
+        roles are Class (a type definition, PascalCase), Property (a
+        relationship or datatype field, camelCase), and Instance (data,
+        kebab-case). Every entity has a URI built from the containing
+        package.
+
+        **Type inference for embedded data.** Nested objects cannot have
+        an explicit `type:` property. Their type is inferred from the
+        containing property's range. Only top-level entities declare
+        their type.
+
+    - title: Reading a .kan.yml file
+      body: |
+        A minimal Kanonak document looks like this:
+
+        ```yaml
+        my-package:
+          type: Package
+          publisher: example.com
+          version: 1.0.0
+          imports:
+            - publisher: kanonak.org
+              packages:
+                - package: core-owl
+                  match: ^
+                  version: 2.0.0
+                  alias: owl
+                - package: core-xsd
+                  match: ^
+                  version: 1.0.0
+                  alias: xsd
+
+        Person:
+          type: owl.Class
+          label: Person
+
+        name:
+          type: owl.DatatypeProperty
+          domain: Person
+          range: xsd.string
+
+        alice:
+          type: Person
+          name: Alice
+        ```
+
+        To read a file productively, scan in this order:
+
+        1. **Package header** - what the file is (`my-package:` at the
+           top), what publisher owns it, what version it declares, and
+           what it imports with which aliases.
+        2. **Class definitions** - the PascalCase top-level keys with
+           `type: owl.Class`. These are the types other entities can
+           instantiate.
+        3. **Property definitions** - camelCase keys with
+           `type: owl.DatatypeProperty` or `owl.ObjectProperty`. Each has
+           a `domain` (which class owns it) and `range` (what values are
+           valid).
+        4. **Instance data** - kebab-case keys whose `type:` points at a
+           class. Their properties are the fields defined on that class.
+
+        When you see `alias.EntityName`, look up which package that alias
+        points at in the package header's `imports` block, then resolve
+        `EntityName` in that package's namespace.
+
+    - title: Writing a .kan.yml file
+      body: |
+        Standard skeleton:
+
+        ```yaml
+        my-ontology:
+          type: Package
+          publisher: example.com
+          version: 1.0.0
+          imports:
+            - publisher: kanonak.org
+              packages:
+                - package: core-rdf
+                  match: ^
+                  version: 1.0.0
+                  alias: rdfs
+                - package: core-owl
+                  match: ^
+                  version: 2.0.0
+                  alias: owl
+                - package: core-xsd
+                  match: ^
+                  version: 1.0.0
+                  alias: xsd
+        ```
+
+        Rules to follow:
+
+        - Exactly one `type: Package` entity per document, and its
+          publisher and version MUST be present.
+        - Every top-level non-Package entity MUST have a `type:`. The
+          class referenced must be defined locally or in an import.
+        - Every `owl.DatatypeProperty` and `owl.ObjectProperty` MUST
+          declare a `range` - property type resolution depends on it.
+          Prefer specific property types over the generic
+          `owl.Property`.
+        - If you reference an XSD datatype like `xsd.string`, you MUST
+          import `core-xsd`.
+        - Do NOT use RDF-style prefixed names like `rdfs:Class`. Use
+          imports with aliases and the `alias.name` dot form.
+        - File name pattern: `package@version.kan.yml`. Publisher
+          directory structure is recommended.
+        - Do not put an explicit `type:` on an embedded (nested) object -
+          its type comes from the parent property's range.
+
+    - title: Naming conventions
+      body: |
+        Role-based casing is enforced by the Kanonak Protocol's
+        `ResourceNaming` convention:
+
+        | Role | Casing | Examples |
+        |------|--------|----------|
+        | Class definitions | PascalCase | `Person`, `OrderStatus`, `SigningKey` |
+        | Property definitions | camelCase | `hasAddress`, `subClassOf`, `commandName` |
+        | Instances (data) | kebab-case | `romeo-montague`, `commercial-use`, `key-2026-03` |
+
+        Package and publisher names are always lowercase with hyphens and
+        no periods (periods are reserved for `alias.entity` reference
+        syntax). Publishers MUST be valid domain names containing a dot.
+
+        Reserved words that cannot be used as entity names: `type`,
+        `label`, `comment`, `domain`, `range`, `subClassOf`. These are
+        Kanonak-recognized property keys.
+
+    - title: Embedded vs named resources
+      body: |
+        A **named** resource is a top-level entity with its own URI. Use
+        named resources for data that needs stable identity, is
+        referenced from multiple places, or represents a significant
+        concept with an independent lifecycle.
+
+        An **embedded** resource is a nested object inside another
+        entity. Use embedded resources for data that is tightly coupled
+        to its parent, has no need for independent identity, and is not
+        referenced from anywhere else. Embedded objects MUST NOT declare
+        their own `type:` - their type is inferred from the containing
+        property's range.
+
+        Both YAML shapes are supported for ObjectProperty values:
+
+        ```yaml
+        # List form (anonymous embedded, ordered)
+        hasRule:
+          - text: First rule
+            rationale: ...
+          - text: Second rule
+            rationale: ...
+
+        # Dict-keyed form (readable labels on embedded)
+        hasRule:
+          FirstRule:
+            text: First rule
+            rationale: ...
+          SecondRule:
+            text: Second rule
+            rationale: ...
+        ```
+
+        The dict key in the second form is a readable label only - it
+        does NOT create a named top-level entity with a URI. Use
+        dict-keyed form when the labels make the document easier to
+        read; use list form when ordering is semantically significant.
+
+        References from one entity to another (by name) always resolve
+        through the local namespace first (local shadowing), then
+        through imports. When the same name exists in two imported
+        packages, disambiguate with `alias.name`.
+
+    - title: The kanonak CLI
+      body: |
+        Install: `npm install -g @kanonak-protocol/cli`. Then run
+        `kanonak --help` to see the current command list.
+
+        Built-in commands:
+
+        - `kanonak validate <path>` - validate a single .kan.yml file.
+          Resolves all imports over HTTP from each publisher's domain,
+          then runs document and repository validation rules. Non-zero
+          exit on error.
+        - `kanonak deps <path>` - print the resolved dependency tree of
+          a file. Useful for seeing what a package transitively pulls
+          in.
+        - `kanonak install [package]` - install one package (and its
+          transitive deps) or, with no argument, install everything in
+          `kanonak.lock`. Populates the local file cache.
+        - `kanonak login <publisher>` - OAuth 2.0 login against a
+          publisher that requires auth. Tokens are stored via the
+          system credential store.
+        - `kanonak logout <publisher>` - revoke and remove stored
+          credentials.
+        - `kanonak capability ...` - manage installed capabilities (see
+          the next section).
+
+        Any other `kanonak <word> ...` invocation is a dynamically loaded
+        capability subcommand. If `kanonak foo add bar` works on a
+        freshly cloned machine, it means `foo` is an installed capability
+        whose ontology declares an `add` subcommand.
+
+    - title: Capabilities
+      body: |
+        Capabilities are CLI command groups distributed as Kanonak
+        packages. The ontology lives at `kanonak.org/capabilities@1.0.0`
+        and defines `Capability`, `CapabilityCommand`, `CommandArgument`,
+        `DeploymentTarget`, `Dependency`, `PackageManager`, `Action`,
+        plus the named `Platform` and `Action` instances the CLI knows
+        about.
+
+        A capability declares:
+
+        - A `commandName` - the top-level verb added to the kanonak CLI
+          when the capability is installed (e.g. `skill`).
+        - `managesType` - the Kanonak class whose instances this
+          capability manages.
+        - `hasCommand` - the subcommands available in the group. Each
+          subcommand has a `subcommandName`, optional
+          `hasArgument` list, and a `performs:` value pointing at a
+          named `Action`.
+        - `deploymentTarget` - how managed instances are materialized on
+          disk after download (e.g. `AgentSkillDeployment` renders a
+          Skill to a SKILL.md file in a discovery path).
+        - `hasDependency` - external packages that need to be present
+          for the capability to work. Each names a `PackageManager` and
+          a `packageId`.
+
+        `PackageManager` instances (npm, pip, cargo, nuget, oci) each
+        carry a `checkCommand` and a structured list of `hasInstallStep`
+        entries so an agent can bootstrap the tool on any supported
+        platform from a clean environment.
+
+        To install a capability:
+
+        ```
+        kanonak capability add <publisher>/<package>@<version>
+        ```
+
+        The CLI writes the entry to `~/.kanonak/capabilities.lock`. On
+        the next invocation, `loadDynamicCommands` reads the lock file
+        and registers each capability's command group on the root
+        `kanonak` command via Commander. The subcommand `performs`
+        Action is looked up in the CLI's ACTION_HANDLERS dispatch table,
+        so authors can name their verbs freely
+        (`install`, `deploy`, `grab`, etc.) as long as the action is
+        one of the known instances in `capabilities@1.0.0`.
+
+    - title: Common errors and fixes
+      body: |
+        **"Entity name 'X' is a reserved word."** You tried to define a
+        top-level entity whose name collides with a Kanonak-recognized
+        property key. Reserved: `type`, `label`, `comment`, `domain`,
+        `range`, `subClassOf`. Rename the entity or, if you are trying
+        to port `core-rdf`/`core-owl` themselves, note that those files
+        are exempt as they define the reserved vocabulary.
+
+        **"Reference 'X' is ambiguous - defined in multiple imported
+        namespaces."** Two or more imports define entities with the same
+        name. Add an `alias:` to the imports you want to disambiguate
+        and reference them qualified: `alias.X`.
+
+        **"Embedded object at 'A.B.C' cannot have explicit 'type'
+        property."** You put a `type:` on a nested object. Remove it -
+        the type is inferred from the parent property's range. If you
+        need a different type on nested data, change the parent
+        property's `range`.
+
+        **"Property 'X' has range 'Y' which is not defined or
+        imported."** You used an XSD datatype (e.g. `xsd.string`) or a
+        class from another package without importing that package.
+        Add it to `imports` with an alias that matches the prefix you
+        used.
+
+        **"Import 'X' not found."** The CLI could not fetch the package
+        over HTTP. Check that the publisher is online, that the file
+        exists at the expected path (`https://{publisher}/{package}/
+        {version}.kan.yml`), and that version resolution finds a
+        compatible one.
+
+        **Validation passes but references appear broken.** Single-file
+        `validate` is permissive about unresolved name references because
+        some checks require a full repository view. Run
+        `kanonak install <package>` followed by validation against the
+        installed package tree if you need strict reference checking.
+
+    - title: Publishing your own packages
+      body: |
+        A Kanonak publisher is just a static HTTP origin that follows the
+        publisher layout. To publish at your own domain:
+
+        1. **Expose `.well-known/kanonak.json`** at the root of the
+           origin. Minimal content:
+
+           ```json
+           {
+             "version": 1,
+             "auth": "none"
+           }
+           ```
+
+           Optional fields `index` and `package` override the default
+           URL templates `https://{publisher}/index.txt` and
+           `https://{publisher}/{package}/{version}.kan.yml`.
+
+        2. **Expose `index.txt`** at the origin root, listing every
+           package+version you publish, one per line in the form
+           `package/version`.
+
+        3. **Serve each package file** at
+           `{package}/{version}.kan.yml` (or at whatever `package`
+           template you declared).
+
+        4. **Host on anything static** - GitHub Pages, Cloudflare Pages,
+           S3 + CloudFront, a plain nginx. The official kanonak.org site
+           uses GitHub Pages and an automated workflow that mirrors a
+           `packages` repository into the site layout on every commit.
+           Clone that workflow from the `kanonak.org` repo as a starting
+           template.
+
+        5. **Version forward, never backward.** Once a version is
+           published, do not change its bytes. Publish a new patch
+           version instead. Consumers will pick it up automatically if
+           they pinned with `^` or `~`.
+
+        OCI distribution is also supported. `PackageManager` instance
+        `oci` in the capabilities ontology documents `oras pull` as the
+        retrieval command for OCI-hosted packages.

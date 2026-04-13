@@ -1,0 +1,533 @@
+capabilities:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+
+Capability:
+  type: rdfs.Class
+  label: Capability
+  comment: >
+    A Kanonak-defined CLI command group. Discoverable, versioned, and
+    distributed through Kanonak publishers. Each capability manages
+    instances of a specific Kanonak type and defines subcommands for
+    interacting with those instances.
+
+CapabilityCommand:
+  type: rdfs.Class
+  label: Capability Command
+  comment: >
+    A subcommand within a capability's command group. Defines the name,
+    description, and arguments for a single CLI operation.
+
+CommandArgument:
+  type: rdfs.Class
+  label: Command Argument
+  comment: >
+    A positional or option argument for a capability command. Positional
+    arguments are required by position; option arguments use --flag syntax.
+
+DeploymentTarget:
+  type: rdfs.Class
+  label: Deployment Target
+  comment: >
+    Defines how instances managed by a capability are deployed to the
+    local system after download. Subclasses specify concrete deployment
+    strategies.
+
+Dependency:
+  type: rdfs.Class
+  label: Dependency
+  comment: >
+    An external package dependency required by a capability. Declares
+    which package manager to use and what package to install.
+
+PackageManager:
+  type: rdfs.Class
+  label: Package Manager
+  comment: >
+    A system that resolves and installs external dependencies. Predefined
+    instances include npm, pip, cargo, nuget, and oci.
+
+Platform:
+  type: rdfs.Class
+  label: Platform
+  comment: >
+    A target platform, operating system, or OS family for which install
+    steps may be defined. Shared across package managers so the same
+    platform instance can be referenced from multiple install strategies.
+
+InstallStep:
+  type: rdfs.Class
+  label: Install Step
+  comment: >
+    A single instruction for installing a package manager (or other tool)
+    on a specific platform. An install step names its platform and
+    carries either a shell command to execute or a URL to download an
+    installer from. Install steps are tightly coupled to their parent
+    package manager and are embedded under it.
+
+Action:
+  type: rdfs.Class
+  label: Action
+  comment: >
+    A behavior that the Kanonak CLI knows how to perform on behalf of
+    a capability subcommand. Actions decouple the CLI's behavior set
+    from the verb that a capability author chooses for a subcommand,
+    and they make the set of supported behaviors discoverable through
+    the ontology instead of hidden inside the CLI source. Each known
+    Action has a corresponding implementation in the CLI; adding a
+    new behavior requires declaring a new Action instance here and
+    extending the CLI's dispatcher.
+
+commandName:
+  type: owl.DatatypeProperty
+  domain: Capability
+  range: xsd.string
+  label: command name
+  comment: >
+    The top-level CLI command name (e.g., "skill"). Must be 1-32
+    characters, lowercase letters and hyphens only. This becomes the
+    subcommand under the kanonak CLI.
+
+managesType:
+  type: owl.ObjectProperty
+  domain: Capability
+  range: rdfs.Class
+  label: manages type
+  comment: >
+    The Kanonak type this capability manages. CLI commands operate on
+    instances of this type. For example, the skill capability manages
+    instances of the Skill type.
+
+hasCommand:
+  type: owl.ObjectProperty
+  domain: Capability
+  range: CapabilityCommand
+  label: has command
+  comment: >
+    The subcommands available in this capability's command group.
+    Each command defines a distinct CLI operation.
+
+deploymentTarget:
+  type: owl.ObjectProperty
+  domain: Capability
+  range: DeploymentTarget
+  label: deployment target
+  comment: >
+    Specifies how instances are deployed to the local system after
+    download. If not specified, instances are cached only.
+
+hasDependency:
+  type: owl.ObjectProperty
+  domain: Capability
+  range: Dependency
+  label: has dependency
+  comment: >
+    External dependencies that must be installed for this capability
+    to function. Resolved during capability installation.
+
+subcommandName:
+  type: owl.DatatypeProperty
+  domain: CapabilityCommand
+  range: xsd.string
+  label: subcommand name
+  comment: >
+    The CLI subcommand name (e.g., "add", "remove", "list"). Must be
+    lowercase letters and hyphens only.
+
+hasArgument:
+  type: owl.ObjectProperty
+  domain: CapabilityCommand
+  range: CommandArgument
+  label: has argument
+  comment: Arguments and options accepted by this subcommand.
+
+performs:
+  type: owl.ObjectProperty
+  domain: CapabilityCommand
+  range: Action
+  label: performs
+  comment: >
+    The action that this subcommand performs. The CLI dispatches based
+    on this action, so capability authors are free to choose any verb
+    they like for subcommandName (e.g., "install", "deploy", "grab")
+    without being limited to a fixed set of names. If omitted, the
+    CLI falls back to interpreting the six legacy verbs - add, remove,
+    list, update, search, info - as their matching Action instances.
+
+argumentName:
+  type: owl.DatatypeProperty
+  domain: CommandArgument
+  range: xsd.string
+  label: argument name
+  comment: >
+    The argument name. For positional arguments, this is the display
+    name. For options, this becomes the --flag name.
+
+isRequired:
+  type: owl.DatatypeProperty
+  domain: CommandArgument
+  range: xsd.boolean
+  label: required
+  comment: Whether this argument must be provided. Defaults to false.
+
+isOption:
+  type: owl.DatatypeProperty
+  domain: CommandArgument
+  range: xsd.boolean
+  label: is option
+  comment: >
+    If true, this argument uses --flag syntax. If false, it is a
+    positional argument. Defaults to false.
+
+defaultValue:
+  type: owl.DatatypeProperty
+  domain: CommandArgument
+  range: xsd.string
+  label: default value
+  comment: Default value used when the argument is not provided.
+
+packageManager:
+  type: owl.ObjectProperty
+  domain: Dependency
+  range: PackageManager
+  label: package manager
+  comment: The package manager that resolves this dependency.
+
+packageId:
+  type: owl.DatatypeProperty
+  domain: Dependency
+  range: xsd.string
+  label: package ID
+  comment: >
+    The package identifier in the target package manager's format
+    (e.g., "@kanonak-protocol/cli" for npm, "requests" for pip).
+
+installCommand:
+  type: owl.DatatypeProperty
+  domain: PackageManager
+  range: xsd.string
+  label: install command
+  comment: >
+    Shell command template for installing a package once the package
+    manager itself is present. Use {package} as a placeholder for the
+    package ID.
+
+checkCommand:
+  type: owl.DatatypeProperty
+  domain: PackageManager
+  range: xsd.string
+  label: check command
+  comment: >
+    Shell command that exits with status 0 when this package manager
+    is already installed and available on PATH. An agent or installer
+    uses this to decide whether any install steps need to be run.
+
+homepageUrl:
+  type: owl.DatatypeProperty
+  domain: PackageManager
+  range: xsd.string
+  label: homepage URL
+  comment: >
+    Canonical homepage or documentation URL for this package manager.
+    Used as an authoritative fallback when none of the install steps
+    cover the current platform.
+
+bootstrapNote:
+  type: owl.DatatypeProperty
+  domain: PackageManager
+  range: xsd.string
+  label: bootstrap note
+  comment: >
+    Short prose context about how this package manager is distributed
+    (e.g., "ships with Node.js", "bundled with Python 3.4+"). Helps an
+    agent understand why the install steps target a different tool
+    than the package manager itself.
+
+hasInstallStep:
+  type: owl.ObjectProperty
+  domain: PackageManager
+  range: InstallStep
+  label: has install step
+  comment: >
+    A step describing how to install this package manager on a specific
+    platform. An agent selects the step whose forPlatform matches the
+    current environment and executes its command (or follows its
+    downloadUrl), then verifies success with checkCommand.
+
+forPlatform:
+  type: owl.ObjectProperty
+  domain: InstallStep
+  range: Platform
+  label: for platform
+  comment: The platform that this install step applies to.
+
+command:
+  type: owl.DatatypeProperty
+  domain: InstallStep
+  range: xsd.string
+  label: command
+  comment: >
+    Shell command that performs the install on the step's platform.
+    Present when the install can be fully automated from a terminal.
+
+downloadUrl:
+  type: owl.DatatypeProperty
+  domain: InstallStep
+  range: xsd.string
+  label: download URL
+  comment: >
+    URL to a graphical installer, archive, or release page. Present
+    when there is no single shell command that performs the install.
+
+description:
+  type: owl.DatatypeProperty
+  domain: Capability, CapabilityCommand, InstallStep
+  range: xsd.string
+  label: description
+  comment: >
+    Human-readable description. On a Capability it explains what the
+    command group does; on a CapabilityCommand it explains the
+    subcommand; on an InstallStep it notes prerequisites, what the
+    step does, or any post-install action.
+
+macos:
+  type: Platform
+  label: macOS
+  comment: Apple macOS.
+
+debian-family:
+  type: Platform
+  label: Debian/Ubuntu
+  comment: Debian, Ubuntu, and derivatives using the apt package manager.
+
+fedora-family:
+  type: Platform
+  label: Fedora/RHEL
+  comment: Fedora, RHEL, CentOS Stream, Rocky, Alma, and derivatives using dnf.
+
+windows:
+  type: Platform
+  label: Windows
+  comment: Microsoft Windows.
+
+cross-platform:
+  type: Platform
+  label: Cross-platform
+  comment: >
+    Applies on any supported OS - used for version managers and
+    standalone installer scripts that work identically everywhere.
+
+AgentSkillDeployment:
+  type: DeploymentTarget
+  label: Agent Skill Deployment
+  comment: >
+    Deployment target that transforms Kanonak Skill instances into
+    SKILL.md files and places them in agent discovery directories.
+    Supports client-specific and cross-client deployment paths. The
+    CLI registers a SkillDeploymentHandler under this instance's
+    local name ("AgentSkillDeployment") to perform the actual
+    materialization.
+
+fetchAndDeploy:
+  type: Action
+  label: Fetch and Deploy
+  comment: >
+    Fetch a package from a publisher and deploy it through the
+    capability's deploymentTarget. The CLI expects one positional
+    argument naming the package to fetch.
+
+removeDeployed:
+  type: Action
+  label: Remove Deployed
+  comment: >
+    Remove a previously-deployed item from the local system. The CLI
+    expects one positional argument naming the item to remove.
+
+listDeployed:
+  type: Action
+  label: List Deployed
+  comment: >
+    List the items that are currently deployed through this capability.
+    Takes no positional arguments.
+
+updateDeployed:
+  type: Action
+  label: Update Deployed
+  comment: >
+    Update a previously-deployed item to its latest compatible version.
+    The CLI expects one positional argument naming the item to update.
+
+searchAvailable:
+  type: Action
+  label: Search Available
+  comment: >
+    Search publishers for packages that match a query. Query is typically
+    supplied as an option rather than a positional argument.
+
+showInfo:
+  type: Action
+  label: Show Info
+  comment: >
+    Display information about a specific package or deployed item. The
+    CLI expects one positional argument naming the target.
+
+npm:
+  type: PackageManager
+  label: npm
+  comment: Node.js package manager.
+  installCommand: "npm install {package}"
+  checkCommand: "npm --version"
+  homepageUrl: "https://docs.npmjs.com/"
+  bootstrapNote: npm ships with Node.js, so installing Node.js installs npm.
+  hasInstallStep:
+    MacOs:
+      forPlatform: macos
+      command: "brew install node"
+      description: Requires Homebrew.
+    DebianUbuntu:
+      forPlatform: debian-family
+      command: "sudo apt-get install -y nodejs npm"
+    FedoraRhel:
+      forPlatform: fedora-family
+      command: "sudo dnf install -y nodejs npm"
+    Windows:
+      forPlatform: windows
+      downloadUrl: "https://nodejs.org/"
+      description: Download and run the LTS installer.
+    Nvm:
+      forPlatform: cross-platform
+      command: "nvm install --lts"
+      description: >
+        Version-managed install via nvm
+        (https://github.com/nvm-sh/nvm). Install nvm first if it is
+        not already present.
+
+pip:
+  type: PackageManager
+  label: pip
+  comment: Python package manager.
+  installCommand: "pip install {package}"
+  checkCommand: "pip --version"
+  homepageUrl: "https://pip.pypa.io/"
+  bootstrapNote: pip is bundled with CPython 3.4+, so installing Python installs pip.
+  hasInstallStep:
+    MacOs:
+      forPlatform: macos
+      command: "brew install python"
+      description: Requires Homebrew.
+    DebianUbuntu:
+      forPlatform: debian-family
+      command: "sudo apt-get install -y python3 python3-pip"
+    FedoraRhel:
+      forPlatform: fedora-family
+      command: "sudo dnf install -y python3 python3-pip"
+    Windows:
+      forPlatform: windows
+      downloadUrl: "https://www.python.org/downloads/windows/"
+      description: >
+        Download the Windows installer. Tick "Add Python to PATH"
+        during setup.
+    EnsurePip:
+      forPlatform: cross-platform
+      command: "python -m ensurepip --upgrade"
+      description: >
+        Repairs a Python install that is missing pip. Use when Python
+        is already present but pip is not.
+
+cargo:
+  type: PackageManager
+  label: cargo
+  comment: Rust package manager.
+  installCommand: "cargo install {package}"
+  checkCommand: "cargo --version"
+  homepageUrl: "https://doc.rust-lang.org/cargo/"
+  bootstrapNote: cargo ships with the Rust toolchain - install Rust via rustup.
+  hasInstallStep:
+    Rustup:
+      forPlatform: cross-platform
+      command: "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+      description: >
+        Official rustup installer (macOS and Linux). Installs cargo,
+        rustc, and rustup itself under $HOME/.cargo/bin.
+    Windows:
+      forPlatform: windows
+      downloadUrl: "https://rustup.rs/"
+      description: Download and run rustup-init.exe.
+    MacOsHomebrew:
+      forPlatform: macos
+      command: "brew install rustup-init && rustup-init"
+      description: Homebrew-managed alternative to the official installer script.
+
+nuget:
+  type: PackageManager
+  label: nuget
+  comment: .NET package manager.
+  installCommand: "dotnet add package {package}"
+  checkCommand: "dotnet --version"
+  homepageUrl: "https://dotnet.microsoft.com/"
+  bootstrapNote: >
+    NuGet is driven through the dotnet CLI, which is part of the
+    .NET SDK.
+  hasInstallStep:
+    MacOs:
+      forPlatform: macos
+      command: "brew install --cask dotnet-sdk"
+      description: Requires Homebrew.
+    LinuxDocs:
+      forPlatform: cross-platform
+      downloadUrl: "https://learn.microsoft.com/dotnet/core/install/linux"
+      description: >
+        Follow the distro-specific instructions published by Microsoft.
+        Commands differ across Debian, Ubuntu, Fedora, RHEL, and
+        derivatives.
+    Windows:
+      forPlatform: windows
+      downloadUrl: "https://dotnet.microsoft.com/download"
+      description: Download and run the SDK installer.
+
+oci:
+  type: PackageManager
+  label: OCI
+  comment: >
+    Open Container Initiative artifact registry. Distributes container
+    images and generic artifacts through OCI-compliant registries.
+  installCommand: "oras pull {package}"
+  checkCommand: "oras version"
+  homepageUrl: "https://oras.land/"
+  bootstrapNote: >
+    ORAS (OCI Registry As Storage) is the reference client for OCI
+    artifacts. To authenticate against a private registry, run
+    "oras login <registry>" after install.
+  hasInstallStep:
+    MacOs:
+      forPlatform: macos
+      command: "brew install oras"
+      description: Requires Homebrew.
+    LinuxRelease:
+      forPlatform: cross-platform
+      downloadUrl: "https://github.com/oras-project/oras/releases"
+      description: >
+        Download the tarball for your architecture, extract the "oras"
+        binary, and place it on PATH (e.g., under /usr/local/bin).
+    Windows:
+      forPlatform: windows
+      downloadUrl: "https://github.com/oras-project/oras/releases"
+      description: >
+        Download the Windows zip from the releases page and place
+        oras.exe on PATH.

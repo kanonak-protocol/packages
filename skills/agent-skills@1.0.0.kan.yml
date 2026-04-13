@@ -1,0 +1,424 @@
+agent-skills:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: core-spdx
+          match: ^
+          version: 1.0.0
+          alias: spdx
+
+Skill:
+  type: rdfs.Class
+  label: Skill
+  comment: >
+    A directory containing a SKILL.md file that provides an AI agent
+    with instructions, scripts, and resources to perform a specific task.
+    Follows the open Agent Skills format defined at https://agentskills.io.
+
+SkillSection:
+  type: rdfs.Class
+  label: Skill Section
+  comment: >
+    A section of skill content with a title, markdown body, and optional
+    embedded resources. Sections are ordered within a skill and each
+    becomes a headed section in the generated SKILL.md file. Extensible
+    via subClassOf for specialized section types.
+
+SkillResource:
+  type: rdfs.Class
+  label: Skill Resource
+  comment: A supporting file bundled with a skill.
+
+ScriptResource:
+  type: rdfs.Class
+  subClassOf: SkillResource
+  label: Script Resource
+  comment: Executable code in scripts/ that agents can run.
+
+ReferenceResource:
+  type: rdfs.Class
+  subClassOf: SkillResource
+  label: Reference Resource
+  comment: Additional documentation in references/ that agents can read on demand.
+
+AssetResource:
+  type: rdfs.Class
+  subClassOf: SkillResource
+  label: Asset Resource
+  comment: Static resources in assets/ such as templates, images, or data files.
+
+MetadataEntry:
+  type: rdfs.Class
+  label: Metadata Entry
+  comment: >
+    A single key/value pair in a skill's metadata map. The Agent Skills
+    spec allows arbitrary string-to-string metadata on a skill; each
+    entry in that map is modeled as a MetadataEntry so the ontology
+    can represent it structurally rather than as an opaque blob.
+
+DiscoveryPath:
+  type: rdfs.Class
+  label: Discovery Path
+  comment: A filesystem location where agents scan for installed skills.
+
+DiscoveryScope:
+  type: rdfs.Class
+  label: Discovery Scope
+  comment: Whether a discovery path is project-level or user-level.
+
+DisclosureTier:
+  type: rdfs.Class
+  label: Disclosure Tier
+  comment: >
+    A stage in the progressive disclosure architecture that controls
+    how much of a skill is loaded into agent context and when.
+
+ActivationMethod:
+  type: rdfs.Class
+  label: Activation Method
+  comment: The mechanism by which an agent activates a skill.
+
+Tool:
+  type: rdfs.Class
+  label: Tool
+  comment: >
+    A capability that an agent can invoke, such as reading files,
+    running shell commands, or searching code. Skills declare which
+    tools they are pre-approved to use.
+
+name:
+  type: owl.DatatypeProperty
+  domain: Skill
+  range: xsd.string
+  label: name
+  comment: >
+    Required. 1-64 characters, lowercase letters, numbers, and hyphens
+    only. Must not start or end with a hyphen, must not contain
+    consecutive hyphens, and must match the parent directory name.
+
+description:
+  type: owl.DatatypeProperty
+  domain: Skill
+  range: xsd.string
+  label: description
+  comment: >
+    Required. 1-1024 characters. Describes what the skill does and when
+    to use it. Should include keywords that help agents identify
+    relevant tasks.
+
+license:
+  type: owl.ObjectProperty
+  domain: Skill
+  range: spdx.License
+  label: license
+  comment: >
+    Optional. The license applied to the skill. May be referenced by
+    name (e.g., "license: MIT") or embedded inline for custom licenses.
+
+compatibility:
+  type: owl.DatatypeProperty
+  domain: Skill
+  range: xsd.string
+  label: compatibility
+  comment: >
+    Optional. Max 500 characters. Indicates environment requirements
+    such as intended agent product, required system packages, or
+    network access.
+
+allowedTools:
+  type: owl.ObjectProperty
+  domain: Skill
+  range: Tool
+  label: allowed tools
+  comment: >
+    Optional, experimental. Tools that are pre-approved to run without
+    user confirmation when this skill is active. Serialized to SKILL.md
+    as a space-separated string in the allowed-tools frontmatter field.
+
+metadata:
+  type: owl.ObjectProperty
+  domain: Skill
+  range: MetadataEntry
+  label: metadata
+  comment: >
+    Optional. Arbitrary key/value metadata on the skill, modeled as a
+    list of MetadataEntry instances. Clients can use this to store
+    additional properties that the Agent Skills spec does not define.
+    Keys should be reasonably unique to avoid accidental conflicts.
+
+hasResource:
+  type: owl.ObjectProperty
+  domain: Skill
+  range: SkillResource
+  label: has resource
+  comment: >
+    A supporting file bundled with this skill. Use for standalone
+    resources not tied to a specific section. For section-local
+    resources, use hasScript/hasReference/hasAsset on SkillSection.
+
+hasSection:
+  type: owl.ObjectProperty
+  domain: Skill
+  range: SkillSection
+  label: has section
+  comment: >
+    Ordered list of content sections that form the skill's documentation.
+    Each section becomes a headed section in the generated SKILL.md.
+    Sections are rendered in the order they appear.
+
+title:
+  type: owl.DatatypeProperty
+  domain: SkillSection
+  range: xsd.string
+  label: title
+  comment: >
+    The section heading. Rendered as a level-2 markdown heading (##)
+    in the generated SKILL.md.
+
+body:
+  type: owl.DatatypeProperty
+  domain: SkillSection
+  range: xsd.string
+  label: body
+  comment: >
+    Full markdown content for this section, including prose, code
+    blocks, tables, and lists. This is rendered directly in the
+    SKILL.md output.
+
+hasScript:
+  type: owl.ObjectProperty
+  domain: SkillSection
+  range: ScriptResource
+  label: has script
+  comment: >
+    Embedded executable scripts within this section. Provides structured
+    metadata for programmatic extraction alongside the body content.
+
+hasReference:
+  type: owl.ObjectProperty
+  domain: SkillSection
+  range: ReferenceResource
+  label: has reference
+  comment: >
+    Embedded reference material within this section. Provides structured
+    metadata for programmatic extraction alongside the body content.
+
+hasAsset:
+  type: owl.ObjectProperty
+  domain: SkillSection
+  range: AssetResource
+  label: has asset
+  comment: >
+    Embedded static assets within this section. Provides structured
+    metadata for programmatic extraction alongside the body content.
+
+resourceTitle:
+  type: owl.DatatypeProperty
+  domain: SkillResource
+  range: xsd.string
+  label: resource title
+  comment: A short title describing this resource.
+
+content:
+  type: owl.DatatypeProperty
+  domain: SkillResource
+  range: xsd.string
+  label: content
+  comment: The text content of this resource.
+
+language:
+  type: owl.DatatypeProperty
+  domain: ScriptResource
+  range: xsd.string
+  label: language
+  comment: The programming language of the script (e.g., bash, python, javascript).
+
+command:
+  type: owl.DatatypeProperty
+  domain: ScriptResource
+  range: xsd.string
+  label: command
+  comment: A shell command to execute this script.
+
+metadataKey:
+  type: owl.DatatypeProperty
+  domain: MetadataEntry
+  range: xsd.string
+  label: metadata key
+  comment: The key portion of a metadata entry.
+
+metadataValue:
+  type: owl.DatatypeProperty
+  domain: MetadataEntry
+  range: xsd.string
+  label: metadata value
+  comment: The value portion of a metadata entry.
+
+pathPattern:
+  type: owl.DatatypeProperty
+  domain: DiscoveryPath
+  range: xsd.string
+  label: path pattern
+  comment: The filesystem path pattern for this discovery location.
+
+pathScope:
+  type: owl.ObjectProperty
+  domain: DiscoveryPath
+  range: DiscoveryScope
+  label: path scope
+  comment: Whether this path is project-level or user-level.
+
+tierOrder:
+  type: owl.DatatypeProperty
+  domain: DisclosureTier
+  range: xsd.integer
+  label: tier order
+  comment: The sequence number of this tier in the progressive disclosure architecture.
+
+tokenBudget:
+  type: owl.DatatypeProperty
+  domain: DisclosureTier
+  range: xsd.string
+  label: token budget
+  comment: Recommended token cost for this tier.
+
+project-scope:
+  type: DiscoveryScope
+  label: Project Scope
+  comment: Skills specific to a project or repository.
+
+user-scope:
+  type: DiscoveryScope
+  label: User Scope
+  comment: Skills available across all projects for a user.
+
+project-client-skills:
+  type: DiscoveryPath
+  pathPattern: "<project>/.<client>/skills/"
+  pathScope: project-scope
+  label: Project Client Skills
+  comment: Client-specific skills in the project directory.
+
+project-agents-skills:
+  type: DiscoveryPath
+  pathPattern: "<project>/.agents/skills/"
+  pathScope: project-scope
+  label: Project Agents Skills
+  comment: Cross-client interoperable skills in the project directory.
+
+user-client-skills:
+  type: DiscoveryPath
+  pathPattern: "~/.<client>/skills/"
+  pathScope: user-scope
+  label: User Client Skills
+  comment: Client-specific skills in the user home directory.
+
+user-agents-skills:
+  type: DiscoveryPath
+  pathPattern: "~/.agents/skills/"
+  pathScope: user-scope
+  label: User Agents Skills
+  comment: Cross-client interoperable skills in the user home directory.
+
+catalog:
+  type: DisclosureTier
+  tierOrder: 1
+  tokenBudget: "~50-100 tokens per skill"
+  label: Catalog
+  comment: >
+    At session start, agents load only the name and description of each
+    available skill - just enough to know when it might be relevant.
+
+instructions:
+  type: DisclosureTier
+  tierOrder: 2
+  tokenBudget: "<5000 tokens recommended"
+  label: Instructions
+  comment: >
+    When a task matches a skill's description, the agent reads the full
+    SKILL.md body into context.
+
+resources:
+  type: DisclosureTier
+  tierOrder: 3
+  tokenBudget: "Varies"
+  label: Resources
+  comment: >
+    The agent follows the instructions, loading referenced scripts,
+    documentation, and assets on demand as needed.
+
+file-read-activation:
+  type: ActivationMethod
+  label: File Read Activation
+  comment: >
+    Model-driven activation where the agent uses its standard file-read
+    tool to read the SKILL.md file.
+
+tool-activation:
+  type: ActivationMethod
+  label: Tool Activation
+  comment: >
+    Model-driven activation via a dedicated activate_skill tool
+    registered by the agent runtime.
+
+user-explicit-activation:
+  type: ActivationMethod
+  label: User Explicit Activation
+  comment: >
+    User-initiated activation via slash command (/skill-name) or
+    mention syntax ($skill-name).
+
+bash:
+  type: Tool
+  label: Bash
+  comment: Execute shell commands.
+
+read:
+  type: Tool
+  label: Read
+  comment: Read file contents.
+
+write:
+  type: Tool
+  label: Write
+  comment: Write or create files.
+
+edit:
+  type: Tool
+  label: Edit
+  comment: Make targeted edits to existing files.
+
+glob:
+  type: Tool
+  label: Glob
+  comment: Find files by pattern.
+
+grep:
+  type: Tool
+  label: Grep
+  comment: Search file contents by pattern.
+
+web-search:
+  type: Tool
+  label: Web Search
+  comment: Search the web.
+
+web-fetch:
+  type: Tool
+  label: Web Fetch
+  comment: Fetch content from a URL.
