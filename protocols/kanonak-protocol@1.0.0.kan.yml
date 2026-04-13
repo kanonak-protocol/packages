@@ -16,56 +16,56 @@ kanonak-protocol-spec:
   comment: The Kanonak Protocol - an open protocol for defining, versioning, and sharing semantic ontologies across distributed publishers
   hasConvention:
 
-    UriStructure:
+    uri-structure:
       summary: Kanonak URIs uniquely identify entities using the format publisher/package@version/name
       hasRequiredRule:
-        UriFormatRule:
+        uri-format-rule:
           text: Kanonak URIs MUST follow the format publisher/package@version/name where all components are required
           rationale: Standardized URI format ensures global uniqueness and enables automatic resolution across namespaces and package registries
-        UriUniquenessRule:
+        uri-uniqueness-rule:
           text: Each Kanonak URI MUST uniquely identify exactly one entity across the entire Kanonak ecosystem
           rationale: Guarantees unambiguous entity references and prevents naming conflicts through publisher namespacing
       hasValidExample:
-        CoreRdfClassUri:
+        core-rdf-class-uri:
           value: kanonak.org/core-rdf@1.0.0/Class
           description: Valid Kanonak URI referencing the Class entity from the core-rdf package
       hasInvalidExample:
-        MissingPublisherAndVersion:
+        missing-publisher-and-version:
           value: mypackage/Entity
           description: Invalid - missing publisher domain and version components
 
-    PublisherNaming:
+    publisher-naming:
       summary: Publishers must be domain-based identifiers to establish ownership and enable registry discovery
       hasRequiredRule:
-        PublisherDomainRule:
+        publisher-domain-rule:
           text: Publisher identifiers MUST be valid domain names containing at least one dot character
           rationale: Domain-based publishers establish clear organizational ownership, enable automatic registry discovery via .well-known endpoints, and prevent naming conflicts through DNS
-        PublisherOwnershipRule:
+        publisher-ownership-rule:
           text: Publishers MUST control the domain name used in their publisher identifier
           rationale: Ensures authenticity and prevents namespace squatting by requiring verifiable domain ownership
       hasValidExample:
-        KanonakOrg:
+        kanonak-org:
           value: kanonak.org
           description: Official Kanonak Protocol publisher using a .org domain
-        AcmeCom:
+        acme-com:
           value: acme.com
           description: Company publisher using a .com domain
       hasInvalidExample:
-        NotADomain:
+        not-a-domain:
           value: myproject
           description: Invalid - not a domain name. Must use domain-based identifier like myproject.org or myproject.dev
 
-    PackageNaming:
+    package-naming:
       summary: Package names are lowercase-hyphen identifiers that describe the domain of entities they contain, with plural forms reserved for category packages so the singular form is available for instances inside them
       hasRequiredRule:
-        PackageFormatRule:
+        package-format-rule:
           text: Package names MUST start with a lowercase letter and contain only lowercase letters, numbers, and hyphens (no periods)
           rationale: Lowercase with hyphens ensures compatibility with file systems, URLs, and OCI registries while maintaining readability. Periods are reserved for alias.resource reference syntax.
       hasRecommendedRule:
-        PackageHyphenationRule:
+        package-hyphenation-rule:
           text: Use hyphen notation to create descriptive package names for related ontologies
           rationale: Hyphen notation enables logical grouping of related packages while avoiding conflicts with alias.resource reference syntax
-        CategoryPackageIsPluralRule:
+        category-package-is-plural-rule:
           text: >-
             Packages that define a class or are expected to contain multiple
             related instances SHOULD use a plural kebab-case noun (protocols,
@@ -79,7 +79,7 @@ kanonak-protocol-spec:
             package "protocols" can contain an instance named "mcp" without
             either the document having a duplicate top-level key or forcing
             the instance into a non-conforming PascalCase name.
-        InstancePackageMayBeSingularRule:
+        instance-package-may-be-singular-rule:
           text: >-
             A package that exists specifically to describe one concrete entity
             MAY use a singular name that matches the entity it describes
@@ -95,7 +95,7 @@ kanonak-protocol-spec:
             name short and recognizable while still following the
             kebab-case-for-instances rule.
       hasForbiddenRule:
-        SingularCategoryPackageRule:
+        singular-category-package-rule:
           text: >-
             Category packages MUST NOT use a singular name that shadows the
             class or instance they host - for example, a package named
@@ -108,103 +108,103 @@ kanonak-protocol-spec:
             makes it obvious from the name that the package is a namespace,
             not a single thing.
       hasValidExample:
-        PluralCategoryPackages:
+        plural-category-packages:
           value: protocols, agent-skills, agents, capabilities, skill-capabilities, agent-capabilities, github-skills, github-agents
           description: Category packages using plural kebab-case names, leaving the singular form free for the classes and instances they host
-        SingularInstancePackage:
+        singular-instance-package:
           value: mcp (package) + model-context-protocol (instance)
           description: A specific-instance package named after its abbreviation, with a longer descriptive kebab-case instance name to avoid the duplicate-key collision
-        CoreRdfPackage:
+        core-rdf-package:
           value: core-rdf
           description: Core RDF vocabulary using hyphen notation
       hasInvalidExample:
-        UppercasePackage:
+        uppercase-package:
           value: MyPackage
           description: Invalid - contains uppercase letters. Must use lowercase only
-        SingularCategoryPackage:
+        singular-category-package:
           value: protocol (package that defines the Protocol class)
           description: Invalid - singular category package shadows the class and forces every consuming instance to work around a name collision
-        CollidingInstanceName:
+        colliding-instance-name:
           value: mcp package + mcp instance
           description: Invalid - the package declaration and the instance both parse as the top-level YAML key "mcp", which is a duplicate key error
 
-    Versioning:
+    versioning:
       summary: Versions follow semantic versioning to communicate compatibility and breaking changes
       hasRequiredRule:
-        SemanticVersioningRule:
+        semantic-versioning-rule:
           text: Versions MUST follow semantic versioning format major.minor.patch where each component is a non-negative integer
           rationale: Semantic versioning provides a standard way to communicate backward compatibility and breaking changes to package consumers
-        MajorVersionBreakingRule:
+        major-version-breaking-rule:
           text: Increment major version when making backward-incompatible changes to the package
           rationale: Major version increments signal to consumers that manual migration may be required due to breaking changes
-        MinorVersionCompatibleRule:
+        minor-version-compatible-rule:
           text: Increment minor version when adding backward-compatible functionality and patch version for backward-compatible bug fixes
           rationale: Allows consumers to safely update within the same major version while preventing unexpected breaking changes
       hasValidExample:
-        StandardSemver:
+        standard-semver:
           value: 2.1.3
           description: Valid semantic version with major 2, minor 1, patch 3
       hasInvalidExample:
-        MissingPatchWithVPrefix:
+        missing-patch-with-v-prefix:
           value: v1.0
           description: Invalid - missing patch component and has v prefix. Must be 1.0.0
 
-    ImportOperators:
+    import-operators:
       summary: Import operators, existence, and cycle constraints for package dependencies
       hasRequiredRule:
-        ExactOperatorRule:
+        exact-operator-rule:
           text: Use exact version operator (=) to lock imports to a specific version for reproducible builds
           rationale: Exact version matching guarantees reproducible builds and prevents unexpected breaking changes from dependency updates
-        ImportExistenceRule:
+        import-existence-rule:
           text: All declared imports MUST resolve to existing packages in the repository or package cache
           rationale: Missing imports break transitive resolution and prevent entity lookup. All dependencies must be available either in local workspace or installed package cache.
-        ImportCycleRule:
+        import-cycle-rule:
           text: Package imports MUST NOT create circular dependency chains between published packages
           rationale: Circular package dependencies (A imports B, B imports A) create unresolvable import cycles that prevent package managers from building dependency graphs. Kanonak handles cycles gracefully at runtime but published packages cannot have circular dependencies.
       hasRecommendedRule:
-        CompatibleOperatorRule:
+        compatible-operator-rule:
           text: Use compatible version operator (~) to allow patch updates within the same minor version
           rationale: Enables bug fixes and security patches while preventing breaking changes from minor version updates
-        MajorOperatorRule:
+        major-operator-rule:
           text: Use major version operator (^) to allow minor and patch updates within the same major version
           rationale: Follows semantic versioning conventions where breaking changes only occur in major version increments
       hasForbiddenRule:
-        AnyOperatorRule:
+        any-operator-rule:
           text: Avoid any version operator (*) in production packages as it allows all future versions including breaking changes
           rationale: Creates unpredictable behavior and can introduce breaking changes without warning or control
       hasValidExample:
-        ExactOperatorExample:
+        exact-operator-example:
           value: core-rdf = 1.0.0
           description: Locks to exactly version 1.0.0 of core-rdf
-        CompatibleOperatorExample:
+        compatible-operator-example:
           value: core-xsd ~ 1.2.3
           description: Allows versions 1.2.3 through 1.2.x (patch updates only)
-        MajorOperatorExample:
+        major-operator-example:
           value: core-owl ^ 2.0.0
           description: Allows versions 2.0.0 through 2.x.x (minor and patch updates within major version 2)
-        OneWayDependency:
+        one-way-dependency:
           value: |
             # Package A has no imports (base package)
             # Package B imports A - one-way dependency
           description: One-way dependency chain with no cycles
       hasInvalidExample:
-        CircularDependency:
+        circular-dependency:
           value: |
             # Package A imports B, Package B imports A
             # Creates an unresolvable circular dependency
           description: A imports B and B imports A - circular dependency
 
-    VersionResolution:
+    version-resolution:
       summary: Version resolution selects the highest compatible version from available packages
       hasRequiredRule:
-        HighestCompatibleRule:
+        highest-compatible-rule:
           text: When resolving an import, Kanonak MUST select the highest version that satisfies the version operator constraints
           rationale: Automatic version resolution ensures packages get the latest compatible updates while respecting semantic versioning constraints. This enables bug fixes and patches without manual intervention while preventing breaking changes.
-        MajorZeroSpecialCaseRule:
+        major-zero-special-case-rule:
           text: For major version 0 (pre-1.0), the caret operator (^) MUST behave like tilde (~), allowing only patch updates
           rationale: Semantic versioning treats 0.x.y as unstable where breaking changes can occur in minor versions. Caret operator for ^0.x.y allows only patches (0.x.z) to prevent unexpected breaking changes during pre-release development.
       hasValidExample:
-        TildeResolution:
+        tilde-resolution:
           value: |
             Import:      "core-xsd ~ 1.2.3"
             Available:   1.2.1, 1.2.5, 1.3.0, 2.0.0
@@ -212,93 +212,126 @@ kanonak-protocol-spec:
             Selected:    1.2.5 (highest in compatible range)
           description: Version resolution selects 1.2.5 as highest compatible patch version
 
-    FileNaming:
+    file-naming:
       summary: Kanonak documents follow a standard file naming pattern for discoverability
       hasRequiredRule:
-        CanonicalFileNameRule:
+        canonical-file-name-rule:
           text: Kanonak document files MUST be named using the pattern package@version.kan.yml
           rationale: Standardized file naming enables automatic discovery, prevents conflicts, and makes the namespace structure visible in the file system. The .kan.yml extension distinguishes Kanonak files from other YAML files.
       hasRecommendedRule:
-        DirectoryStructureRule:
+        directory-structure-rule:
           text: Kanonak documents SHOULD be organized in directories matching the publisher name
           rationale: Directory structure mirrors namespace organization making it easy to locate packages and understand ownership. Publisher directories prevent naming conflicts and enable per-publisher configuration.
       hasValidExample:
-        CoreRdfFile:
+        core-rdf-file:
           value: kanonak.org/core-rdf@1.0.0.kan.yml
           description: Correct file naming with publisher directory and version
-        CompanyProductsFile:
+        company-products-file:
           value: mycompany.com/products@2.1.3.kan.yml
           description: Company package with semantic version
 
-    YamlParsing:
+    yaml-parsing:
       summary: Kanonak YAML parsing preserves types and detects structural errors
       hasRequiredRule:
-        TypePreservationRule:
+        type-preservation-rule:
           text: Kanonak YAML parsers MUST preserve primitive types (integer, boolean, string) from YAML into the Kanonak object model
           rationale: Type preservation ensures that integer values remain integers, booleans remain booleans, and strings remain strings through the parse-serialize round-trip. This maintains semantic meaning and enables accurate code generation.
-        DuplicateKeyDetectionRule:
+        duplicate-key-detection-rule:
           text: Kanonak YAML parsers MUST detect and report duplicate keys with line and column information
           rationale: Duplicate keys in YAML are ambiguous and indicate authoring errors. Early detection with precise location information helps users quickly fix structural problems before semantic validation.
-        Utf8BomHandlingRule:
+        utf8-bom-handling-rule:
           text: Kanonak YAML parsers MUST strip UTF-8 BOM (Byte Order Mark) if present for cross-platform compatibility
           rationale: Windows editors may add UTF-8 BOM at file start. Stripping BOM ensures files created on Windows parse correctly on Linux/Mac and vice versa, enabling seamless cross-platform collaboration.
       hasValidExample:
-        PrimitiveTypesPreserved:
+        primitive-types-preserved:
           value: |
             age: 30        # Parsed as integer (not string "30")
             isActive: true # Parsed as boolean (not string "true")
             name: "Alice"  # Parsed as string
           description: YAML primitive types preserved through parsing
       hasInvalidExample:
-        DuplicateKey:
+        duplicate-key:
           value: |
             Person:
               name: "Alice"
               name: "Bob"  # ERROR: Duplicate key 'name'
           description: Parser detects duplicate keys and reports error with line number
 
-    ResourceNaming:
+    resource-naming:
       summary: Distinct casing conventions per entity role make role immediately obvious and align with code generation
       hasRecommendedRule:
-        ResourceCasingRule:
+        resource-casing-rule:
           text: >-
-            Kanonak uses three naming conventions based on entity role: classes use
-            PascalCase (Person, OrderStatus), instances use kebab-case (romeo-montague,
-            key-2026-03), and properties use camelCase (subClassOf, hasAddress).
-          rationale: Distinct casing per role makes it immediately obvious whether an entity is a type definition (PascalCase), a data instance (kebab-case), or a property (camelCase). This improves readability, prevents confusion, and aligns with code generation conventions in target languages.
-        ResourceCharsetRule:
+            Kanonak uses three naming conventions based on entity role: classes
+            use PascalCase (Person, OrderStatus), instances use kebab-case
+            (romeo-montague, key-2026-03), and properties use camelCase
+            (subClassOf, hasAddress). This casing rule applies to every
+            instance, including inline dict-keyed embedded instances such as
+            the Convention, Rule, and Example entries inside a Protocol.
+          rationale: Distinct casing per role makes it immediately obvious whether an entity is a type definition (PascalCase), a data instance (kebab-case), or a property (camelCase). This improves readability, prevents confusion, and aligns with code generation conventions in target languages. Applying the rule to embedded keys too keeps the rule absolute rather than contextual, so the same entity type always looks the same in YAML no matter how it is authored.
+        embedded-instance-casing-rule:
+          text: >-
+            Inline dict-keyed embedded instances MUST follow the same
+            kebab-case rule as top-level instances. A Convention key inside
+            hasConvention, a Rule key inside hasRequiredRule, an Example key
+            inside hasValidExample, a CapabilityCommand key inside hasCommand,
+            and so on are all instances of their respective classes - they
+            just happen to be authored inline rather than as top-level
+            SubjectKanonaks - and the casing rule applies identically.
+          rationale: >-
+            Embedded instances have the same semantic status as top-level
+            instances - the SDK parses them into EmbeddedKanonak nodes that
+            carry statements just like SubjectKanonaks do. Treating them as a
+            stylistic label rather than an instance muddies the casing rule
+            and leads to inconsistent documents where top-level and embedded
+            instances of the same class look different. Holding the line on
+            kebab-case for all instance keys keeps the authoring surface
+            predictable.
+        resource-charset-rule:
           text: Resource names SHOULD start with a letter and contain only letters, numbers, hyphens, and underscores
           rationale: Following naming conventions ensures compatibility with code generation targets and URI construction. Names that violate conventions generate warnings to encourage consistency.
       hasForbiddenRule:
-        NoReservedPrefixRule:
+        no-reserved-prefix-rule:
           text: Resource names MUST NOT use reserved RDF/OWL prefixes like 'rdfs:', 'xsd:', 'owl:' - use imports and qualified references instead
           rationale: Prefixed names (rdfs:Class) are RDF/Turtle syntax, not Kanonak YAML syntax. Kanonak uses imports with aliases for namespace qualification. Prefixes in resource names cause parser errors and violate Kanonak conventions.
       hasValidExample:
-        PascalCaseClasses:
+        pascal-case-classes:
           value: Person, OrderStatus, SigningKey, BlogPost
           description: PascalCase - used for class (type) definitions
-        KebabCaseInstances:
+        kebab-case-instances:
           value: romeo-montague, key-2026-03, commercial-use, alice-johnson
-          description: kebab-case - used for instances (data entities)
-        CamelCaseProperties:
+          description: kebab-case - used for instances (data entities), including inline dict-keyed embedded instances
+        camel-case-properties:
           value: subClassOf, hasAddress, signingKeyId, characterName
           description: camelCase - used for property definitions
+        embedded-convention-key:
+          value: |
+            hasConvention:
+              uri-structure:
+                summary: ...
+          description: Inline dict-keyed Convention instance uses kebab-case exactly like a top-level instance would
       hasInvalidExample:
-        ReservedRdfsPrefix:
+        reserved-rdfs-prefix:
           value: rdfs-colon-Class
           description: Invalid - uses RDF colon prefix syntax (as in rdfs followed by colon followed by Class). Use plain Class with imports, then reference it as rdfs.Class when disambiguation is needed.
+        pascal-case-embedded-instance:
+          value: |
+            hasConvention:
+              UriStructure:
+                summary: ...
+          description: Invalid - embedded Convention instance keys must be kebab-case. Rename to uri-structure.
 
-    PackageStructure:
+    package-structure:
       summary: Every Kanonak document declares exactly one package with required metadata
       hasRequiredRule:
-        PackageRequiredRule:
+        package-required-rule:
           text: Every Kanonak document MUST contain exactly one Package declaration (a resource with type Package)
           rationale: The Package declaration provides essential metadata (publisher, version) needed for namespace resolution and dependency management. Without it, the document cannot participate in the Kanonak ecosystem.
-        PackagePropertiesRule:
+        package-properties-rule:
           text: Package declarations MUST include 'publisher' and 'version' properties, and import entries MUST have valid publisher, package, match, and version fields
           rationale: Publisher and version are required to construct the namespace URI. Import entries must be well-formed to enable dependency resolution.
       hasValidExample:
-        MinimalPackage:
+        minimal-package:
           value: |
             core-rdf:
               type: Package
@@ -306,28 +339,28 @@ kanonak-protocol-spec:
               version: 1.0.0
           description: Correct package declaration with type, publisher, and version
       hasInvalidExample:
-        NoPackageDeclaration:
+        no-package-declaration:
           value: |
             # A document with only entities but no Package declaration
             Person:
               type: Class
           description: Invalid - no top-level entity with type Package
 
-    Embedding:
+    embedding:
       summary: When to model data as an embedded object versus a named top-level entity
       hasRecommendedRule:
-        EmbeddedForCoupledRule:
+        embedded-for-coupled-rule:
           text: Use embedded objects for data that is tightly coupled to its parent, has no need for independent identity, and is not referenced from anywhere else
           rationale: Embedding reduces naming overhead, makes the ownership relationship explicit in the structure, and accurately maps to RDF blank nodes - which represent resources without global identity. Promoting such data to a named top-level entity creates URIs that will never be referenced, cluttering the namespace.
-        NamedForIdentityRule:
+        named-for-identity-rule:
           text: Use named top-level entities for data that needs a stable identity, is referenced from multiple places, or represents a significant concept with an independent lifecycle
           rationale: Named entities receive a globally unique URI (publisher/package@version/name) that enables cross-document references, stable citation, and independent versioning. Any data that tooling or other entities need to point to must be named so that the pointer is well-defined.
       hasForbiddenRule:
-        EmbeddedNoTypeRule:
+        embedded-no-type-rule:
           text: Embedded objects MUST NOT have an explicit 'type' property - the type is inferred from the parent property's range
           rationale: The parent property's range already declares the type of embedded values. Allowing an explicit type on an embedded object creates the possibility of conflicts with the range and undermines the type inference model. Enforcing the rule keeps embedded data faithful to the property that contains it.
       hasValidExample:
-        EmbeddedCoupledAddress:
+        embedded-coupled-address:
           value: |
             alice:
               type: Person
@@ -335,7 +368,7 @@ kanonak-protocol-spec:
                 street: "123 Main St"
                 city: "Springfield"
           description: Address is embedded because it is owned by alice and never referenced elsewhere - becomes an RDF blank node
-        NamedSharedAddress:
+        named-shared-address:
           value: |
             acme-headquarters:
               type: Address
@@ -351,7 +384,7 @@ kanonak-protocol-spec:
               worksAt: acme-headquarters
           description: Headquarters is named because multiple employees reference the same address and the entity has identity beyond any single parent
       hasInvalidExample:
-        ExplicitTypeOnEmbedded:
+        explicit-type-on-embedded:
           value: |
             alice:
               type: Person
@@ -360,33 +393,33 @@ kanonak-protocol-spec:
                 street: "123 Main St"
           description: Embedded objects cannot declare their own type - it is inferred from the parent property's range
 
-    TypeSystem:
+    type-system:
       summary: Rules governing how entities declare their type and how properties declare their range
       hasRequiredRule:
-        SubjectTypeRequiredRule:
+        subject-type-required-rule:
           text: Top-level entities MUST have a 'type' property declaring what kind of entity they are
           rationale: Top-level entities need explicit type declaration to enable type checking, validation, and code generation. Unlike embedded objects, top-level entities have no parent property whose range can supply a type.
-        PropertyRangeRequiredRule:
+        property-range-required-rule:
           text: ObjectProperty and DatatypeProperty declarations MUST declare a 'range' specifying the type of values
           rationale: The range defines what values are valid for a property. Without range, type checking is impossible and the property's purpose is unclear. Range is required for both datatype properties (e.g., string, integer) and object properties (e.g., Person, Address).
-        XsdImportRule:
+        xsd-import-rule:
           text: When using XSD datatypes (string, integer, boolean, etc.) as property ranges, the core-xsd package MUST be imported
           rationale: XSD datatypes are defined in the core-xsd package. Without importing it, the type resolver cannot verify that range references point to valid datatypes.
-        ClassDefinitionRule:
+        class-definition-rule:
           text: All classes referenced in 'type' properties MUST be defined in the current namespace or imported packages
           rationale: Using an undefined class as a type creates entities with unknown structure. The validator ensures every type reference resolves to an actual Class definition.
       hasRecommendedRule:
-        PropertyTypeSpecificityRule:
+        property-type-specificity-rule:
           text: Properties SHOULD use specific types (DatatypeProperty or ObjectProperty) instead of generic 'Property'
           rationale: Generic Property type provides no semantic information about whether the property holds literal values or entity references. Using specific types enables better validation, code generation, and tooling support.
       hasValidExample:
-        TopLevelWithType:
+        top-level-with-type:
           value: |
             romeo-montague:
               type: Character
               characterName: "Romeo"
           description: Top-level entity with explicit type declaration
-        DatatypePropertyWithRange:
+        datatype-property-with-range:
           value: |
             name:
               type: DatatypeProperty
@@ -394,32 +427,32 @@ kanonak-protocol-spec:
               range: string
           description: Property with specific DatatypeProperty type and declared range
       hasInvalidExample:
-        TopLevelMissingType:
+        top-level-missing-type:
           value: |
             romeo-montague:
               characterName: "Romeo"
           description: Invalid - top-level entity has no type property
-        PropertyMissingRange:
+        property-missing-range:
           value: |
             name:
               type: DatatypeProperty
               domain: Person
           description: Invalid - property has no range declaration
 
-    References:
+    references:
       summary: Rules for resolving entity references across namespaces, including shadowing and disambiguation
       hasRequiredRule:
-        ResolvableReferenceRule:
+        resolvable-reference-rule:
           text: ObjectProperty values MUST reference entities that exist in the current namespace or imports (including transitive imports)
           rationale: Broken references create semantic gaps where data points to non-existent entities. This prevents typos, missing imports, and data integrity issues. All references must resolve to actual entities.
-        LocalShadowingRule:
+        local-shadowing-rule:
           text: When the same name exists in both the local namespace and an imported namespace, unqualified references MUST resolve to the local definition (local shadowing)
           rationale: Local shadowing allows intentional overriding, enables namespace-specific customizations, and prevents breaking changes when dependencies add new entities with colliding names.
-        QualifiedDisambiguationRule:
+        qualified-disambiguation-rule:
           text: When multiple imported packages define entities with the same name, references MUST use qualified syntax (alias.name) to disambiguate
           rationale: Ambiguous references make it impossible to determine which entity is intended. Qualified references (pkg.Entity) explicitly specify the source package, preventing confusion and ensuring correct type resolution.
       hasValidExample:
-        LocalReference:
+        local-reference:
           value: |
             verona-city:
               type: City
@@ -428,36 +461,36 @@ kanonak-protocol-spec:
               type: Character
               livesIn: verona-city
           description: Reference to a locally defined entity
-        QualifiedReference:
+        qualified-reference:
           value: |
             myEntity:
               type: pkgA.Resource
           description: Qualified reference disambiguates between packages that both define Resource
       hasInvalidExample:
-        BrokenReference:
+        broken-reference:
           value: |
             romeo:
               type: Character
               livesIn: verona-city  # verona-city is not defined or imported
           description: Invalid - reference to an entity that does not exist
 
-    Hierarchy:
+    hierarchy:
       summary: Class and property hierarchies must be acyclic and reference their own kind
       hasRequiredRule:
-        ClassHierarchyAcyclicRule:
+        class-hierarchy-acyclic-rule:
           text: Class inheritance (subClassOf) MUST NOT create circular chains
           rationale: Circular inheritance (A subClassOf B subClassOf A) is logically impossible and breaks reasoning systems. Class hierarchies must form directed acyclic graphs where every class has a finite path to the root Resource class.
-        SubClassOfClassRule:
+        sub-class-of-class-rule:
           text: The subClassOf property MUST reference an entity that is itself a Class
           rationale: subClassOf establishes inheritance between classes. Referencing a non-class entity (like a property or instance) is semantically invalid and breaks type system integrity.
-        PropertyHierarchyAcyclicRule:
+        property-hierarchy-acyclic-rule:
           text: Property inheritance (subPropertyOf) MUST NOT create circular chains
           rationale: Circular property inheritance (A subPropertyOf B subPropertyOf A) is logically impossible. Property hierarchies must form directed acyclic graphs.
-        SubPropertyOfPropertyRule:
+        sub-property-of-property-rule:
           text: The subPropertyOf property MUST reference an entity that is itself a Property
           rationale: subPropertyOf establishes inheritance between properties. Referencing a non-property entity (like a Class or instance) is semantically invalid.
       hasValidExample:
-        LinearClassHierarchy:
+        linear-class-hierarchy:
           value: |
             Person:
               type: Class
@@ -466,7 +499,7 @@ kanonak-protocol-spec:
               subClassOf: Person
           description: Correct linear class hierarchy with no cycles
       hasInvalidExample:
-        CircularClassHierarchy:
+        circular-class-hierarchy:
           value: |
             Character:
               type: Class
@@ -475,7 +508,7 @@ kanonak-protocol-spec:
               type: Class
               subClassOf: Character
           description: Invalid - Character and Hero reference each other creating a cycle
-        SubClassOfProperty:
+        sub-class-of-property:
           value: |
             name:
               type: DatatypeProperty

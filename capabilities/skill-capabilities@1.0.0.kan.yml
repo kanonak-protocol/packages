@@ -23,105 +23,105 @@ skill-management:
     SKILL.md format and placed in agent discovery directories for
     Claude Code, Gemini CLI, OpenAI Codex, and other compatible agents.
   managesType: skills.Skill
-  deploymentTarget: cap.AgentSkillDeployment
+  deploymentTarget: cap.agent-skill-deployment
   hasCommand:
 
-    AddSkill:
+    add-skill:
       subcommandName: add
       cap.description: Install a skill from a Kanonak publisher.
-      performs: cap.fetchAndDeploy
+      performs: cap.fetch-and-deploy
       hasArgument:
-        Package:
+        package:
           argumentName: package
           isRequired: true
           isOption: false
-        Client:
+        client:
           argumentName: client
           isRequired: false
           isOption: true
-        Scope:
+        scope:
           argumentName: scope
           isRequired: false
           isOption: true
           defaultValue: project
 
-    RemoveSkill:
+    remove-skill:
       subcommandName: remove
       cap.description: Remove an installed skill.
-      performs: cap.removeDeployed
+      performs: cap.remove-deployed
       hasArgument:
-        SkillName:
+        skill-name:
           argumentName: skill-name
           isRequired: true
           isOption: false
-        Client:
+        client:
           argumentName: client
           isRequired: false
           isOption: true
-        Scope:
+        scope:
           argumentName: scope
           isRequired: false
           isOption: true
           defaultValue: project
 
-    ListSkills:
+    list-skills:
       subcommandName: list
       cap.description: List installed skills.
-      performs: cap.listDeployed
+      performs: cap.list-deployed
       hasArgument:
-        Client:
+        client:
           argumentName: client
           isRequired: false
           isOption: true
-        Scope:
+        scope:
           argumentName: scope
           isRequired: false
           isOption: true
           defaultValue: project
 
-    UpdateSkills:
+    update-skills:
       subcommandName: update
       cap.description: Update installed skills to their latest compatible versions.
-      performs: cap.updateDeployed
+      performs: cap.update-deployed
       hasArgument:
-        SkillName:
+        skill-name:
           argumentName: skill-name
           isRequired: false
           isOption: false
-        Client:
+        client:
           argumentName: client
           isRequired: false
           isOption: true
-        Scope:
+        scope:
           argumentName: scope
           isRequired: false
           isOption: true
           defaultValue: project
 
-    SearchSkills:
+    search-skills:
       subcommandName: search
       cap.description: Search for skills from a publisher.
-      performs: cap.searchAvailable
+      performs: cap.search-available
       hasArgument:
-        Publisher:
+        publisher:
           argumentName: publisher
           isRequired: false
           isOption: true
 
-    SkillInfo:
+    skill-info:
       subcommandName: info
       cap.description: Show details about an installed skill.
-      performs: cap.showInfo
+      performs: cap.show-info
       hasArgument:
-        SkillName:
+        skill-name:
           argumentName: skill-name
           isRequired: true
           isOption: false
-        Client:
+        client:
           argumentName: client
           isRequired: false
           isOption: true
-        Scope:
+        scope:
           argumentName: scope
           isRequired: false
           isOption: true

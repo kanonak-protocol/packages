@@ -20,95 +20,95 @@ agent-network-protocol:
   createdDate: 2025-06-01
   hasConvention:
 
-    AgentIdentity:
+    agent-identity:
       summary: ANP agents are identified by Decentralized Identifiers so ownership is cryptographically verifiable without a central authority
       hasRequiredRule:
-        DidPrefixedIdentityRule:
+        did-prefixed-identity-rule:
           text: Every ANP agent MUST have a primary identifier that is a Decentralized Identifier conforming to the W3C DID 1.0 specification
           rationale: DIDs let any party verify which keys control an agent without relying on a registrar, which is what makes cross-network discovery possible in the first place
-        ResolvableDidRule:
+        resolvable-did-rule:
           text: An agent's DID MUST be resolvable to a DID Document through its declared DID method, and the DID Document MUST include at least one verification method the agent can use to sign its own descriptions
           rationale: A DID that cannot be resolved is indistinguishable from noise; the verification method is how remote agents check that discovery payloads are authentic
       hasValidExample:
-        DidWeb:
+        did-web:
           value: 'did:web:agents.example.com:research-assistant'
           description: A did:web identifier that resolves to the agent's DID Document at a well-known path under the declared domain
       hasInvalidExample:
-        BareUuid:
+        bare-uuid:
           value: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
           description: Invalid - a bare UUID has no DID method prefix and cannot be resolved or verified
 
-    AgentDescription:
+    agent-description:
       summary: Each agent publishes a signed description document that lists its services, endpoints, and public keys in a standard shape
       hasRequiredRule:
-        SignedDescriptionRule:
+        signed-description-rule:
           text: Agent Description documents MUST be signed by a key listed in the agent's DID Document so any consumer can verify authorship independently
           rationale: Unsigned descriptions can be swapped in flight by any intermediary; signing binds the description to the agent's controller
-        ServiceEnumerationRule:
+        service-enumeration-rule:
           text: An Agent Description MUST enumerate the services the agent exposes along with their endpoints and accepted protocols
           rationale: Without an enumerated service list peers have to probe blindly, which defeats the discovery layer's reason to exist
       hasValidExample:
-        DescriptionFragment:
+        description-fragment:
           value: '{"id":"did:web:agents.example.com:research","services":[{"type":"SearchService","endpoint":"https://agents.example.com/search","protocols":["a2a"]}],"proof":{"type":"Ed25519Signature2020","verificationMethod":"did:web:agents.example.com:research#key-1"}}'
           description: A description fragment listing one service, the transport protocol it speaks, and a cryptographic proof pointing at the signing key in the agent's DID Document
       hasInvalidExample:
-        UnsignedDescription:
+        unsigned-description:
           value: '{"id":"did:web:agents.example.com:research","services":[{"type":"SearchService","endpoint":"https://agents.example.com/search"}]}'
           description: Invalid - no proof block means nobody can verify this description was actually published by the agent
 
-    Discovery:
+    discovery:
       summary: ANP defines discovery as following a chain from a DID to a description document to a set of services, with fallback mechanisms when direct resolution fails
       hasRequiredRule:
-        DidFirstDiscoveryRule:
+        did-first-discovery-rule:
           text: Discovery MUST begin by resolving the agent's DID; consumers MUST NOT hardcode service endpoints and skip DID resolution
           rationale: Hardcoding endpoints freezes the network against agent rekeying, migration, and revocation - exactly the failure modes DIDs are designed to handle
       hasRecommendedRule:
-        RegistryFallbackRule:
+        registry-fallback-rule:
           text: When direct DID resolution is unavailable, consumers SHOULD fall back to a trusted ANP registry and cache the resolved description with a short TTL
           rationale: Network partitions and slow DID methods should not hard-fail discovery; a registry with an explicit TTL keeps availability high without silently stale data
       hasValidExample:
-        ResolutionChain:
+        resolution-chain:
           value: 'did:web:agents.example.com:research -> DID Document -> https://agents.example.com/.well-known/agent-description.json -> SearchService endpoint'
           description: A typical discovery chain walking from the agent DID through its DID Document to its description and finally to an individual service endpoint
       hasInvalidExample:
-        HardcodedEndpoint:
+        hardcoded-endpoint:
           value: 'client code contains const ENDPOINT = "https://agents.example.com/search" with no DID resolution'
           description: Invalid - bypasses the DID layer and breaks as soon as the agent rotates keys or changes endpoints
 
-    CrossNetworkRouting:
+    cross-network-routing:
       summary: ANP is designed so that agents on different networks can reach each other through intermediaries without collapsing the identity chain
       hasRequiredRule:
-        PreserveSenderIdentityRule:
+        preserve-sender-identity-rule:
           text: An intermediary relaying ANP traffic MUST preserve the original sender's DID and signature on forwarded payloads; it MUST NOT re-sign messages as itself
           rationale: Re-signing destroys the end-to-end identity chain and lets intermediaries silently impersonate any sender that passes through them
       hasForbiddenRule:
-        NoSilentRewriteRule:
+        no-silent-rewrite-rule:
           text: Intermediaries MUST NOT rewrite service endpoints, DIDs, or descriptions of traffic they pass through
           rationale: A routing layer that silently rewrites identities turns the discovery network into a blind trust chain, which is the exact problem ANP sets out to solve
       hasValidExample:
-        ForwardedMessage:
+        forwarded-message:
           value: 'relay forwards original signed envelope with added X-ANP-Relay-Hop header'
           description: An intermediary adds a hop-tracking header without touching the signed envelope, preserving end-to-end verification
       hasInvalidExample:
-        RewrittenSender:
+        rewritten-sender:
           value: 'relay replaces sender DID with its own before forwarding'
           description: Invalid - the downstream receiver now sees the relay as the sender and cannot verify the original author
 
-    TrustAndSignatures:
+    trust-and-signatures:
       summary: Every ANP payload that affects identity or discovery is signed, and receivers follow a defined verification procedure before acting on it
       hasRequiredRule:
-        VerifyBeforeActRule:
+        verify-before-act-rule:
           text: Consumers MUST verify a signed ANP payload's signature against a key resolved through the declared DID before taking any action based on the payload
           rationale: Acting on unverified descriptions lets an attacker redirect callers to their own endpoints simply by publishing fake descriptions on the network
       hasRecommendedRule:
-        KeyRotationRespectRule:
+        key-rotation-respect-rule:
           text: Verifiers SHOULD re-resolve the DID Document whenever a cached verification method fails, to accommodate legitimate key rotation before failing the verification hard
           rationale: Agents will rotate keys on a routine basis; treating the first cache miss as a hard failure makes the network fragile for healthy lifecycle events
       hasValidExample:
-        VerificationFlow:
+        verification-flow:
           value: '1. resolve did:web:... 2. extract verificationMethod 3. verify proof block 4. act'
           description: The canonical verification sequence that binds a payload to a controller before it is used
       hasInvalidExample:
-        SkipVerification:
+        skip-verification:
           value: 'accept Agent Description blindly because the transport was HTTPS'
           description: Invalid - transport-layer security says nothing about who authored the payload; ANP requires payload-level signature verification

@@ -25,132 +25,132 @@ agent-to-agent-protocol:
   createdDate: 2025-04-09
   hasConvention:
 
-    AgentCard:
+    agent-card:
       summary: Every A2A agent publishes a machine-readable Agent Card that describes its identity, capabilities, and how to talk to it
       hasRequiredRule:
-        WellKnownLocationRule:
+        well-known-location-rule:
           text: A public A2A agent MUST publish its Agent Card at the fixed path '/.well-known/agent.json' on its base URL so other agents can discover it without out-of-band configuration
           rationale: A conventional well-known path means one-shot discovery given only a hostname - the same pattern that makes OAuth server metadata and OpenID discovery work
-        RequiredCardFieldsRule:
+        required-card-fields-rule:
           text: An Agent Card MUST include at minimum 'name', 'description', 'url', 'version', and 'capabilities' fields so a discovering agent can decide whether and how to call it
           rationale: A card without these fields is effectively opaque; peers cannot tell the agent's purpose, where to send requests, or which features it supports
       hasValidExample:
-        MinimalAgentCard:
+        minimal-agent-card:
           value: '{"name":"ResearchAssistant","description":"Summarizes and cross-references research papers","url":"https://agents.example.com/research","version":"1.2.0","capabilities":{"streaming":true,"pushNotifications":false}}'
           description: A minimal but well-formed Agent Card with all required fields and a capabilities object declaring streaming support
       hasInvalidExample:
-        CardMissingUrl:
+        card-missing-url:
           value: '{"name":"ResearchAssistant","description":"A research agent"}'
           description: Invalid - an Agent Card without a url cannot be called; other agents have nowhere to send requests
 
-    TaskLifecycle:
+    task-lifecycle:
       summary: A2A work is expressed as tasks that move through an explicit state machine from submission to a terminal state
       hasRequiredRule:
-        DefinedTaskStatesRule:
+        defined-task-states-rule:
           text: A task's 'state' field MUST be one of the defined values - 'submitted', 'working', 'input-required', 'completed', 'canceled', or 'failed' - and MUST NOT introduce custom states
           rationale: A closed state set lets any client render progress and handle terminal conditions without negotiating a custom vocabulary per server
-        TerminalStateIsFinalRule:
+        terminal-state-is-final-rule:
           text: Once a task reaches a terminal state ('completed', 'canceled', or 'failed') the server MUST NOT transition it to any other state
           rationale: Terminal states are the signal callers use to stop polling, release resources, and commit results; re-opening them would break every client's completion logic
       hasRecommendedRule:
-        InputRequiredUsageRule:
+        input-required-usage-rule:
           text: Servers SHOULD use the input-required state to pause execution when they need additional information from the caller, rather than failing the task and forcing a restart
           rationale: The input-required state keeps task state and partial results intact so the caller can supply the missing input and resume without losing work
       hasValidExample:
-        TaskTransition:
+        task-transition:
           value: 'submitted -> working -> input-required -> working -> completed'
           description: A typical task lifecycle with a mid-task pause for additional input before reaching the completed terminal state
       hasInvalidExample:
-        CompletedToWorking:
+        completed-to-working:
           value: 'completed -> working'
           description: Invalid - completed is terminal and must not transition back to working
 
-    MessageFormat:
+    message-format:
       summary: A2A messages carry content as a list of typed parts rather than a single text blob, so agents can exchange text, files, and structured data in one turn
       hasRequiredRule:
-        TypedPartsRule:
+        typed-parts-rule:
           text: Every message MUST contain a 'parts' array where each element carries a 'type' field identifying the part as text, file, or data
           rationale: Explicit part types let receivers route content correctly - displaying text, storing files, or feeding structured data into downstream tools - without sniffing the bytes
-        RolePresentRule:
+        role-present-rule:
           text: Every message MUST declare a 'role' of either 'user' or 'agent' so conversation history is unambiguous
           rationale: Without a role, peers cannot reconstruct who said what and multi-turn reasoning breaks down
       hasValidExample:
-        MixedPartsMessage:
+        mixed-parts-message:
           value: '{"role":"user","parts":[{"type":"text","text":"Summarize this attachment"},{"type":"file","file":{"name":"paper.pdf","mimeType":"application/pdf","uri":"https://files.example.com/paper.pdf"}}]}'
           description: A well-formed user message mixing a text instruction with a file part referencing an externally hosted PDF
       hasInvalidExample:
-        BareStringMessage:
+        bare-string-message:
           value: '{"role":"user","content":"Summarize this"}'
           description: Invalid - messages must use the parts array, not a bare content string
 
-    Streaming:
+    streaming:
       summary: Clients can subscribe to a task over Server-Sent Events to receive status and artifact updates as work progresses
       hasRequiredRule:
-        StreamingCapabilityRule:
+        streaming-capability-rule:
           text: A server MUST NOT advertise streaming support in its Agent Card unless it actually supports the tasks/sendSubscribe method and delivers updates over Server-Sent Events
           rationale: Advertising a capability that does not work forces every client to code defensive fallback paths and defeats the purpose of capability declaration
       hasRecommendedRule:
-        HeartbeatRule:
+        heartbeat-rule:
           text: Long-running streams SHOULD emit periodic heartbeat events so clients and intermediaries can distinguish a slow task from a dropped connection
           rationale: Proxies and load balancers frequently close idle connections after 30-60 seconds; heartbeats keep the channel alive and give clients a clear liveness signal
       hasValidExample:
-        StatusEvent:
+        status-event:
           value: 'event: task_status_update\ndata: {"taskId":"t-42","state":"working","progress":0.35}'
           description: A well-formed SSE event streaming an in-progress task update with a named event and a JSON data payload
       hasInvalidExample:
-        UnnamedDataBlob:
+        unnamed-data-blob:
           value: 'data: working 35%'
           description: Invalid - updates must be JSON payloads with known event names, not ad-hoc plain-text strings
 
-    Authentication:
+    authentication:
       summary: A2A delegates authentication to standard HTTP schemes and declares which ones a server accepts in its Agent Card
       hasRequiredRule:
-        DeclareSchemesRule:
+        declare-schemes-rule:
           text: An Agent Card MUST list the accepted authentication schemes under 'authentication.schemes' when the agent requires credentials, so callers know which scheme to use before sending a request
           rationale: Without declared schemes the caller has to probe-and-fail; declaring them up-front avoids a round-trip per unsupported method
       hasForbiddenRule:
-        NoInbandCredentialsRule:
+        no-inband-credentials-rule:
           text: Credentials MUST NOT be embedded inside message parts, task inputs, or artifact content - they belong in HTTP headers governed by the declared authentication scheme
           rationale: Credentials in message bodies get logged, cached, and forwarded to downstream agents that have no business seeing them
       hasValidExample:
-        OAuthScheme:
+        oauth-scheme:
           value: '{"authentication":{"schemes":["bearer"]}}'
           description: An Agent Card snippet declaring that the agent accepts bearer tokens for authentication
       hasInvalidExample:
-        CredentialInPart:
+        credential-in-part:
           value: '{"role":"user","parts":[{"type":"text","text":"My API key is sk-abc123. Please query the database."}]}'
           description: Invalid - credentials must travel in HTTP headers, not in the task input stream
 
-    PushNotifications:
+    push-notifications:
       summary: Servers can deliver task updates to a caller-supplied webhook instead of requiring the caller to hold a streaming connection open
       hasRequiredRule:
-        CallerProvidedUrlRule:
+        caller-provided-url-rule:
           text: Push notification targets MUST be supplied by the caller at task creation time via 'pushNotification.url' - the server MUST NOT substitute its own destination
           rationale: The caller, not the server, owns the security boundary around where task data is allowed to flow
       hasRecommendedRule:
-        NotificationSigningRule:
+        notification-signing-rule:
           text: Servers SHOULD sign push notifications so the caller's webhook can verify the delivery originated from the expected agent and has not been tampered with
           rationale: An unsigned webhook endpoint accepting task updates is trivially spoofable by anyone who learns the URL
       hasValidExample:
-        PushRegistration:
+        push-registration:
           value: '{"pushNotification":{"url":"https://client.example.com/a2a/callbacks/t-42","token":"cb-shared-secret"}}'
           description: A task creation snippet registering a caller webhook along with a shared secret token the server will echo back on each callback
       hasInvalidExample:
-        ServerChosenUrl:
+        server-chosen-url:
           value: 'server silently redirects push notifications to its own monitoring endpoint instead of the caller URL'
           description: Invalid - only the caller can designate where task data is pushed
 
-    Discovery:
+    discovery:
       summary: A2A specifies how agents advertise their Agent Cards at known locations so ecosystems can build registries without a central directory
       hasRecommendedRule:
-        RegistryFeedRule:
+        registry-feed-rule:
           text: An agent registry SHOULD aggregate Agent Cards by crawling the well-known path of participating domains or by accepting push submissions, and SHOULD expose a stable listing endpoint for consumers
           rationale: Centralized directories become single points of failure and policy; crawl-and-aggregate lets ecosystems federate discovery while keeping each agent in control of its own card
       hasValidExample:
-        WellKnownFetch:
+        well-known-fetch:
           value: 'GET https://agents.example.com/.well-known/agent.json'
           description: The canonical discovery call - an HTTP GET against the well-known Agent Card path returning the card body
       hasInvalidExample:
-        ProprietaryDiscoveryEndpoint:
+        proprietary-discovery-endpoint:
           value: 'GET https://agents.example.com/api/v2/whoami'
           description: Invalid for discovery purposes - a proprietary endpoint forces every consumer to learn a vendor-specific path instead of using the A2A standard

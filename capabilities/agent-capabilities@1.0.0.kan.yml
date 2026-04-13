@@ -14,7 +14,7 @@ agent-capabilities:
           version: 1.0.0
           alias: agents
 
-AgentInstanceDeployment:
+agent-instance-deployment:
   type: cap.DeploymentTarget
   label: Agent Instance Deployment
   comment: >
@@ -24,7 +24,7 @@ AgentInstanceDeployment:
     for Codex) and writes it to the client's projectAgentDir or
     userAgentDir as declared on the selected agent-skills.Client.
     The CLI registers an AgentDeploymentHandler under this
-    instance's local name to perform the actual materialization.
+    instance's canonical URI to perform the actual materialization.
 
 agent-management:
   type: cap.Capability
@@ -37,105 +37,105 @@ agent-management:
     Code, OpenAI Codex, Gemini CLI, and the cross-client .agents/
     layout.
   managesType: agents.Agent
-  deploymentTarget: AgentInstanceDeployment
+  deploymentTarget: agent-instance-deployment
   hasCommand:
 
-    AddAgent:
+    add-agent:
       subcommandName: add
       cap.description: Install an agent from a Kanonak publisher.
-      performs: cap.fetchAndDeploy
+      performs: cap.fetch-and-deploy
       hasArgument:
-        Package:
+        package:
           argumentName: package
           isRequired: true
           isOption: false
-        Client:
+        client:
           argumentName: client
           isRequired: false
           isOption: true
-        Scope:
+        scope:
           argumentName: scope
           isRequired: false
           isOption: true
           defaultValue: project
 
-    RemoveAgent:
+    remove-agent:
       subcommandName: remove
       cap.description: Remove an installed agent.
-      performs: cap.removeDeployed
+      performs: cap.remove-deployed
       hasArgument:
-        AgentName:
+        agent-name:
           argumentName: agent-name
           isRequired: true
           isOption: false
-        Client:
+        client:
           argumentName: client
           isRequired: false
           isOption: true
-        Scope:
+        scope:
           argumentName: scope
           isRequired: false
           isOption: true
           defaultValue: project
 
-    ListAgents:
+    list-agents:
       subcommandName: list
       cap.description: List installed agents.
-      performs: cap.listDeployed
+      performs: cap.list-deployed
       hasArgument:
-        Client:
+        client:
           argumentName: client
           isRequired: false
           isOption: true
-        Scope:
+        scope:
           argumentName: scope
           isRequired: false
           isOption: true
           defaultValue: project
 
-    UpdateAgents:
+    update-agents:
       subcommandName: update
       cap.description: Update installed agents to their latest compatible versions.
-      performs: cap.updateDeployed
+      performs: cap.update-deployed
       hasArgument:
-        AgentName:
+        agent-name:
           argumentName: agent-name
           isRequired: false
           isOption: false
-        Client:
+        client:
           argumentName: client
           isRequired: false
           isOption: true
-        Scope:
+        scope:
           argumentName: scope
           isRequired: false
           isOption: true
           defaultValue: project
 
-    SearchAgents:
+    search-agents:
       subcommandName: search
       cap.description: Search for agents from a publisher.
-      performs: cap.searchAvailable
+      performs: cap.search-available
       hasArgument:
-        Publisher:
+        publisher:
           argumentName: publisher
           isRequired: false
           isOption: true
 
-    AgentInfo:
+    agent-info:
       subcommandName: info
       cap.description: Show details about an installed agent.
-      performs: cap.showInfo
+      performs: cap.show-info
       hasArgument:
-        AgentName:
+        agent-name:
           argumentName: agent-name
           isRequired: true
           isOption: false
-        Client:
+        client:
           argumentName: client
           isRequired: false
           isOption: true
-        Scope:
+        scope:
           argumentName: scope
           isRequired: false
           isOption: true

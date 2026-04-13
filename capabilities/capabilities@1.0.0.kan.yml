@@ -166,9 +166,7 @@ performs:
     The action that this subcommand performs. The CLI dispatches based
     on this action, so capability authors are free to choose any verb
     they like for subcommandName (e.g., "install", "deploy", "grab")
-    without being limited to a fixed set of names. If omitted, the
-    CLI falls back to interpreting the six legacy verbs - add, remove,
-    list, update, search, info - as their matching Action instances.
+    without being limited to a fixed set of names.
 
 argumentName:
   type: owl.DatatypeProperty
@@ -333,7 +331,7 @@ cross-platform:
     Applies on any supported OS - used for version managers and
     standalone installer scripts that work identically everywhere.
 
-AgentSkillDeployment:
+agent-skill-deployment:
   type: DeploymentTarget
   label: Agent Skill Deployment
   comment: >
@@ -341,10 +339,9 @@ AgentSkillDeployment:
     SKILL.md files and places them in agent discovery directories.
     Supports client-specific and cross-client deployment paths. The
     CLI registers a SkillDeploymentHandler under this instance's
-    local name ("AgentSkillDeployment") to perform the actual
-    materialization.
+    canonical URI to perform the actual materialization.
 
-fetchAndDeploy:
+fetch-and-deploy:
   type: Action
   label: Fetch and Deploy
   comment: >
@@ -352,35 +349,35 @@ fetchAndDeploy:
     capability's deploymentTarget. The CLI expects one positional
     argument naming the package to fetch.
 
-removeDeployed:
+remove-deployed:
   type: Action
   label: Remove Deployed
   comment: >
     Remove a previously-deployed item from the local system. The CLI
     expects one positional argument naming the item to remove.
 
-listDeployed:
+list-deployed:
   type: Action
   label: List Deployed
   comment: >
     List the items that are currently deployed through this capability.
     Takes no positional arguments.
 
-updateDeployed:
+update-deployed:
   type: Action
   label: Update Deployed
   comment: >
     Update a previously-deployed item to its latest compatible version.
     The CLI expects one positional argument naming the item to update.
 
-searchAvailable:
+search-available:
   type: Action
   label: Search Available
   comment: >
     Search publishers for packages that match a query. Query is typically
     supplied as an option rather than a positional argument.
 
-showInfo:
+show-info:
   type: Action
   label: Show Info
   comment: >
@@ -396,21 +393,21 @@ npm:
   homepageUrl: "https://docs.npmjs.com/"
   bootstrapNote: npm ships with Node.js, so installing Node.js installs npm.
   hasInstallStep:
-    MacOs:
+    macos-step:
       forPlatform: macos
       command: "brew install node"
       description: Requires Homebrew.
-    DebianUbuntu:
+    debian-ubuntu-step:
       forPlatform: debian-family
       command: "sudo apt-get install -y nodejs npm"
-    FedoraRhel:
+    fedora-rhel-step:
       forPlatform: fedora-family
       command: "sudo dnf install -y nodejs npm"
-    Windows:
+    windows-step:
       forPlatform: windows
       downloadUrl: "https://nodejs.org/"
       description: Download and run the LTS installer.
-    Nvm:
+    nvm-step:
       forPlatform: cross-platform
       command: "nvm install --lts"
       description: >
@@ -427,23 +424,23 @@ pip:
   homepageUrl: "https://pip.pypa.io/"
   bootstrapNote: pip is bundled with CPython 3.4+, so installing Python installs pip.
   hasInstallStep:
-    MacOs:
+    macos-step:
       forPlatform: macos
       command: "brew install python"
       description: Requires Homebrew.
-    DebianUbuntu:
+    debian-ubuntu-step:
       forPlatform: debian-family
       command: "sudo apt-get install -y python3 python3-pip"
-    FedoraRhel:
+    fedora-rhel-step:
       forPlatform: fedora-family
       command: "sudo dnf install -y python3 python3-pip"
-    Windows:
+    windows-step:
       forPlatform: windows
       downloadUrl: "https://www.python.org/downloads/windows/"
       description: >
         Download the Windows installer. Tick "Add Python to PATH"
         during setup.
-    EnsurePip:
+    ensure-pip-step:
       forPlatform: cross-platform
       command: "python -m ensurepip --upgrade"
       description: >
@@ -459,17 +456,17 @@ cargo:
   homepageUrl: "https://doc.rust-lang.org/cargo/"
   bootstrapNote: cargo ships with the Rust toolchain - install Rust via rustup.
   hasInstallStep:
-    Rustup:
+    rustup-step:
       forPlatform: cross-platform
       command: "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
       description: >
         Official rustup installer (macOS and Linux). Installs cargo,
         rustc, and rustup itself under $HOME/.cargo/bin.
-    Windows:
+    windows-step:
       forPlatform: windows
       downloadUrl: "https://rustup.rs/"
       description: Download and run rustup-init.exe.
-    MacOsHomebrew:
+    macos-homebrew-step:
       forPlatform: macos
       command: "brew install rustup-init && rustup-init"
       description: Homebrew-managed alternative to the official installer script.
@@ -485,18 +482,18 @@ nuget:
     NuGet is driven through the dotnet CLI, which is part of the
     .NET SDK.
   hasInstallStep:
-    MacOs:
+    macos-step:
       forPlatform: macos
       command: "brew install --cask dotnet-sdk"
       description: Requires Homebrew.
-    LinuxDocs:
+    linux-docs-step:
       forPlatform: cross-platform
       downloadUrl: "https://learn.microsoft.com/dotnet/core/install/linux"
       description: >
         Follow the distro-specific instructions published by Microsoft.
         Commands differ across Debian, Ubuntu, Fedora, RHEL, and
         derivatives.
-    Windows:
+    windows-step:
       forPlatform: windows
       downloadUrl: "https://dotnet.microsoft.com/download"
       description: Download and run the SDK installer.
@@ -515,17 +512,17 @@ oci:
     artifacts. To authenticate against a private registry, run
     "oras login <registry>" after install.
   hasInstallStep:
-    MacOs:
+    macos-step:
       forPlatform: macos
       command: "brew install oras"
       description: Requires Homebrew.
-    LinuxRelease:
+    linux-release-step:
       forPlatform: cross-platform
       downloadUrl: "https://github.com/oras-project/oras/releases"
       description: >
         Download the tarball for your architecture, extract the "oras"
         binary, and place it on PATH (e.g., under /usr/local/bin).
-    Windows:
+    windows-step:
       forPlatform: windows
       downloadUrl: "https://github.com/oras-project/oras/releases"
       description: >
