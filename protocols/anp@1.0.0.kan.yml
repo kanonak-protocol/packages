@@ -6,11 +6,11 @@ anp:
   imports:
     - publisher: kanonak.org
       packages:
-        - package: protocol
+        - package: protocols
           match: ^
-          version: 1.1.0
+          version: 1.0.0
 
-AgentNetworkProtocol:
+agent-network-protocol:
   type: Protocol
   label: Agent Network Protocol
   comment: An open protocol governed by a W3C Community Group that defines how AI agents identify themselves, describe their services, and discover peers across decentralized networks. ANP focuses on the cross-network discovery layer of the agentic stack and is designed to interoperate with but remain independent of MCP and A2A.

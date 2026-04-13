@@ -21,9 +21,9 @@ agents:
           match: ^
           version: 1.2.0
           alias: skills
-        - package: protocol
+        - package: protocols
           match: ^
-          version: 1.1.0
+          version: 1.0.0
           alias: proto
 
 Agent:

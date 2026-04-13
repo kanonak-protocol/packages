@@ -1,4 +1,4 @@
-agent-capability:
+skill-capabilities:
   type: Package
   publisher: kanonak.org
   version: 1.0.0
@@ -9,40 +9,26 @@ agent-capability:
           match: ^
           version: 1.0.0
           alias: cap
-        - package: agents
+        - package: agent-skills
           match: ^
           version: 1.0.0
-          alias: agents
+          alias: skills
 
-AgentInstanceDeployment:
-  type: cap.DeploymentTarget
-  label: Agent Instance Deployment
-  comment: >
-    Deployment target for agents.Agent instances. Transforms each
-    Agent into its target client's on-disk file format
-    (markdown-with-frontmatter for Claude Code and Gemini CLI, TOML
-    for Codex) and writes it to the client's projectAgentDir or
-    userAgentDir as declared on the selected agent-skills.Client.
-    The CLI registers an AgentDeploymentHandler under this
-    instance's local name to perform the actual materialization.
-
-agent-management:
+skill-management:
   type: cap.Capability
-  commandName: agent
+  commandName: skill
   cap.description: >
-    Manage AI agent definitions. Install, list, update, and remove
-    Agents from Kanonak publishers. Agents are transformed from
-    Kanonak YAML to the target client's on-disk format and placed
-    in the client's agent discovery directory. Supports Claude
-    Code, OpenAI Codex, Gemini CLI, and the cross-client .agents/
-    layout.
-  managesType: agents.Agent
-  deploymentTarget: AgentInstanceDeployment
+    Manage AI agent skills. Install, list, update, and remove Skills from
+    Kanonak publishers. Skills are transformed from Kanonak YAML to
+    SKILL.md format and placed in agent discovery directories for
+    Claude Code, Gemini CLI, OpenAI Codex, and other compatible agents.
+  managesType: skills.Skill
+  deploymentTarget: cap.AgentSkillDeployment
   hasCommand:
 
-    AddAgent:
+    AddSkill:
       subcommandName: add
-      cap.description: Install an agent from a Kanonak publisher.
+      cap.description: Install a skill from a Kanonak publisher.
       performs: cap.fetchAndDeploy
       hasArgument:
         Package:
@@ -59,13 +45,13 @@ agent-management:
           isOption: true
           defaultValue: project
 
-    RemoveAgent:
+    RemoveSkill:
       subcommandName: remove
-      cap.description: Remove an installed agent.
+      cap.description: Remove an installed skill.
       performs: cap.removeDeployed
       hasArgument:
-        AgentName:
-          argumentName: agent-name
+        SkillName:
+          argumentName: skill-name
           isRequired: true
           isOption: false
         Client:
@@ -78,9 +64,9 @@ agent-management:
           isOption: true
           defaultValue: project
 
-    ListAgents:
+    ListSkills:
       subcommandName: list
-      cap.description: List installed agents.
+      cap.description: List installed skills.
       performs: cap.listDeployed
       hasArgument:
         Client:
@@ -93,13 +79,13 @@ agent-management:
           isOption: true
           defaultValue: project
 
-    UpdateAgents:
+    UpdateSkills:
       subcommandName: update
-      cap.description: Update installed agents to their latest compatible versions.
+      cap.description: Update installed skills to their latest compatible versions.
       performs: cap.updateDeployed
       hasArgument:
-        AgentName:
-          argumentName: agent-name
+        SkillName:
+          argumentName: skill-name
           isRequired: false
           isOption: false
         Client:
@@ -112,9 +98,9 @@ agent-management:
           isOption: true
           defaultValue: project
 
-    SearchAgents:
+    SearchSkills:
       subcommandName: search
-      cap.description: Search for agents from a publisher.
+      cap.description: Search for skills from a publisher.
       performs: cap.searchAvailable
       hasArgument:
         Publisher:
@@ -122,13 +108,13 @@ agent-management:
           isRequired: false
           isOption: true
 
-    AgentInfo:
+    SkillInfo:
       subcommandName: info
-      cap.description: Show details about an installed agent.
+      cap.description: Show details about an installed skill.
       performs: cap.showInfo
       hasArgument:
-        AgentName:
-          argumentName: agent-name
+        SkillName:
+          argumentName: skill-name
           isRequired: true
           isOption: false
         Client:

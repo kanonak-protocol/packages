@@ -6,11 +6,11 @@ mcp:
   imports:
     - publisher: kanonak.org
       packages:
-        - package: protocol
+        - package: protocols
           match: ^
-          version: 1.1.0
+          version: 1.0.0
 
-ModelContextProtocol:
+model-context-protocol:
   type: Protocol
   label: Model Context Protocol
   comment: An open protocol created by Anthropic that standardizes how AI applications connect to external tools, data sources, and prompts. MCP defines a JSON-RPC 2.0 based client-server protocol where hosts embed clients that talk to servers exposing tools, resources, and prompts.

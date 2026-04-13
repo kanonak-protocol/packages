@@ -6,11 +6,11 @@ kanonak-protocol:
   imports:
     - publisher: kanonak.org
       packages:
-        - package: protocol
+        - package: protocols
           match: ^
           version: 1.0.0
 
-KanonakProtocol:
+kanonak-protocol-spec:
   type: Protocol
   label: Kanonak Protocol
   comment: The Kanonak Protocol - an open protocol for defining, versioning, and sharing semantic ontologies across distributed publishers
@@ -56,7 +56,7 @@ KanonakProtocol:
           description: Invalid - not a domain name. Must use domain-based identifier like myproject.org or myproject.dev
 
     PackageNaming:
-      summary: Package names identify collections of related entities within a publisher namespace
+      summary: Package names are lowercase-hyphen identifiers that describe the domain of entities they contain, with plural forms reserved for category packages so the singular form is available for instances inside them
       hasRequiredRule:
         PackageFormatRule:
           text: Package names MUST start with a lowercase letter and contain only lowercase letters, numbers, and hyphens (no periods)
@@ -65,17 +65,68 @@ KanonakProtocol:
         PackageHyphenationRule:
           text: Use hyphen notation to create descriptive package names for related ontologies
           rationale: Hyphen notation enables logical grouping of related packages while avoiding conflicts with alias.resource reference syntax
+        CategoryPackageIsPluralRule:
+          text: >-
+            Packages that define a class or are expected to contain multiple
+            related instances SHOULD use a plural kebab-case noun (protocols,
+            agent-skills, agents, capabilities, github-skills), so the
+            singular form stays available for the instances inside them
+          rationale: >-
+            A category package is a namespace for a family of things; naming
+            it after the family rather than a single member leaves the
+            singular name free to identify one member without a YAML duplicate
+            key collision with the package declaration. This is how the
+            package "protocols" can contain an instance named "mcp" without
+            either the document having a duplicate top-level key or forcing
+            the instance into a non-conforming PascalCase name.
+        InstancePackageMayBeSingularRule:
+          text: >-
+            A package that exists specifically to describe one concrete entity
+            MAY use a singular name that matches the entity it describes
+            (e.g., mcp, a2a, kanonak-protocol), provided the singleton instance
+            inside uses a different kebab-case name so the package declaration
+            and the instance do not collide on the same top-level YAML key
+          rationale: >-
+            Instance packages are named after the thing they describe, which
+            makes the obvious instance name collide with the package name.
+            Resolving the collision by giving the instance a longer,
+            descriptive kebab-case name (model-context-protocol,
+            agent-to-agent-protocol, kanonak-protocol-spec) keeps the package
+            name short and recognizable while still following the
+            kebab-case-for-instances rule.
+      hasForbiddenRule:
+        SingularCategoryPackageRule:
+          text: >-
+            Category packages MUST NOT use a singular name that shadows the
+            class or instance they host - for example, a package named
+            "protocol" that defines the Protocol class, or a package named
+            "skill" that holds a single Skill instance
+          rationale: >-
+            A singular category package name forces every consuming instance
+            to either rename itself or fight the YAML duplicate-key error.
+            Pluralizing the package eliminates the conflict at the source and
+            makes it obvious from the name that the package is a namespace,
+            not a single thing.
       hasValidExample:
+        PluralCategoryPackages:
+          value: protocols, agent-skills, agents, capabilities, skill-capabilities, agent-capabilities, github-skills, github-agents
+          description: Category packages using plural kebab-case names, leaving the singular form free for the classes and instances they host
+        SingularInstancePackage:
+          value: mcp (package) + model-context-protocol (instance)
+          description: A specific-instance package named after its abbreviation, with a longer descriptive kebab-case instance name to avoid the duplicate-key collision
         CoreRdfPackage:
           value: core-rdf
           description: Core RDF vocabulary using hyphen notation
-        TravelSchemaPackage:
-          value: travel-schema
-          description: Travel domain schema using hyphens for multi-word readability
       hasInvalidExample:
         UppercasePackage:
           value: MyPackage
           description: Invalid - contains uppercase letters. Must use lowercase only
+        SingularCategoryPackage:
+          value: protocol (package that defines the Protocol class)
+          description: Invalid - singular category package shadows the class and forces every consuming instance to work around a name collision
+        CollidingInstanceName:
+          value: mcp package + mcp instance
+          description: Invalid - the package declaration and the instance both parse as the top-level YAML key "mcp", which is a duplicate key error
 
     Versioning:
       summary: Versions follow semantic versioning to communicate compatibility and breaking changes

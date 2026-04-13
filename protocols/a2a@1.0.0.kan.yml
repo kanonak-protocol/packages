@@ -6,21 +6,21 @@ a2a:
   imports:
     - publisher: kanonak.org
       packages:
-        - package: protocol
+        - package: protocols
           match: ^
-          version: 1.1.0
+          version: 1.0.0
         - package: mcp
           match: ^
           version: 1.0.0
           alias: mcp
 
-AgentToAgentProtocol:
+agent-to-agent-protocol:
   type: Protocol
   label: Agent-to-Agent Protocol
   comment: An open protocol created by Google and donated to the Linux Foundation that standardizes how autonomous AI agents discover each other, exchange tasks, and collaborate across frameworks. A2A absorbed IBM's Agent Communication Protocol (ACP) in August 2025 and is now one of the three flagship protocols under the Agentic AI Foundation alongside MCP and ANP.
   steward: linux-foundation
   layer: communication-layer
-  complements: mcp.ModelContextProtocol
+  complements: mcp.model-context-protocol
   specificationUrl: https://a2a-protocol.org/specification
   createdDate: 2025-04-09
   hasConvention:

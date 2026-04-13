@@ -6,11 +6,11 @@ agents-md:
   imports:
     - publisher: kanonak.org
       packages:
-        - package: protocol
+        - package: protocols
           match: ^
-          version: 1.1.0
+          version: 1.0.0
 
-AgentsMdProtocol:
+agents-md-protocol:
   type: Protocol
   label: AGENTS.md
   comment: A lightweight convention - originally introduced by OpenAI and now hosted under the Agentic AI Foundation - for giving AI coding agents project-specific guidance through a plain Markdown file at the root of a repository. AGENTS.md is the guidance-layer complement to the MCP tool layer and A2A communication layer.
