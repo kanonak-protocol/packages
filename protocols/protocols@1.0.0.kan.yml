@@ -180,7 +180,12 @@ layerName:
 steward:
   type: owl.ObjectProperty
   label: Steward
-  comment: Links a protocol to the organization that governs or maintains it
+  comment: >
+    Links a protocol to the organization that governs or maintains it.
+    Accepts either a single Steward reference or a YAML list of Steward
+    references when a protocol is jointly governed - for example, A2A is
+    jointly stewarded by Google and the Linux Foundation, and ACP is
+    jointly stewarded by Zed Industries and JetBrains.
   domain: Protocol
   range: Steward
 
@@ -266,6 +271,16 @@ nist-caisi:
   stewardName: NIST Center for AI Standards and Innovation
   stewardUrl: https://www.nist.gov/aisi
 
+zed-industries:
+  type: Steward
+  stewardName: Zed Industries
+  stewardUrl: https://zed.dev
+
+jetbrains:
+  type: Steward
+  stewardName: JetBrains
+  stewardUrl: https://www.jetbrains.com
+
 tool-layer:
   type: ProtocolLayer
   layerName: Tool Layer
@@ -277,6 +292,10 @@ communication-layer:
 discovery-layer:
   type: ProtocolLayer
   layerName: Discovery Layer
+
+integration-layer:
+  type: ProtocolLayer
+  layerName: Integration Layer
 
 guidance-layer:
   type: ProtocolLayer

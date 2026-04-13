@@ -1,0 +1,202 @@
+
+acp:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: protocols
+          match: ^
+          version: 1.0.0
+        - package: mcp
+          match: ^
+          version: 1.0.0
+          alias: mcp
+
+agent-client-protocol:
+  type: Protocol
+  label: Agent Client Protocol
+  comment: >
+    An open protocol - jointly governed by Zed Industries and JetBrains
+    under a BDFL model, with a stated aim of transitioning to an
+    independent foundation - that standardizes how a code editor or IDE
+    (the "Client") talks to a coding agent (the "Agent"). ACP is the
+    mirror image of MCP: MCP standardizes how an agent talks to tools
+    and data, while ACP standardizes how a host editor exposes and drives
+    an agent. It is carried over JSON-RPC 2.0, runs on stdio for local
+    transports and on HTTP or WebSocket for remote transports (remote is
+    noted as work in progress), and explicitly reuses MCP JSON shapes
+    where possible so a single editor can speak both protocols without
+    maintaining two serializers.
+  steward:
+    - zed-industries
+    - jetbrains
+  layer: integration-layer
+  complements: mcp.model-context-protocol
+  specificationUrl: https://agentclientprotocol.com/protocol/overview
+  hasConvention:
+
+    initialization:
+      summary: Every ACP session begins with an initialize handshake that negotiates protocol version and exchanges capabilities between the Client and the Agent
+      hasRequiredRule:
+        json-rpc-two-rule:
+          text: All ACP messages MUST be framed as JSON-RPC 2.0 requests, responses, or notifications with the 'jsonrpc' field set to the string '2.0'
+          rationale: Reusing JSON-RPC 2.0 gives ACP a battle-tested message envelope, a standard error shape, and free library support in every language an editor or agent is likely to be implemented in
+        initialize-first-rule:
+          text: The Client MUST send the 'initialize' request as its first message to the Agent and MUST NOT issue any session or authentication methods until it has received the initialize response
+          rationale: A fixed handshake prevents the Agent from having to guess which Client capabilities are available when answering early requests, and gives both peers one deterministic place to negotiate protocol version and feature flags
+      hasValidExample:
+        initialize-request:
+          value: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"1","capabilities":{"fs":{"readTextFile":true,"writeTextFile":true},"terminal":true}}}'
+          description: A well-formed JSON-RPC 2.0 initialize request declaring the Client's supported protocol version and advertising its file-system and terminal capabilities
+      hasInvalidExample:
+        session-before-initialize:
+          value: 'client sends session/new before it has received an initialize response'
+          description: Invalid - the initialize handshake must complete before any session or authentication method is issued
+
+    authentication:
+      summary: When an Agent requires credentials, the Client authenticates via a dedicated authenticate method after initialization and before any session operation
+      hasRequiredRule:
+        authenticate-after-initialize-rule:
+          text: If the Agent's advertised capabilities indicate authentication is required, the Client MUST call 'authenticate' after receiving the initialize response and before issuing any method that depends on the authenticated identity
+          rationale: Ordering authentication after initialize keeps the capability handshake and the credential exchange on the same deterministic path, so Agents never have to accept or reject session methods based on an ambiguous auth state
+      hasValidExample:
+        authenticate-request:
+          value: '{"jsonrpc":"2.0","id":2,"method":"authenticate","params":{"method":"oauth-device-code","credentials":{"token":"..."}}}'
+          description: An authenticate request following the initialize handshake, carrying credentials in the JSON-RPC params rather than the transport layer
+      hasInvalidExample:
+        auth-in-initialize:
+          value: 'client embeds credentials inside the initialize params'
+          description: Invalid - credentials belong in the authenticate request, not in initialize; initialize is for version and capability negotiation only
+
+    session-setup:
+      summary: All agentic work happens inside a named session created by session/new or restored by session/load, with every session addressable by the ID returned from session/new
+      hasRequiredRule:
+        session-new-rule:
+          text: The Client MUST call 'session/new' to obtain a session ID before issuing any session-scoped method (session/prompt, session/cancel, session/set_mode, session/update, session/request_permission)
+          rationale: A session ID is the only unambiguous way the Client and Agent can correlate a prompt turn with its streaming updates, permission requests, and cancellation signals; without it, multi-session Agents cannot route messages correctly
+        session-load-capability-rule:
+          text: The Client MUST NOT call 'session/load' unless the Agent advertised the loadSession capability in its initialize response
+          rationale: session/load is optional and some Agents do not persist sessions across connections; calling it unconditionally produces a cryptic error instead of the capability-gated failure the handshake is designed to prevent
+      hasValidExample:
+        session-new-request:
+          value: '{"jsonrpc":"2.0","id":3,"method":"session/new","params":{}}'
+          description: A session/new request that will return a session ID the Client uses for every subsequent session-scoped call
+        session-load-request:
+          value: '{"jsonrpc":"2.0","id":4,"method":"session/load","params":{"sessionId":"sess-abc-123"}}'
+          description: A session/load request targeting a previously-persisted session ID, issued only because the Agent declared the loadSession capability
+      hasInvalidExample:
+        reuse-id-across-agents:
+          value: 'client reuses a sessionId obtained from agent A when talking to agent B'
+          description: Invalid - session IDs are scoped to the Agent that issued them and must not be treated as globally unique identifiers
+
+    prompt-turn:
+      summary: A prompt turn drives the Agent's work with session/prompt, streams progress back over session/update notifications, and can be stopped with session/cancel
+      hasRequiredRule:
+        notifications-no-response-rule:
+          text: Recipients MUST NOT send any response - successful or error - to a session/update notification, because session/update is a JSON-RPC notification, not a request
+          rationale: Notifications are fire-and-forget by design in JSON-RPC 2.0; responding to them breaks the protocol contract and can leave the transport in an inconsistent state where each peer disagrees about the count of outstanding requests
+      hasRecommendedRule:
+        stream-updates-during-long-prompts-rule:
+          text: Agents SHOULD emit session/update notifications as work progresses for any prompt that runs longer than a few hundred milliseconds, rather than waiting to deliver all output in the final session/prompt response
+          rationale: Streaming updates let the editor show real-time progress and cancel early if the user changes direction; batching everything into the final response makes the editor feel unresponsive
+      hasValidExample:
+        prompt-request:
+          value: '{"jsonrpc":"2.0","id":5,"method":"session/prompt","params":{"sessionId":"sess-abc-123","prompt":"Refactor this file to use async/await"}}'
+          description: A session/prompt request that kicks off a prompt turn inside an existing session
+        update-notification:
+          value: '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess-abc-123","kind":"agent-text","content":"Analyzing imports..."}}'
+          description: A session/update notification streaming an in-progress status message for the active prompt turn
+      hasInvalidExample:
+        response-to-update:
+          value: '{"jsonrpc":"2.0","id":null,"result":{"ok":true}}'
+          description: Invalid - session/update is a notification, not a request, and must not receive a response
+
+    tool-calls:
+      summary: When the Agent wants to run a tool that affects the user's environment, it asks the Client for permission via session/request_permission before proceeding
+      hasRequiredRule:
+        surface-permission-request-rule:
+          text: The Client MUST surface session/request_permission to the end user and return only the user's decision; it MUST NOT auto-approve the request on the user's behalf
+          rationale: The whole point of the permission handshake is human-in-the-loop control over Agent actions - a Client that auto-approves defeats the security model and turns ACP into a trust-me back channel
+      hasValidExample:
+        request-permission:
+          value: '{"jsonrpc":"2.0","id":6,"method":"session/request_permission","params":{"sessionId":"sess-abc-123","toolCall":{"name":"bash","input":{"command":"rm -rf ./dist"}}}}'
+          description: A session/request_permission request in which the Agent asks the Client to get user approval before executing a destructive bash command
+      hasInvalidExample:
+        silent-auto-approve:
+          value: 'client returns an approved response to session/request_permission without ever prompting the user'
+          description: Invalid - the Client is required to route the decision through the user, not through a policy that silently says yes
+
+    file-system:
+      summary: Agents read and write text files in the Client's workspace through fs/read_text_file and fs/write_text_file, gated by the fs capability the Client declared at initialize time
+      hasRequiredRule:
+        absolute-paths-rule:
+          text: All file paths passed to fs/read_text_file and fs/write_text_file MUST be absolute, not relative to any working directory
+          rationale: The Agent and the Client may have different working directories - or the Agent may have none at all when running remotely - so absolute paths are the only unambiguous way to identify a file
+        one-based-lines-rule:
+          text: Any line-number fields in fs/read_text_file and fs/write_text_file requests or responses MUST be 1-based, not 0-based
+          rationale: Editor tooling and error messages are universally 1-based; using 0-based line numbers would force every Client to translate them at the boundary and is a common source of off-by-one bugs
+        fs-capability-rule:
+          text: The Client MUST advertise the fs capability in its initialize response before the Agent issues any fs/read_text_file or fs/write_text_file request
+          rationale: File system methods are optional; Clients that do not expose the user's workspace (for example, a browser-based host) cannot support them, and capability gating prevents the Agent from issuing requests that will always fail
+      hasValidExample:
+        read-file-request:
+          value: '{"jsonrpc":"2.0","id":7,"method":"fs/read_text_file","params":{"path":"/Users/alice/project/src/index.ts","startLine":1,"endLine":40}}'
+          description: A read request with an absolute path and 1-based inclusive line range
+      hasInvalidExample:
+        relative-path:
+          value: '{"jsonrpc":"2.0","id":7,"method":"fs/read_text_file","params":{"path":"./src/index.ts"}}'
+          description: Invalid - relative paths are forbidden; the request must use an absolute path
+
+    terminals:
+      summary: Agents can create, interact with, and reap long-running terminal processes in the Client's workspace through the terminal/* method family, gated by the terminal capability
+      hasRequiredRule:
+        terminal-capability-rule:
+          text: The Agent MUST NOT issue any terminal/create, terminal/output, terminal/release, terminal/wait_for_exit, or terminal/kill request unless the Client declared the terminal capability in its initialize response
+          rationale: Terminals give the Agent a direct path to execute arbitrary commands in the user's environment, so the Client is the only party that can decide whether to expose that capability at all
+        release-on-finish-rule:
+          text: After a terminal exits or is killed, the Client MUST eventually receive a terminal/release request so it can free the underlying PTY resources
+          rationale: Terminals consume file descriptors and PTY slots; forgetting to release them leaks resources and eventually exhausts the Client's process table
+      hasValidExample:
+        create-terminal:
+          value: '{"jsonrpc":"2.0","id":8,"method":"terminal/create","params":{"sessionId":"sess-abc-123","command":"pnpm test","cwd":"/Users/alice/project"}}'
+          description: A terminal/create request launching a test runner in the project directory and receiving a terminal ID the Agent can use for output and lifecycle calls
+      hasInvalidExample:
+        terminal-without-capability:
+          value: 'agent issues terminal/create to a client that did not declare the terminal capability'
+          description: Invalid - the client must advertise terminal support before the agent can create a terminal
+
+    session-modes:
+      summary: An Agent can switch between named operating modes during an active session by accepting a session/set_mode request from the Client
+      hasRecommendedRule:
+        declare-supported-modes-rule:
+          text: Agents that accept session/set_mode SHOULD declare the set of supported mode names through their initialize response so the Client does not have to guess
+          rationale: Modes are Agent-defined and arbitrary; advertising the supported set during the handshake lets the Client render a picker, reject unsupported modes up front, and surface a clear error path
+      hasValidExample:
+        set-mode-request:
+          value: '{"jsonrpc":"2.0","id":9,"method":"session/set_mode","params":{"sessionId":"sess-abc-123","mode":"plan"}}'
+          description: A session/set_mode request switching the Agent from its current mode into the "plan" mode for the rest of the session or until another set_mode is issued
+      hasInvalidExample:
+        unknown-mode:
+          value: 'client sets a mode name that the agent never advertised as supported'
+          description: Invalid - modes are Agent-defined, so the Client must choose from the set the Agent advertised rather than inventing one
+
+    extensibility:
+      summary: ACP is extensible through _meta fields on any request or response and through underscore-prefixed method names for vendor extensions
+      hasRequiredRule:
+        ignore-unknown-meta-rule:
+          text: Clients and Agents MUST ignore unknown _meta fields on any message rather than erroring out, so extensions added by peers at a newer protocol version remain forward-compatible
+          rationale: Without ignore-unknown-meta semantics, every future extension would break every older Client and Agent; forward compatibility is the whole reason _meta exists in the first place
+      hasRecommendedRule:
+        underscore-method-prefix-rule:
+          text: Vendor-specific extension methods SHOULD be prefixed with an underscore (for example, _zed/custom_operation) so they are clearly distinguishable from core ACP methods
+          rationale: The underscore prefix makes the core-versus-extension boundary visible at the wire level, which helps debugging and prevents accidental collisions with future core method names
+      hasValidExample:
+        meta-field:
+          value: '{"jsonrpc":"2.0","id":10,"method":"session/prompt","params":{"sessionId":"sess-abc-123","prompt":"Hi","_meta":{"vendor-telemetry-id":"abc-123"}}}'
+          description: A standard session/prompt request carrying a vendor-specific _meta field that unrecognizing peers are required to ignore
+      hasInvalidExample:
+        error-on-unknown-meta:
+          value: 'client rejects a response because it contains an unrecognized _meta field'
+          description: Invalid - unknown _meta fields must be silently ignored, not treated as a protocol error
