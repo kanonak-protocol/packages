@@ -1,0 +1,142 @@
+agent-capability:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: capabilities
+          match: ^
+          version: 1.0.0
+          alias: cap
+        - package: agents
+          match: ^
+          version: 1.0.0
+          alias: agents
+
+AgentInstanceDeployment:
+  type: cap.DeploymentTarget
+  label: Agent Instance Deployment
+  comment: >
+    Deployment target for agents.Agent instances. Transforms each
+    Agent into its target client's on-disk file format
+    (markdown-with-frontmatter for Claude Code and Gemini CLI, TOML
+    for Codex) and writes it to the client's projectAgentDir or
+    userAgentDir as declared on the selected agent-skills.Client.
+    The CLI registers an AgentDeploymentHandler under this
+    instance's local name to perform the actual materialization.
+
+agent-management:
+  type: cap.Capability
+  commandName: agent
+  cap.description: >
+    Manage AI agent definitions. Install, list, update, and remove
+    Agents from Kanonak publishers. Agents are transformed from
+    Kanonak YAML to the target client's on-disk format and placed
+    in the client's agent discovery directory. Supports Claude
+    Code, OpenAI Codex, Gemini CLI, and the cross-client .agents/
+    layout.
+  managesType: agents.Agent
+  deploymentTarget: AgentInstanceDeployment
+  hasCommand:
+
+    AddAgent:
+      subcommandName: add
+      cap.description: Install an agent from a Kanonak publisher.
+      performs: cap.fetchAndDeploy
+      hasArgument:
+        Package:
+          argumentName: package
+          isRequired: true
+          isOption: false
+        Client:
+          argumentName: client
+          isRequired: false
+          isOption: true
+        Scope:
+          argumentName: scope
+          isRequired: false
+          isOption: true
+          defaultValue: project
+
+    RemoveAgent:
+      subcommandName: remove
+      cap.description: Remove an installed agent.
+      performs: cap.removeDeployed
+      hasArgument:
+        AgentName:
+          argumentName: agent-name
+          isRequired: true
+          isOption: false
+        Client:
+          argumentName: client
+          isRequired: false
+          isOption: true
+        Scope:
+          argumentName: scope
+          isRequired: false
+          isOption: true
+          defaultValue: project
+
+    ListAgents:
+      subcommandName: list
+      cap.description: List installed agents.
+      performs: cap.listDeployed
+      hasArgument:
+        Client:
+          argumentName: client
+          isRequired: false
+          isOption: true
+        Scope:
+          argumentName: scope
+          isRequired: false
+          isOption: true
+          defaultValue: project
+
+    UpdateAgents:
+      subcommandName: update
+      cap.description: Update installed agents to their latest compatible versions.
+      performs: cap.updateDeployed
+      hasArgument:
+        AgentName:
+          argumentName: agent-name
+          isRequired: false
+          isOption: false
+        Client:
+          argumentName: client
+          isRequired: false
+          isOption: true
+        Scope:
+          argumentName: scope
+          isRequired: false
+          isOption: true
+          defaultValue: project
+
+    SearchAgents:
+      subcommandName: search
+      cap.description: Search for agents from a publisher.
+      performs: cap.searchAvailable
+      hasArgument:
+        Publisher:
+          argumentName: publisher
+          isRequired: false
+          isOption: true
+
+    AgentInfo:
+      subcommandName: info
+      cap.description: Show details about an installed agent.
+      performs: cap.showInfo
+      hasArgument:
+        AgentName:
+          argumentName: agent-name
+          isRequired: true
+          isOption: false
+        Client:
+          argumentName: client
+          isRequired: false
+          isOption: true
+        Scope:
+          argumentName: scope
+          isRequired: false
+          isOption: true
+          defaultValue: project
