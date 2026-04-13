@@ -1,0 +1,877 @@
+kanonak-sdk-skill:
+  type: Package
+  publisher: kanonak.org
+  version: 1.1.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: agent-skills
+          match: ^
+          version: 1.1.0
+          alias: skills
+        - package: core-spdx
+          match: ^
+          version: 1.0.0
+          alias: spdx
+
+kanonak-sdk:
+  type: skills.Skill
+  skills.name: kanonak-sdk
+  description: >-
+    Teaches an AI agent how to use the @kanonak-protocol/sdk TypeScript
+    package, with a deliberate focus on the graph features used to build
+    visualization applications. Covers installation in Node and browser
+    environments, parsing Kanonak YAML, the repository abstractions for
+    local and HTTP-backed loading, the SubjectKanonak object model that
+    consumers walk to read entities, the GraphBuilder API, the node and
+    edge shape, and common integration patterns for visualization
+    libraries like Cytoscape, vis-network, and D3. Use when building
+    any tool that needs to read, traverse, or visualize Kanonak
+    documents - especially when you cannot read SDK source code
+    directly because the published bundle is minified.
+  license: spdx.Apache-2-0
+  compatibility: >-
+    Requires @kanonak-protocol/sdk version 1.4.0 or later. Node 18+ for
+    the Node entry point; modern evergreen browsers for the browser
+    entry point. Network access to publisher domains for HTTP-backed
+    repositories.
+  allowedTools:
+    - skills.read
+    - skills.grep
+    - skills.glob
+    - skills.web-fetch
+    - skills.bash
+  hasSection:
+
+    - title: Quick start
+      body: |
+        If you already know what you are doing, the minimal
+        working example is these five lines:
+
+        ```ts
+        import {
+          KanonakParser,
+          GraphBuilder,
+          InMemoryKanonakDocumentRepository,
+        } from '@kanonak-protocol/sdk';           // or .../sdk/browser in a browser bundle
+
+        const parser = new KanonakParser();
+        const repo = new InMemoryKanonakDocumentRepository(parser);
+        const doc = parser.parse(yamlText);
+        const ns = doc.metadata.namespace_;
+        await repo.saveDocumentAsync(doc, `${ns.publisher}/${ns.package_}@${ns.version}`);
+
+        const graph = await GraphBuilder.buildFromRepository(repo);
+        // graph.nodes and graph.edges are now ready to feed
+        // cytoscape, vis-network, d3-force, etc.
+        ```
+
+        Everything in the rest of this skill is elaboration on
+        those five lines. The three things you will want next are:
+
+        1. A **LocalFirstRepository** wrapper that adds HTTP
+           fallback so imported packages are fetched on demand
+           (see the browser section below).
+        2. A **style-by-NodeType** color map so the node types
+           are visually distinct (see the visualization section).
+        3. **Error handling** around `parser.parse()` and the
+           async repo calls (see the error handling section).
+
+    - title: What the SDK provides
+      body: |
+        The @kanonak-protocol/sdk package is the canonical TypeScript
+        consumer of the Kanonak Protocol. It exposes:
+
+        - **Parsing** — `KanonakParser` reads `.kan.yml` text into a
+          `KanonakDocument`. `KanonakObjectParser` then walks that
+          document with full URI resolution and produces
+          `SubjectKanonak[]`, the parsed object model with resolved
+          references.
+        - **Repositories** — pluggable `IKanonakDocumentRepository`
+          implementations that load documents from memory, the
+          local filesystem, an HTTP origin, or any composition of
+          those. Repositories are how imports get resolved across
+          packages.
+        - **Resolution** — `ResourceResolver` and `KanonakUri` for
+          looking up entities by name across a repository's
+          transitive imports.
+        - **Object model** — `Kanonak`, `SubjectKanonak`,
+          `EmbeddedKanonak`, `ReferenceKanonak`, plus a family of
+          `IStatement` subclasses (`StringStatement`,
+          `ReferenceStatement`, `ListStatement`, `EmbeddedStatement`,
+          etc.). Every statement carries a `predicate: ReferenceKanonak`
+          whose `subject: KanonakUri` is the canonical identity of the
+          property the statement is talking about.
+        - **Graph** — `GraphBuilder` produces visualization-ready
+          `{ nodes, edges }` data from a repository or a single
+          document. This is the primary subject of this skill.
+        - **Validation** — a large set of document and repository
+          validation rules (out of scope here).
+
+        The SDK's published bundle is minified. Do not try to read
+        the source — read this skill instead, plus the .d.ts files
+        that ship in the package for type information.
+
+    - title: Installation and entry points
+      body: |
+        Install once:
+
+        ```bash
+        npm install @kanonak-protocol/sdk
+        ```
+
+        The package has TWO entry points and you must pick the right
+        one:
+
+        ```ts
+        // Node / server-side / CLI tools
+        import {
+          KanonakParser,
+          KanonakObjectParser,
+          GraphBuilder,
+          InMemoryKanonakDocumentRepository,
+          FileSystemKanonakDocumentRepository,
+          HttpKanonakDocumentRepository,
+          CompositeKanonakDocumentRepository,
+        } from '@kanonak-protocol/sdk';
+        ```
+
+        ```ts
+        // Browser / web app
+        import {
+          KanonakParser,
+          KanonakObjectParser,
+          GraphBuilder,
+          InMemoryKanonakDocumentRepository,
+          HttpKanonakDocumentRepository,
+          PublisherIndex,
+          PublisherConfigResolver,
+        } from '@kanonak-protocol/sdk/browser';
+        ```
+
+        The browser entry point excludes `FileSystemKanonakDocumentRepository`,
+        `CompositeKanonakDocumentRepository`, `RepositoryFactory`, and
+        `getGlobalCachePath` because those require Node's `fs` and
+        `path` modules. Importing the Node entry point in a browser
+        bundle will fail at bundle time with a missing-built-in error.
+        Importing the browser entry point in Node still works.
+
+    - title: Parsing a single document
+      body: |
+        `KanonakParser.parse(text)` turns YAML text into a
+        `KanonakDocument`. The document has two parts:
+
+        ```ts
+        interface KanonakDocument {
+          metadata: {
+            namespace_?: { publisher, package_, version };
+            imports?: Record<publisher, Import[]>;
+          };
+          body: Record<entityName, RawEntity>;
+        }
+        ```
+
+        `body` is the raw YAML dict — every top-level entity in the
+        document. `metadata.namespace_` carries the package's
+        canonical identity (publisher, package, version). `metadata.imports`
+        lists the imported packages with their alias and version
+        constraints.
+
+        ```ts
+        import { KanonakParser } from '@kanonak-protocol/sdk';
+
+        const parser = new KanonakParser();
+        const doc = parser.parse(yamlText);
+        console.log(doc.metadata.namespace_); // -> kanonak.org/agent-skills@1.0.0
+        console.log(Object.keys(doc.body));   // -> top-level entity names
+        ```
+
+        Do NOT try to interpret `doc.body` directly — the keys you see
+        are local names whose semantics depend on the document's
+        imports. Always feed `doc` into a repository and walk it with
+        `KanonakObjectParser` for resolved URIs.
+
+    - title: Repository abstractions
+      body: |
+        A repository (`IKanonakDocumentRepository`) is the SDK's
+        abstraction for "where do documents live". Every consumer
+        gives the parser a repository so import resolution can find
+        related packages. The interface:
+
+        ```ts
+        interface IKanonakDocumentRepository {
+          getAllDocumentsAsync(): Promise<KanonakDocument[]>;
+          getDocumentAsync(id: string): Promise<KanonakDocument | null>;
+          getDocumentsByNamespaceAsync(publisher, package_): Promise<KanonakDocument[]>;
+          getHighestCompatibleVersionAsync(publisher, import_): Promise<KanonakDocument | null>;
+          // ...plus save/delete/clear methods used by writers
+        }
+        ```
+
+        The SDK ships several implementations. Pick by environment:
+
+        ```ts
+        // In-memory: build up by calling saveDocumentAsync().
+        // Works in Node AND browser. Best for tests and tools that
+        // already have document content in hand.
+        const repo = new InMemoryKanonakDocumentRepository(parser);
+        await repo.saveDocumentAsync(doc, 'my-doc-id');
+
+        // HTTP: fetches https://{publisher}/{package}/{version}.kan.yml
+        // and respects /.well-known/kanonak.json. Works in Node AND
+        // browser. Pass an authenticated fetch if needed.
+        const httpRepo = new HttpKanonakDocumentRepository({
+          getFromCache: (pub, pkg, ver) => null,
+          onFetch: (pub, pkg, ver, content) => { /* optional cache write */ },
+        });
+
+        // Filesystem: reads from a directory tree on disk.
+        // NODE ONLY - browser bundles will fail.
+        const fsRepo = new FileSystemKanonakDocumentRepository(
+          '/path/to/packages',
+          true /* recursive */,
+          parser
+        );
+
+        // Composite: chain multiple repos. First match wins for reads.
+        // NODE ONLY - relies on filesystem repo internally.
+        const composite = new CompositeKanonakDocumentRepository(repos);
+        ```
+
+        **Browser visualizers should compose `InMemoryKanonakDocumentRepository`
+        with `HttpKanonakDocumentRepository`** to get local-first
+        plus HTTP fallback. There is no `LocalFirstRepository` exposed
+        from the SDK — that lives in the CLI source — so do the
+        composition yourself in your app.
+
+    - title: SubjectKanonak object model
+      body: |
+        `KanonakObjectParser.parseKanonaks(repository)` is the
+        function that gives you the parsed object model with all
+        references resolved to canonical URIs. It returns
+        `Kanonak[]` — but in practice the entries you care about
+        are `SubjectKanonak` instances, one per top-level entity
+        across every document in the repository.
+
+        ```ts
+        import {
+          KanonakObjectParser,
+          SubjectKanonak,
+          ReferenceStatement,
+          StringStatement,
+          ListStatement,
+        } from '@kanonak-protocol/sdk';
+
+        const objectParser = new KanonakObjectParser();
+        const kanonaks = await objectParser.parseKanonaks(repo);
+
+        for (const k of kanonaks) {
+          if (!(k instanceof SubjectKanonak)) continue;
+          console.log(k.namespace, k.name); // e.g. kanonak.org/agent-skills@1.0.0 Skill
+
+          for (const stmt of k.statement) {
+            // Every statement carries:
+            //   stmt.predicate.subject  -> KanonakUri (publisher, package_, name, version)
+            //
+            // The concrete object depends on the statement subclass:
+            if (stmt instanceof StringStatement) {
+              console.log('  literal', stmt.predicate.subject.name, '=', stmt.object);
+            } else if (stmt instanceof ReferenceStatement) {
+              console.log('  ref', stmt.predicate.subject.name, '->', stmt.object.subject.toString());
+            } else if (stmt instanceof ListStatement) {
+              console.log('  list', stmt.predicate.subject.name, 'len=', stmt.object.length);
+            }
+          }
+        }
+        ```
+
+        Two rules that prevent the most common consumer bugs:
+
+        1. **Compare identity by URI, not by string shape.** Each
+           statement's predicate has a `subject: KanonakUri` with
+           `publisher`, `package_`, `name`, `version` fields. Compare
+           against those. Do not strip alias prefixes off raw YAML
+           keys, do not use `endsWith('.Class')`, do not invent a
+           local-name heuristic.
+        2. **Read property values by walking statements**, not by
+           accessing the raw dict. The dict is alias-dependent; the
+           statement list is canonical.
+
+    - title: GraphBuilder API
+      body: |
+        `GraphBuilder` is the visualization entry point. It produces
+        a `GraphData` value that maps cleanly to any node/edge graph
+        library.
+
+        ```ts
+        import { GraphBuilder, GraphData } from '@kanonak-protocol/sdk';
+
+        const graph: GraphData = await GraphBuilder.buildFromRepository(repo);
+        // graph.nodes: GraphNode[]
+        // graph.edges: GraphEdge[]
+        ```
+
+        Two static methods, used in different situations:
+
+        - **`buildFromRepository(repo)`** — async. Parses every
+          document the repository can produce, resolves imports,
+          classifies every entity, and builds nodes + edges across
+          the entire transitive closure. This is what you want for a
+          full ontology browser or any view that needs to see edges
+          crossing package boundaries.
+
+        - **`buildFromDocument(doc)`** — sync. Builds nodes + edges
+          from one already-parsed `KanonakDocument` only. Edges
+          referencing entities in OTHER documents are filtered out.
+          This is the lightweight option when you want to render a
+          single package without dragging its imports in.
+
+        Use `buildFromRepository` if you might link to imported
+        types; use `buildFromDocument` if you only want the local
+        package's structure.
+
+    - title: GraphNode and GraphEdge shapes
+      body: |
+        Every node has the same shape:
+
+        ```ts
+        interface GraphNode {
+          id: string;        // canonical URI — see "Node id format" below
+          label: string;     // display label (entity rdfs:label or name)
+          type: NodeType;    // semantic classification (see below)
+          namespace: string; // "publisher/package" of the source document
+          properties: Record<string, unknown>; // scalar key/values for tooltips
+        }
+
+        **Node id format**:
+
+        - **Top-level entities** — id is the full canonical URI
+          `{publisher}/{package}/{name}@{version.major}.{minor}.{patch}`.
+          Example: `kanonak.org/core-owl/Class@2.0.0`. This is the
+          form you get back for every entity when you call
+          `buildFromRepository` or `buildFromDocument` against a
+          properly-declared package (any package that declares
+          `publisher` and `version` in its Package entity — which
+          is every real document).
+        - **Embedded (anonymous inline) objects** — id is the
+          parent entity's canonical URI with the property key
+          appended: `${parentId}/${propertyKey}`. So an embedded
+          Address on an instance `alice` under property
+          `hasAddress` becomes
+          `kanonak.org/my-pkg/alice@1.0.0/hasAddress`. If the
+          instance is nested further, the chain continues:
+          `kanonak.org/my-pkg/alice@1.0.0/hasAddress/hasCity`.
+        - **Documents with no namespace** (rare — malformed or
+          fragment docs) — id falls back to just the bare entity
+          name. You almost never see this with real published
+          packages.
+
+        The id is opaque — do NOT try to parse it. If you need to
+        follow an edge back to its source node, look the edge's
+        `source` / `target` string up in a `Map<id, GraphNode>`
+        you build from `graph.nodes` at render time.
+
+        enum NodeType {
+          Class              = 'Class',
+          ObjectProperty     = 'ObjectProperty',
+          DatatypeProperty   = 'DatatypeProperty',
+          AnnotationProperty = 'AnnotationProperty',
+          Instance           = 'Instance',
+          Datatype           = 'Datatype',
+          Unknown            = 'Unknown',
+        }
+        ```
+
+        Every edge has the same shape:
+
+        ```ts
+        interface GraphEdge {
+          source: string;     // node id
+          target: string;     // node id
+          type: EdgeType;
+          label: string;      // display label
+          propertyId?: string; // canonical URI of the property entity
+                               // that defines this relationship, if any
+        }
+
+        enum EdgeType {
+          InstanceOf         = 'instanceOf',         // Instance -> Class
+          SubClassOf         = 'subClassOf',         // Class -> Class
+          SubPropertyOf      = 'subPropertyOf',      // Property -> Property
+          Domain             = 'domain',             // Property -> Class
+          Range              = 'range',              // Property -> Class/Datatype
+          ObjectRelationship = 'objectRelationship', // Class -> Class via property
+          PropertyValue      = 'propertyValue',      // Instance -> value via property
+        }
+        ```
+
+        Two things about how edges are shaped that change how
+        you draw the graph:
+
+        1. **`ObjectRelationship` edges go directly Domain →
+           Range**, with the property's name as the edge label,
+           NOT as a node-between-nodes chain. Visually:
+
+           ```
+                         (edge label: hasAuthor,
+                          propertyId: .../hasAuthor)
+           [ Book ]  -----------------------------------> [ Person ]
+
+           NOT
+
+           [ Book ]  ---domain--->  [ hasAuthor ]  ---range--->  [ Person ]
+           ```
+
+           This is intentional — the builder does NOT emit separate
+           `Domain` and `Range` edges for the same property. If you
+           want click-to-inspect-property UX, read the edge's
+           `propertyId` and look it up in the node map.
+        2. **`PropertyValue` edges go from instances to whatever
+           the ObjectProperty value points at.** Their
+           `propertyId` field is the URI of the ObjectProperty
+           entity that defines the relationship — useful for
+           clickable edges.
+
+        **Using `propertyId` to make edges clickable** — build a
+        node index and look the property up when an edge is
+        selected:
+
+        ```ts
+        const nodeById = new Map<string, GraphNode>(
+          graph.nodes.map(n => [n.id, n])
+        );
+
+        function onEdgeClick(edge: GraphEdge) {
+          if (!edge.propertyId) return;
+          const propertyNode = nodeById.get(edge.propertyId);
+          if (!propertyNode) return;
+          // propertyNode is the ObjectProperty entity — show its
+          // label, comment, domain, range, etc. in your UI.
+          showDetail(propertyNode);
+        }
+        ```
+
+    - title: Building a graph end to end (Node)
+      body: |
+        Full Node example: load every `.kan.yml` file from a directory,
+        build the graph, dump it to JSON.
+
+        ```ts
+        import {
+          KanonakParser,
+          GraphBuilder,
+          FileSystemKanonakDocumentRepository,
+        } from '@kanonak-protocol/sdk';
+        import { writeFileSync } from 'node:fs';
+
+        const parser = new KanonakParser();
+        const repo = new FileSystemKanonakDocumentRepository(
+          '/path/to/packages',
+          true,
+          parser,
+        );
+
+        const graph = await GraphBuilder.buildFromRepository(repo);
+        writeFileSync('graph.json', JSON.stringify(graph, null, 2));
+        console.log(`Built graph: ${graph.nodes.length} nodes, ${graph.edges.length} edges`);
+        ```
+
+    - title: Building a graph end to end (browser)
+      body: |
+        The full browser pattern has three parts: a byte cache,
+        a composite `LocalFirst` repository that chains in-memory
+        + HTTP (with the byte cache wired through HTTP's fetch
+        hooks), and a graph build at the end. All of it runs in
+        the browser — no Node dependencies.
+
+        ```ts
+        import {
+          KanonakParser,
+          GraphBuilder,
+          InMemoryKanonakDocumentRepository,
+          HttpKanonakDocumentRepository,
+        } from '@kanonak-protocol/sdk/browser';
+        import type {
+          IKanonakDocumentRepository,
+          KanonakDocument,
+          Import,
+          DocumentReference,
+        } from '@kanonak-protocol/sdk/browser';
+
+        // 1. Byte cache. Any Map-like store works — sessionStorage,
+        //    localStorage, an IndexedDB wrapper, or a plain Map
+        //    scoped to the current page. Key by publisher/pkg@ver.
+        const byteCache = new Map<string, string>();
+        const cacheKey = (pub: string, pkg: string, ver: string) =>
+          `${pub}/${pkg}@${ver}`;
+
+        const parser = new KanonakParser();
+        const inMemory = new InMemoryKanonakDocumentRepository(parser);
+
+        const httpRepo = new HttpKanonakDocumentRepository({
+          getFromCache: (pub, pkg, ver) => byteCache.get(cacheKey(pub, pkg, ver)),
+          onFetch: (pub, pkg, ver, content) =>
+            byteCache.set(cacheKey(pub, pkg, ver), content),
+        });
+
+        // 2. Composite repo: in-memory first (the doc the user is
+        //    currently viewing), HTTP for everything imported.
+        //    The SDK does not ship a LocalFirstRepository in the
+        //    browser bundle — write this thin wrapper in your app.
+        class LocalFirstRepository implements IKanonakDocumentRepository {
+          constructor(private readonly tiers: IKanonakDocumentRepository[]) {}
+
+          async getAllDocumentsAsync(): Promise<KanonakDocument[]> {
+            const all: KanonakDocument[] = [];
+            for (const tier of this.tiers) {
+              try { all.push(...await tier.getAllDocumentsAsync()); } catch {}
+            }
+            return all;
+          }
+
+          async getHighestCompatibleVersionAsync(publisher: string, import_: Import) {
+            for (const tier of this.tiers) {
+              try {
+                const hit = await tier.getHighestCompatibleVersionAsync(publisher, import_);
+                if (hit) return hit;
+              } catch {}
+            }
+            return null;
+          }
+
+          async getDocumentAsync(identifier: string) {
+            for (const tier of this.tiers) {
+              try {
+                const hit = await tier.getDocumentAsync(identifier);
+                if (hit) return hit;
+              } catch {}
+            }
+            return null;
+          }
+
+          async getDocumentsByNamespaceAsync(publisher: string, package_: string) {
+            for (const tier of this.tiers) {
+              try {
+                const hit = await tier.getDocumentsByNamespaceAsync(publisher, package_);
+                if (hit.length > 0) return hit;
+              } catch {}
+            }
+            return [];
+          }
+
+          // The rest are writes / listings. In-memory first tier
+          // handles writes; reads delegate to that tier too.
+          saveDocumentAsync(doc: KanonakDocument, id: string) { return this.tiers[0].saveDocumentAsync(doc, id); }
+          deleteDocumentAsync(id: string) { return this.tiers[0].deleteDocumentAsync(id); }
+          clearNamespaceAsync(pub: string, pkg: string) { return this.tiers[0].clearNamespaceAsync(pub, pkg); }
+          getAllDocumentReferencesAsync(): Promise<DocumentReference[]> { return this.tiers[0].getAllDocumentReferencesAsync(); }
+          getDocumentContentAsync(id: string) { return this.tiers[0].getDocumentContentAsync(id); }
+          getDocumentUriAsync(id: string) { return this.tiers[0].getDocumentUriAsync(id); }
+        }
+
+        const repo = new LocalFirstRepository([inMemory, httpRepo]);
+
+        // 3. Fetch the package the user wants to view, save it
+        //    into the in-memory tier so we don't refetch it, and
+        //    build the graph. Every transitive import is resolved
+        //    through the LocalFirstRepository and fetched lazily.
+        const res = await fetch('https://kanonak.org/agent-skills/1.1.0.kan.yml');
+        const yamlText = await res.text();
+        const doc = parser.parse(yamlText);
+
+        const ns = doc.metadata.namespace_;
+        if (!ns) {
+          throw new Error('Fetched document is missing a Package declaration');
+        }
+        const versionString = `${ns.version.major}.${ns.version.minor}.${ns.version.patch}`;
+        const id = `${ns.publisher}/${ns.package_}@${versionString}`;
+        await inMemory.saveDocumentAsync(doc, id);
+
+        const graph = await GraphBuilder.buildFromRepository(repo);
+
+        // 4. Hand off to your visualization library.
+        renderGraph(graph);
+        ```
+
+        The `LocalFirstRepository` class above is the full
+        implementation — you do not need anything else from Node.
+        Swap the `byteCache` Map for an IndexedDB-backed store in
+        production so reloads don't refetch every package.
+
+    - title: Error handling
+      body: |
+        The SDK surface is mostly promises that reject on failure.
+        Wrap the three call sites that can realistically fail in
+        your app:
+
+        **`parser.parse(text)`** throws synchronously for
+        malformed YAML, duplicate keys, or documents with no
+        Package declaration. It does NOT return an error object —
+        it throws. Catch it at the source of the text:
+
+        ```ts
+        let doc: KanonakDocument;
+        try {
+          doc = parser.parse(yamlText);
+        } catch (err) {
+          // The parser throws Error with a message that usually
+          // includes a line number. Surface it to the user
+          // instead of crashing the visualization.
+          showError(`Could not parse document: ${(err as Error).message}`);
+          return;
+        }
+        ```
+
+        **`repository.getHighestCompatibleVersionAsync(publisher, import_)`**
+        returns `null` when the package (or the requested version
+        range) is not reachable. It does NOT throw for "not
+        found" — only for network errors and HTTP non-2xx
+        responses. Check the return value:
+
+        ```ts
+        const imported = await repo.getHighestCompatibleVersionAsync(pub, imp);
+        if (!imported) {
+          // The import could not be resolved. This is common when
+          // the user's publisher config is wrong or a cached copy
+          // is stale. Show the missing package and offer to retry.
+          showMissingImport(pub, imp.packageName);
+          return;
+        }
+        ```
+
+        **Network and HTTP errors** from
+        `HttpKanonakDocumentRepository` do throw. The rejection
+        reason is an `Error` whose message contains the URL and
+        the HTTP status. Wrap the outermost call (usually a
+        `GraphBuilder.buildFromRepository` or a
+        `parseKanonaks`) in a try/catch so a single broken
+        import does not crash the UI:
+
+        ```ts
+        let graph: GraphData;
+        try {
+          graph = await GraphBuilder.buildFromRepository(repo);
+        } catch (err) {
+          const message = (err as Error).message ?? String(err);
+          if (message.includes('Failed to fetch')) {
+            showNetworkError(message);
+          } else {
+            showGenericError(message);
+          }
+          return;
+        }
+        ```
+
+        **Reference resolution failures** (a `subClassOf` pointing
+        at an entity that doesn't exist) do NOT throw from the
+        graph builder. The builder emits the node and the edge,
+        and it's up to you to detect dangling edges if you care.
+        The pattern is: build a `Set` of node ids, then filter
+        edges whose `source` or `target` is missing, and log
+        those as warnings rather than rendering them.
+
+    - title: Wiring GraphData into visualization libraries
+      body: |
+        The `GraphData` shape is deliberately library-agnostic. Quick
+        adapters for the popular ones:
+
+        **Cytoscape.js**
+
+        ```ts
+        const elements = [
+          ...graph.nodes.map(n => ({ data: { id: n.id, label: n.label, type: n.type } })),
+          ...graph.edges.map(e => ({ data: { source: e.source, target: e.target, label: e.label, type: e.type } })),
+        ];
+        const cy = cytoscape({ container, elements, style: ..., layout: ... });
+        ```
+
+        **vis-network**
+
+        ```ts
+        import { Network, DataSet } from 'vis-network/standalone';
+        const nodes = new DataSet(graph.nodes.map(n => ({
+          id: n.id, label: n.label, group: n.type,
+        })));
+        const edges = new DataSet(graph.edges.map(e => ({
+          from: e.source, to: e.target, label: e.label, arrows: 'to',
+        })));
+        const network = new Network(container, { nodes, edges }, options);
+        ```
+
+        **D3 force layout**
+
+        ```ts
+        import { forceSimulation, forceLink, forceManyBody, forceCenter } from 'd3-force';
+        const sim = forceSimulation(graph.nodes)
+          .force('link', forceLink(graph.edges).id(d => d.id).distance(80))
+          .force('charge', forceManyBody().strength(-200))
+          .force('center', forceCenter(width / 2, height / 2));
+        ```
+
+        Across all three libraries the mapping is the same:
+        `GraphNode.id` is the canonical identifier; `GraphNode.type`
+        gives you a per-type stylable group; `GraphEdge.source` and
+        `GraphEdge.target` are graph node ids; `GraphEdge.type`
+        drives edge styling. Use `propertyId` on edges to make edges
+        clickable and look up the property entity in your node
+        index.
+
+        **Coloring nodes by type** — the first thing most people
+        want. Build a color map from `NodeType` enum values and
+        apply it in whatever shape your library expects:
+
+        ```ts
+        import { NodeType, EdgeType } from '@kanonak-protocol/sdk';
+
+        const NODE_COLOR: Record<string, string> = {
+          [NodeType.Class]:              '#4A90E2',
+          [NodeType.Instance]:           '#9013FE',
+          [NodeType.ObjectProperty]:     '#50E3C2',
+          [NodeType.DatatypeProperty]:   '#F5A623',
+          [NodeType.AnnotationProperty]: '#B8E986',
+          [NodeType.Datatype]:           '#7ED321',
+          [NodeType.Unknown]:            '#9B9B9B',
+        };
+
+        const EDGE_COLOR: Record<string, string> = {
+          [EdgeType.InstanceOf]:         '#9013FE',
+          [EdgeType.SubClassOf]:         '#4A90E2',
+          [EdgeType.SubPropertyOf]:      '#50E3C2',
+          [EdgeType.ObjectRelationship]: '#F5A623',
+          [EdgeType.PropertyValue]:      '#D0021B',
+          [EdgeType.Domain]:             '#8B572A',
+          [EdgeType.Range]:              '#417505',
+        };
+        ```
+
+        Apply to **vis-network**:
+
+        ```ts
+        const nodes = new DataSet(graph.nodes.map(n => ({
+          id: n.id,
+          label: n.label,
+          group: n.type,
+          color: {
+            background: NODE_COLOR[n.type] ?? NODE_COLOR[NodeType.Unknown],
+            border:     '#222222',
+          },
+        })));
+        const edges = new DataSet(graph.edges.map(e => ({
+          from: e.source,
+          to: e.target,
+          label: e.label,
+          color: { color: EDGE_COLOR[e.type] ?? '#666666' },
+          arrows: 'to',
+        })));
+        ```
+
+        Apply to **Cytoscape** via a selector stylesheet instead:
+
+        ```ts
+        const style = [
+          { selector: 'node', style: { label: 'data(label)', 'background-color': 'data(color)' } },
+          { selector: 'edge', style: { label: 'data(label)', 'line-color': 'data(color)', 'target-arrow-color': 'data(color)', 'target-arrow-shape': 'triangle' } },
+        ];
+
+        const elements = [
+          ...graph.nodes.map(n => ({
+            data: {
+              id: n.id,
+              label: n.label,
+              type: n.type,
+              color: NODE_COLOR[n.type] ?? NODE_COLOR[NodeType.Unknown],
+            },
+          })),
+          ...graph.edges.map(e => ({
+            data: {
+              id: `${e.source}-${e.label}->${e.target}`,
+              source: e.source,
+              target: e.target,
+              label: e.label,
+              type: e.type,
+              color: EDGE_COLOR[e.type] ?? '#666666',
+            },
+          })),
+        ];
+        ```
+
+        Add distinct node shapes per type (`shape: 'box'` for
+        classes, `shape: 'dot'` for instances, etc.) and you have
+        a usable ontology browser in about 60 lines.
+
+    - title: Troubleshooting
+      body: |
+        **Empty graph when I expected nodes.**
+        Check that the repository actually contains documents.
+        ```ts
+        const docs = await repo.getAllDocumentsAsync();
+        console.log('repo has', docs.length, 'documents');
+        for (const d of docs) console.log('  ', d.metadata.namespace_?.toString());
+        ```
+        The most common causes are: forgot to call
+        `inMemory.saveDocumentAsync(doc, id)` after parsing; used
+        a single-tier `InMemoryKanonakDocumentRepository` for a
+        document that imports other packages (no HTTP fallback);
+        or parsed a document whose Package declaration is missing
+        its `namespace_` (no publisher/version).
+
+        **Fewer edges than expected.**
+        You are almost certainly using `GraphBuilder.buildFromDocument`
+        instead of `GraphBuilder.buildFromRepository`. The
+        single-document method filters edges that reference
+        entities in other documents — which is every edge that
+        crosses an import boundary. Switch to the repository
+        variant and make sure imports are resolvable.
+
+        **Import resolution failing.**
+        Usually a mismatch between the alias declared in the
+        importing document and the alias used in a reference. For
+        example, declaring `alias: skills` but writing
+        `agent-skills.Skill` in a property value — the resolver
+        looks up `agent-skills` as an alias and doesn't find it.
+        Check that every `alias.entity` reference matches an
+        `alias:` declared in the same document's `imports` block.
+
+        **Property values show up as strings instead of
+        references.** The property is being classified as a
+        DatatypeProperty because its declaration doesn't have an
+        explicit `owl.ObjectProperty` type AND its range isn't a
+        recognized class. Either declare `type:
+        owl.ObjectProperty` on the property or make its `range`
+        clearly point at a `Class`.
+
+        **`ReferenceError` or `Cannot find module 'node:fs'` at
+        bundle time.** You imported from
+        `@kanonak-protocol/sdk` in a browser bundle. Switch every
+        import to `@kanonak-protocol/sdk/browser`.
+
+        **Graph shows duplicate-looking nodes.** If two
+        documents in the repository have the same
+        `publisher/package@version`, the second one overwrites
+        the first in-memory but both contribute entities to the
+        graph. Verify by listing all documents
+        (`getAllDocumentsAsync`) and their namespaces.
+
+    - title: Pitfalls and gotchas
+      body: |
+        - **Do not interpret raw YAML keys.** A document author can
+          write `cap.Capability` or `Capability` for the same entity
+          depending on imports — the canonical form is the
+          `KanonakUri` you get from the parser. Compare URIs.
+        - **Do not key dispatch tables by local entity names.** Two
+          different packages can both define a class called `Foo`.
+          Keying by `publisher/package/name` is unambiguous; keying
+          by `Foo` is not.
+        - **`GraphBuilder.buildFromDocument` filters out cross-package
+          edges.** If you see fewer edges than expected, switch to
+          `buildFromRepository` so the imported documents are part
+          of the graph.
+        - **Embedded objects show up as synthetic nodes.** Anonymous
+          inline objects under an ObjectProperty become
+          `Instance`-typed nodes whose id is `${parentId}/${propertyKey}`.
+          Style them differently if they would otherwise crowd your
+          graph.
+        - **Use the SDK's classification helpers (`ResourceTypeClassifier`)
+          for any type check beyond what the GraphBuilder already
+          does for you.** Do not re-implement type detection by
+          string matching.
