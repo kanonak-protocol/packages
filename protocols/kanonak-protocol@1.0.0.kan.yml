@@ -10,7 +10,7 @@ kanonak-protocol:
           match: ^
           version: 1.0.0
 
-Kanonak:
+KanonakProtocol:
   type: Protocol
   label: Kanonak Protocol
   comment: The Kanonak Protocol - an open protocol for defining, versioning, and sharing semantic ontologies across distributed publishers
@@ -234,8 +234,8 @@ Kanonak:
           description: camelCase - used for property definitions
       hasInvalidExample:
         ReservedRdfsPrefix:
-          value: rdfs:Class
-          description: Invalid - uses RDF prefix syntax. Use 'Class' with imports and qualified reference 'rdfs.Class' instead
+          value: rdfs-colon-Class
+          description: Invalid - uses RDF colon prefix syntax (as in rdfs followed by colon followed by Class). Use plain Class with imports, then reference it as rdfs.Class when disambiguation is needed.
 
     PackageStructure:
       summary: Every Kanonak document declares exactly one package with required metadata

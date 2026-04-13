@@ -1,4 +1,3 @@
-# Core Kanonak ontology - defines Package, Publisher, and Import classes
 
 core-kanonak:
   type: Package
@@ -10,79 +9,81 @@ core-kanonak:
         - package: core-rdf
           match: ^
           version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
 
-# Publisher class - identifies a package publisher by domain
 Publisher:
-  type: Class
+  type: rdfs.Class
   label: Publisher
   comment: A package publisher identified by domain
 
-# Package class - a Kanonak package with version and dependencies
 Package:
-  type: Class
+  type: rdfs.Class
   label: Package
   comment: A Kanonak package with version and dependencies
 
-# Import class - a package import specification
 Import:
-  type: Class
+  type: rdfs.Class
   label: Import
   comment: A package import specification
 
-# PublisherImport class - groups imports by publisher
 PublisherImport:
-  type: Class
+  type: rdfs.Class
   label: Publisher Import
   comment: A group of package imports from a single publisher
 
-# Properties for Package
 publisher:
-  type: ObjectProperty
+  type: owl.ObjectProperty
   label: Publisher
   comment: The publisher of a package or import group
   domain: Package, Import, PublisherImport
   range: Publisher
 
 version:
-  type: DatatypeProperty
+  type: owl.DatatypeProperty
   label: Version
   comment: The semantic version of a package or import constraint
   domain: Package, Import
-  range: string
+  range: xsd.string
 
 imports:
-  type: ObjectProperty
+  type: owl.ObjectProperty
   label: Imports
   comment: List of package imports grouped by publisher
   domain: Package
   range: PublisherImport
 
-# Properties for PublisherImport
 packages:
-  type: ObjectProperty
+  type: owl.ObjectProperty
   label: Packages
   comment: List of package imports from this publisher
   domain: PublisherImport
   range: Import
 
-# Properties for Import
 package:
-  type: ObjectProperty
+  type: owl.ObjectProperty
   label: Package
   comment: The package being imported
   domain: Import
   range: Package
 
 match:
-  type: DatatypeProperty
+  type: owl.DatatypeProperty
   label: Match
   comment: Version match operator (*, ~, ^, =)
   domain: Import
-  range: string
+  range: xsd.string
 
 alias:
-  type: DatatypeProperty
+  type: owl.DatatypeProperty
   label: Alias
   comment: Optional namespace alias for the import
   domain: Import
-  range: string
+  range: xsd.string

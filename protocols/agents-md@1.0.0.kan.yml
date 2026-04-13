@@ -1,0 +1,112 @@
+
+agents-md:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: protocol
+          match: ^
+          version: 1.1.0
+
+AgentsMdProtocol:
+  type: Protocol
+  label: AGENTS.md
+  comment: A lightweight convention - originally introduced by OpenAI and now hosted under the Agentic AI Foundation - for giving AI coding agents project-specific guidance through a plain Markdown file at the root of a repository. AGENTS.md is the guidance-layer complement to the MCP tool layer and A2A communication layer.
+  steward: aaif
+  layer: guidance-layer
+  specificationUrl: https://agents.md
+  createdDate: 2025-03-01
+  hasConvention:
+
+    FileLocation:
+      summary: AGENTS.md lives at a predictable location so agents can find it without configuration
+      hasRequiredRule:
+        RepositoryRootRule:
+          text: The primary AGENTS.md file MUST be placed at the repository root so any coding agent cloning the project can locate it without knowing the repository's layout
+          rationale: A fixed well-known location is the whole point of the convention - agents must be able to find project guidance without per-repo configuration
+        PlainMarkdownRule:
+          text: AGENTS.md MUST be a plain UTF-8 Markdown file - not a template, not a symlink to a documentation site, not a build output
+          rationale: Agents read the file directly at clone time; anything that requires a build step or network fetch defeats the zero-config promise
+      hasValidExample:
+        RepoRoot:
+          value: './AGENTS.md'
+          description: An AGENTS.md file placed directly at the repository root alongside README.md and the project manifest
+      hasInvalidExample:
+        NestedLocation:
+          value: './docs/agents/AGENTS.md'
+          description: Invalid - agents look at the repository root; a file buried under docs will not be found by default
+
+    Structure:
+      summary: AGENTS.md is free-form Markdown but follows a conventional set of top-level sections so agents can extract the information they need
+      hasRecommendedRule:
+        StandardHeadingsRule:
+          text: AGENTS.md SHOULD use conventional top-level Markdown headings such as Project Overview, Setup Commands, Code Style, Testing Instructions, and Security Considerations so agents can target specific information instead of reading the entire file
+          rationale: A small standard vocabulary of section headings lets agents extract the exact instructions they need for a task without having to interpret prose for every request
+        KeepItHumanReadableRule:
+          text: AGENTS.md SHOULD remain readable by humans - structured prose, command blocks, and short lists are preferred over machine-oriented formats like embedded JSON or YAML
+          rationale: The file doubles as onboarding documentation for human contributors; keeping it human-first means it stays current as part of normal code review
+      hasValidExample:
+        StandardSkeleton:
+          value: '# Project Name\n\n## Project Overview\n...\n\n## Setup Commands\n- npm install\n- npm run build\n\n## Testing Instructions\n- npm test\n\n## Code Style\n- TypeScript strict mode\n- 2 space indent'
+          description: A well-structured AGENTS.md with standard headings and short command lists under each section
+      hasInvalidExample:
+        JsonBlob:
+          value: '{"overview":"A project","setup":["npm install"],"tests":["npm test"]}'
+          description: Invalid - AGENTS.md is intended to be human-readable Markdown, not a machine-encoded config blob
+
+    Sections:
+      summary: Certain sections have an expected meaning that lets agents infer what to do in common tasks
+      hasRecommendedRule:
+        SetupCommandsSectionRule:
+          text: Projects SHOULD include a Setup Commands section listing the exact shell commands an agent should run in order to install dependencies and prepare a working tree
+          rationale: Setup is the single most common thing agents get wrong on a new repo; an explicit command list is cheaper to maintain than a prose description and eliminates guessing
+        TestingInstructionsRule:
+          text: Projects SHOULD include a Testing Instructions section naming the commands an agent should run before reporting a task complete
+          rationale: Agents that know how to run the tests can self-verify their changes before handing them back; agents that do not know routinely ship broken patches
+      hasValidExample:
+        SetupBlock:
+          value: '## Setup Commands\n\n- `pnpm install`\n- `pnpm run build`\n- `cp .env.example .env`'
+          description: A Setup Commands section with a precise ordered list of shell commands an agent can execute verbatim
+      hasInvalidExample:
+        VagueSetup:
+          value: '## Setup\n\nInstall dependencies and configure your environment as appropriate.'
+          description: Invalid - the prose is meaningless to an agent that has no prior context about which dependency manager or environment variables are required
+
+    Precedence:
+      summary: AGENTS.md is one of several guidance sources an agent may see; the convention defines how it interacts with the others
+      hasRequiredRule:
+        UserOverrideRule:
+          text: An agent MUST allow explicit user instructions given in the current task to override guidance in AGENTS.md when the two conflict
+          rationale: AGENTS.md captures defaults; the person driving the agent right now has context AGENTS.md cannot anticipate and must be able to override it
+      hasRecommendedRule:
+        ReadmeComplementRule:
+          text: AGENTS.md SHOULD complement rather than duplicate README.md - README targets humans first and AGENTS.md targets agents first, so they can diverge where the audiences differ
+          rationale: Duplicated content drifts out of sync; splitting by audience keeps each file useful without forcing every change to happen twice
+      hasValidExample:
+        UserOverride:
+          value: 'user says "skip the build step this time" - agent skips the Setup Commands build step for this task'
+          description: Agent honors a task-specific instruction that contradicts the default guidance in AGENTS.md
+      hasInvalidExample:
+        RigidFollowing:
+          value: 'user says "skip the build step" but agent runs it anyway because AGENTS.md says to'
+          description: Invalid - AGENTS.md defaults must yield to explicit user instructions for the current task
+
+    NestedAgentsMd:
+      summary: Large monorepos can place additional AGENTS.md files in subdirectories, with well-defined scoping rules
+      hasRecommendedRule:
+        SubdirectoryScopingRule:
+          text: Nested AGENTS.md files SHOULD only apply to tasks operating inside their subdirectory tree, and SHOULD NOT override global guidance for work elsewhere in the repo
+          rationale: Monorepos mix languages and subprojects whose conventions differ; scoping nested files to their own tree lets each subproject express its rules without leaking across the repo
+        InheritanceRule:
+          text: A nested AGENTS.md SHOULD inherit from the parent directory's AGENTS.md unless it explicitly supersedes a particular section
+          rationale: Writing every rule from scratch in every package is a maintenance burden; inheritance keeps shared defaults in one place and lets subprojects customize only what they need
+      hasValidExample:
+        MonorepoLayout:
+          value: './AGENTS.md (global)\n./packages/frontend/AGENTS.md (frontend-specific)\n./packages/backend/AGENTS.md (backend-specific)'
+          description: A monorepo with global guidance at the root and subpackage-specific guidance scoped to each package directory
+      hasInvalidExample:
+        GlobalOverrideFromNested:
+          value: 'packages/frontend/AGENTS.md declares "ignore the repository-wide Code Style section"'
+          description: Invalid - a nested file should not override global rules outside its own scope; if the global rule is wrong, fix the global file

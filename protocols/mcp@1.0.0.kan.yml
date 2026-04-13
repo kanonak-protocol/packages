@@ -1,0 +1,188 @@
+
+mcp:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: protocol
+          match: ^
+          version: 1.1.0
+
+ModelContextProtocol:
+  type: Protocol
+  label: Model Context Protocol
+  comment: An open protocol created by Anthropic that standardizes how AI applications connect to external tools, data sources, and prompts. MCP defines a JSON-RPC 2.0 based client-server protocol where hosts embed clients that talk to servers exposing tools, resources, and prompts.
+  steward: anthropic
+  layer: tool-layer
+  specificationUrl: https://modelcontextprotocol.io/specification
+  createdDate: 2024-11-25
+  hasConvention:
+
+    Transport:
+      summary: MCP is a JSON-RPC 2.0 protocol carried over a small, well-defined set of transports
+      hasRequiredRule:
+        JsonRpcFramingRule:
+          text: All MCP messages MUST be framed as JSON-RPC 2.0 requests, responses, or notifications with the 'jsonrpc' field set to the string '2.0'
+          rationale: Reusing JSON-RPC 2.0 gives MCP a battle-tested message shape, standard error envelope, and free library support across every language an agent host is likely to be implemented in
+        SupportedTransportRule:
+          text: Implementations MUST use one of the standardized MCP transports (stdio, Streamable HTTP, or the legacy HTTP+SSE transport) rather than inventing a bespoke transport
+          rationale: A closed set of transports lets any compliant client talk to any compliant server without negotiation over transport details
+      hasForbiddenRule:
+        NoEmbeddedNewlinesRule:
+          text: Individual JSON-RPC messages sent over the stdio transport MUST NOT contain embedded newlines in the serialized form - each message is a single line terminated by a newline
+          rationale: The stdio transport frames messages by newline; embedding literal newlines inside a message would corrupt the frame boundary
+      hasValidExample:
+        InitializeRequest:
+          value: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ExampleClient","version":"1.0.0"}}}'
+          description: A well-formed JSON-RPC 2.0 initialize request with the mandatory jsonrpc field and the MCP method name
+      hasInvalidExample:
+        MissingJsonRpcField:
+          value: '{"id":1,"method":"initialize","params":{}}'
+          description: Invalid - missing the required jsonrpc field, so this is not a JSON-RPC 2.0 message
+
+    Lifecycle:
+      summary: Every MCP session begins with an initialize handshake that negotiates protocol version and capabilities before any other request is permitted
+      hasRequiredRule:
+        InitializeFirstRule:
+          text: A client MUST send the 'initialize' request as its first message after establishing the transport, and MUST NOT issue any other requests until it has received the initialize response and sent the 'notifications/initialized' notification
+          rationale: A fixed handshake prevents servers from having to guess which client capabilities are available when answering early requests
+        ProtocolVersionEchoRule:
+          text: The server MUST echo the negotiated protocol version back in its initialize response; if it cannot support any version the client offers, it MUST fail the request rather than proceeding
+          rationale: Explicit version negotiation avoids silent incompatibility where two peers keep talking while interpreting the same method name differently
+      hasValidExample:
+        InitializedNotification:
+          value: '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+          description: The notification a client sends after receiving a successful initialize response - it has no id because it is a JSON-RPC notification, not a request
+      hasInvalidExample:
+        ToolCallBeforeInitialize:
+          value: 'client sends tools/call as its first message on a fresh connection'
+          description: Invalid - a client must not call any method other than initialize until the handshake has completed
+
+    Capabilities:
+      summary: Clients and servers advertise optional feature groups during initialize so peers can avoid calling unsupported methods
+      hasRequiredRule:
+        AdvertiseBeforeUseRule:
+          text: A server MUST NOT respond successfully to a tools/* request unless it advertised the 'tools' capability in its initialize response, and similarly for 'resources', 'prompts', and 'logging'
+          rationale: Capability advertisement is the contract that lets a client skip calling methods that will never work on this server, avoiding useless round-trips and cryptic errors
+      hasRecommendedRule:
+        DeclareListChangedRule:
+          text: A server SHOULD declare the 'listChanged' sub-capability under tools, resources, or prompts when it is capable of emitting the corresponding notifications/*/list_changed notification
+          rationale: Clients that know a server will emit list_changed can cache listings and refresh reactively instead of polling
+      hasValidExample:
+        ServerCapabilitiesObject:
+          value: '{"capabilities":{"tools":{"listChanged":true},"resources":{"subscribe":true,"listChanged":true},"prompts":{}}}'
+          description: A server capabilities object declaring tools with listChanged, resources with subscribe and listChanged, and prompts with no sub-capabilities
+      hasInvalidExample:
+        UndeclaredToolsCall:
+          value: 'server accepts tools/call without having declared the tools capability in initialize'
+          description: Invalid - a server must only answer method groups it has advertised
+
+    Tools:
+      summary: Tools are callable server-side operations that a client can invoke on behalf of the model
+      hasRequiredRule:
+        JsonSchemaInputRule:
+          text: Every tool declared in a tools/list response MUST carry a JSON Schema object under 'inputSchema' describing the accepted parameters, even if the schema is an empty object
+          rationale: A machine-readable input schema is what lets the host validate arguments, surface them to the model, and generate UI - without it the tool is unusable programmatically
+        UniqueToolNameRule:
+          text: Tool names returned by a single server MUST be unique within that server's namespace
+          rationale: Clients identify tools by name when calling tools/call; duplicate names would make dispatch ambiguous
+      hasRecommendedRule:
+        DescriptiveToolDescriptionRule:
+          text: Tools SHOULD provide a natural-language description aimed at the model, explaining when the tool should be used and what it returns
+          rationale: The description is what the model reads to decide whether to call the tool; terse or missing descriptions lead to either never-called or incorrectly-called tools
+      hasValidExample:
+        ReadFileTool:
+          value: '{"name":"read_file","description":"Read the contents of a UTF-8 text file from the local filesystem","inputSchema":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}'
+          description: A well-formed tool declaration with a name, description, and JSON Schema for its single required string parameter
+      hasInvalidExample:
+        ToolMissingInputSchema:
+          value: '{"name":"read_file","description":"Read a file"}'
+          description: Invalid - inputSchema is required, even for tools that take no parameters (an empty object schema is acceptable)
+
+    Resources:
+      summary: Resources are readable, URI-addressable pieces of context that a server exposes to the client
+      hasRequiredRule:
+        UriAddressableRule:
+          text: Every resource exposed through resources/list MUST be identified by a URI string, and clients MUST read its content via resources/read using that exact URI
+          rationale: A URI is the only stable identifier a client can hand back when asking for content; names or descriptions are human-readable and may change
+        MimeTypeOrBinaryRule:
+          text: A resource's content MUST be returned as either a text payload with a declared mimeType or as a binary blob encoded with base64 and a declared mimeType
+          rationale: Without a declared mimeType a client cannot decide whether to show the content as text, render it in a UI, or hand it to the model as raw bytes
+      hasRecommendedRule:
+        SubscribeSupportRule:
+          text: Servers exposing mutable resources SHOULD support the resources/subscribe method so clients can receive updates instead of re-reading on a timer
+          rationale: Push updates reduce latency and avoid wasted round-trips, which matters when a resource backs a live UI element
+      hasValidExample:
+        FileResource:
+          value: '{"uri":"file:///project/README.md","name":"Project README","description":"Top-level project README","mimeType":"text/markdown"}'
+          description: A resource listing entry using a file URI, a readable name, and a declared mimeType
+      hasInvalidExample:
+        ResourceWithoutUri:
+          value: '{"name":"README","mimeType":"text/markdown"}'
+          description: Invalid - resources must be addressable by a URI, not just by name
+
+    Prompts:
+      summary: Prompts are parameterized templates a server exposes that a client can instantiate to produce a model-ready message sequence
+      hasRequiredRule:
+        PromptArgumentDeclarationRule:
+          text: Every prompt returned from prompts/list MUST declare its arguments (if any) with a name and a required/optional flag so clients can prompt the user for values before calling prompts/get
+          rationale: Clients cannot present a prompt to an end user without knowing which variables need to be filled in - hidden arguments break the authoring UX
+      hasValidExample:
+        ReviewPrompt:
+          value: '{"name":"review_code","description":"Review a snippet of code","arguments":[{"name":"language","description":"The programming language","required":true},{"name":"code","description":"The code to review","required":true}]}'
+          description: A prompt declaration with two required arguments and human-readable descriptions
+      hasInvalidExample:
+        PromptMissingArgumentNames:
+          value: '{"name":"review_code","arguments":["language","code"]}'
+          description: Invalid - arguments must be objects with name and required flag, not bare strings
+
+    Sampling:
+      summary: Sampling is the server-to-client path that lets a server ask the client to run an LLM inference on its behalf
+      hasRequiredRule:
+        ClientCapabilityRule:
+          text: A server MUST NOT issue a sampling/createMessage request unless the client advertised the 'sampling' capability in its initialize response
+          rationale: Sampling is the reverse direction of the usual flow and puts load on the client's model quota, so clients opt in explicitly
+      hasRecommendedRule:
+        HumanInTheLoopRule:
+          text: Clients SHOULD give the user an opportunity to review and approve or modify sampling requests before forwarding them to the model, especially for sensitive contexts
+          rationale: Sampling lets a server indirectly instruct the client's model; human review protects against prompt injection and quota abuse
+      hasValidExample:
+        SamplingCreateMessage:
+          value: '{"jsonrpc":"2.0","id":42,"method":"sampling/createMessage","params":{"messages":[{"role":"user","content":{"type":"text","text":"Summarize the attached file"}}],"maxTokens":500}}'
+          description: A sampling/createMessage request with a single user turn and a maxTokens budget
+      hasInvalidExample:
+        SamplingWithoutCapability:
+          value: 'server issues sampling/createMessage to a client that did not declare the sampling capability'
+          description: Invalid - sampling is opt-in on the client side and must not be used unilaterally
+
+    ErrorHandling:
+      summary: MCP reuses JSON-RPC 2.0 error semantics and adds its own small set of application error codes
+      hasRequiredRule:
+        JsonRpcErrorShapeRule:
+          text: Error responses MUST use the JSON-RPC 2.0 error envelope with numeric 'code', human-readable 'message', and optional 'data' fields, and MUST NOT encode errors as successful results with an error flag
+          rationale: Treating application errors as successful results breaks every generic JSON-RPC client library and defeats the purpose of a standard error shape
+      hasValidExample:
+        MethodNotFoundError:
+          value: '{"jsonrpc":"2.0","id":7,"error":{"code":-32601,"message":"Method not found","data":{"method":"tools/nonexistent"}}}'
+          description: A well-formed error response reusing the JSON-RPC 2.0 method-not-found code
+      hasInvalidExample:
+        ErrorInResult:
+          value: '{"jsonrpc":"2.0","id":7,"result":{"ok":false,"error":"Method not found"}}'
+          description: Invalid - errors must use the error envelope, not a successful result with a flag
+
+    Notifications:
+      summary: MCP uses JSON-RPC notifications (no id, no response) for change events and out-of-band updates
+      hasRequiredRule:
+        NoNotificationResponseRule:
+          text: Recipients MUST NOT send any response to a JSON-RPC notification, including error responses
+          rationale: Notifications are fire-and-forget by design; responding to them breaks the JSON-RPC contract and can put the transport into an inconsistent state
+      hasValidExample:
+        ListChangedNotification:
+          value: '{"jsonrpc":"2.0","method":"notifications/tools/list_changed"}'
+          description: The notification a server emits when its advertised tool set has changed
+      hasInvalidExample:
+        ResponseToNotification:
+          value: '{"jsonrpc":"2.0","id":null,"result":{}}'
+          description: Invalid - a notification has no id and must receive no response at all

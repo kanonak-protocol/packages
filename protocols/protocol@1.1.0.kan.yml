@@ -2,7 +2,7 @@
 protocol:
   type: Package
   publisher: kanonak.org
-  version: 1.0.0
+  version: 1.1.0
   imports:
     - publisher: kanonak.org
       packages:
@@ -68,6 +68,16 @@ InvalidExample:
   label: Invalid Example
   comment: An example that violates a convention
   subClassOf: Example
+
+Steward:
+  type: rdfs.Class
+  label: Steward
+  comment: An organization or body that governs, maintains, or sponsors a protocol
+
+ProtocolLayer:
+  type: rdfs.Class
+  label: Protocol Layer
+  comment: A layer in the agentic protocol stack describing what role a protocol plays (tool access, agent-to-agent communication, discovery, guidance, governance)
 
 hasConvention:
   type: owl.ObjectProperty
@@ -145,3 +155,133 @@ description:
   comment: Explanation of what the example demonstrates
   domain: Example
   range: xsd.string
+
+stewardName:
+  type: owl.DatatypeProperty
+  label: Steward Name
+  comment: The human-readable name of a steward organization
+  domain: Steward
+  range: xsd.string
+
+stewardUrl:
+  type: owl.DatatypeProperty
+  label: Steward URL
+  comment: The primary public URL for a steward organization
+  domain: Steward
+  range: xsd.string
+
+layerName:
+  type: owl.DatatypeProperty
+  label: Layer Name
+  comment: The human-readable name of a protocol layer in the agentic stack
+  domain: ProtocolLayer
+  range: xsd.string
+
+steward:
+  type: owl.ObjectProperty
+  label: Steward
+  comment: Links a protocol to the organization that governs or maintains it
+  domain: Protocol
+  range: Steward
+
+layer:
+  type: owl.ObjectProperty
+  label: Layer
+  comment: Links a protocol to the layer of the agentic stack it occupies
+  domain: Protocol
+  range: ProtocolLayer
+
+specificationUrl:
+  type: owl.DatatypeProperty
+  label: Specification URL
+  comment: A URL pointing to the canonical specification for the protocol
+  domain: Protocol
+  range: xsd.string
+
+createdDate:
+  type: owl.DatatypeProperty
+  label: Created Date
+  comment: ISO date (yyyy-mm-dd) on which the protocol was first published
+  domain: Protocol
+  range: xsd.string
+
+supersededBy:
+  type: owl.ObjectProperty
+  label: Superseded By
+  comment: Links a protocol to a successor protocol that replaces it
+  domain: Protocol
+  range: Protocol
+
+mergedInto:
+  type: owl.ObjectProperty
+  label: Merged Into
+  comment: Links a protocol to another protocol that absorbed it
+  domain: Protocol
+  range: Protocol
+
+complements:
+  type: owl.ObjectProperty
+  label: Complements
+  comment: Links a protocol to another protocol it is designed to work alongside
+  domain: Protocol
+  range: Protocol
+
+anthropic:
+  type: Steward
+  stewardName: Anthropic
+  stewardUrl: https://www.anthropic.com
+
+google:
+  type: Steward
+  stewardName: Google
+  stewardUrl: https://ai.google
+
+openai:
+  type: Steward
+  stewardName: OpenAI
+  stewardUrl: https://openai.com
+
+linux-foundation:
+  type: Steward
+  stewardName: Linux Foundation
+  stewardUrl: https://www.linuxfoundation.org
+
+aaif:
+  type: Steward
+  stewardName: Agentic AI Foundation
+  stewardUrl: https://www.linuxfoundation.org/projects/agentic-ai-foundation
+
+w3c-cg:
+  type: Steward
+  stewardName: W3C Community Group
+  stewardUrl: https://www.w3.org/community
+
+cisco:
+  type: Steward
+  stewardName: Cisco
+  stewardUrl: https://www.cisco.com
+
+nist-caisi:
+  type: Steward
+  stewardName: NIST Center for AI Standards and Innovation
+  stewardUrl: https://www.nist.gov/aisi
+
+tool-layer:
+  type: ProtocolLayer
+  layerName: Tool Layer
+
+communication-layer:
+  type: ProtocolLayer
+  layerName: Communication Layer
+
+discovery-layer:
+  type: ProtocolLayer
+  layerName: Discovery Layer
+
+guidance-layer:
+  type: ProtocolLayer
+  layerName: Guidance Layer
+
+governance-layer:
+  type: ProtocolLayer
+  layerName: Governance Layer
