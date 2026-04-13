@@ -1,0 +1,206 @@
+agents:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: agent-skills
+          match: ^
+          version: 1.2.0
+          alias: skills
+        - package: protocol
+          match: ^
+          version: 1.1.0
+          alias: proto
+
+Agent:
+  type: rdfs.Class
+  label: Agent
+  comment: >
+    A named AI agent (called a subagent by some client products)
+    that carries its own system prompt, description, tool access,
+    and references to the skills and communication protocols it
+    uses. An Agent is a portable, client-agnostic definition: the
+    same Agent instance can be deployed to Claude Code, Codex,
+    Gemini CLI, or the cross-client .agents/ layout. The installer
+    picks the target Client and writes the Agent in that client's
+    expected on-disk format (markdown-with-frontmatter or toml).
+
+PermissionMode:
+  type: rdfs.Class
+  label: Permission Mode
+  comment: >
+    A named policy governing how aggressively an agent is allowed
+    to take actions without asking for confirmation. Modeled as a
+    class so concrete modes (default, accept-edits, auto,
+    bypass-permissions, plan) can be referenced by name from
+    Agent instances without baking them into a string enum.
+
+agentId:
+  type: owl.DatatypeProperty
+  domain: Agent
+  range: xsd.string
+  label: agent id
+  comment: >
+    Short machine identifier for the agent. Lowercase letters,
+    numbers, and hyphens only. Maps to the name field in Claude
+    Code subagent frontmatter, the name field in Codex TOML, and
+    the name field in Gemini CLI agent frontmatter. Must be
+    unique within a client's agent directory.
+
+description:
+  type: owl.DatatypeProperty
+  domain: Agent
+  range: xsd.string
+  label: description
+  comment: >
+    Human-readable one-line description telling the host client
+    when to delegate to this agent. The host uses this string to
+    decide whether an incoming task matches the agent. Should
+    start with a verb and be specific about the task shape the
+    agent is designed for.
+
+instructions:
+  type: owl.DatatypeProperty
+  domain: Agent
+  range: xsd.string
+  label: instructions
+  comment: >
+    The agent's system prompt in markdown. Rendered verbatim into
+    the body of the generated Claude Code or Gemini markdown
+    file, and into the developer_instructions field of a Codex
+    TOML file. This is where the agent's personality, methodology,
+    and constraints live.
+
+model:
+  type: owl.DatatypeProperty
+  domain: Agent
+  range: xsd.string
+  label: model
+  comment: >
+    Optional. Model alias or full model id the agent should use
+    (e.g., "sonnet", "opus", "haiku", "claude-opus-4-6",
+    "gpt-5", "gemini-2.5-pro"). When omitted, the host client
+    inherits the parent session's model. Installers translate
+    aliases that do not exist on the target client at install
+    time.
+
+color:
+  type: owl.DatatypeProperty
+  domain: Agent
+  range: xsd.string
+  label: color
+  comment: >
+    Optional display color used by clients that show running
+    agents in their UI. Recognized values follow the Claude Code
+    palette: red, blue, green, yellow, purple, orange, pink, cyan.
+    Ignored by clients that do not render agent colors.
+
+maxTurns:
+  type: owl.DatatypeProperty
+  domain: Agent
+  range: xsd.integer
+  label: max turns
+  comment: >
+    Optional. Maximum number of agentic turns the agent is
+    allowed to take before it stops. Useful to cap runaway
+    exploration for narrowly-scoped subagents.
+
+permissionMode:
+  type: owl.ObjectProperty
+  domain: Agent
+  range: PermissionMode
+  label: permission mode
+  comment: >
+    Optional. The named permission policy the host should apply
+    when running this agent. Clients that do not support a
+    particular mode fall back to their own default.
+
+usesTool:
+  type: owl.ObjectProperty
+  domain: Agent
+  range: Tool
+  label: uses tool
+  comment: >
+    Tools the agent is pre-approved to invoke. Matches the tools
+    field in Claude Code subagent frontmatter. Leave empty to
+    inherit every tool from the parent session.
+
+usesSkill:
+  type: owl.ObjectProperty
+  domain: Agent
+  range: skills.Skill
+  label: uses skill
+  comment: >
+    Skills this agent knows how to use. Deploying the agent to a
+    client SHOULD transitively deploy its referenced skills, so
+    an agent that declares a skill via usesSkill can assume the
+    skill is available at runtime.
+
+speaks:
+  type: owl.ObjectProperty
+  domain: Agent
+  range: proto.Protocol
+  label: speaks
+  comment: >
+    Protocols the agent uses to talk to tools or other agents.
+    Typical values point at kanonak.org/mcp for tool access and
+    kanonak.org/a2a for agent-to-agent communication. Agents that
+    only operate locally inside a host session can leave this
+    empty.
+
+targetClient:
+  type: owl.ObjectProperty
+  domain: Agent
+  range: skills.Client
+  label: target client
+  comment: >
+    Optional. Restricts this agent to a specific client or set of
+    clients (e.g., only claude-code because the instructions rely
+    on a Claude Code feature). When omitted, the agent is
+    client-agnostic and the installer picks the target Client via
+    its --client flag at install time.
+
+default:
+  type: PermissionMode
+  label: Default
+  comment: >
+    Confirm destructive actions. The standard mode for
+    interactive sessions.
+
+accept-edits:
+  type: PermissionMode
+  label: Accept Edits
+  comment: Auto-accept file edits; still confirm other destructive actions.
+
+auto:
+  type: PermissionMode
+  label: Auto
+  comment: Auto-accept anything the host considers safe.
+
+bypass-permissions:
+  type: PermissionMode
+  label: Bypass Permissions
+  comment: >
+    Skip all permission checks. Intended for sandboxed environments
+    where there is nothing the agent can damage.
+
+plan:
+  type: PermissionMode
+  label: Plan
+  comment: >
+    Read-only planning mode. The agent gathers context and
+    proposes a plan but cannot execute destructive actions.
