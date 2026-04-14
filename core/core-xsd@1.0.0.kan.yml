@@ -12,23 +12,23 @@ core-xsd:
 
 anySimpleType:
   type: Datatype
-  label: anySimpleType
+  label: Any Simple Type
   comment: The base datatype from which all XML Schema simple types are derived
 string:
   type: Datatype
-  label: string
+  label: String
   comment: The string datatype represents character strings in XML
 anyURI:
   type: Datatype
-  label: anyURI
+  label: Any URI
   comment: Represents a Uniform Resource Identifier (URI) reference
 decimal:
   type: Datatype
-  label: decimal
+  label: Decimal
   comment: Represents arbitrary precision decimal numbers
 integer:
   type: Datatype
-  label: integer
+  label: Integer
   comment: The integer datatype represents integer values
 nonNegativeInteger:
   type: Datatype
@@ -36,11 +36,11 @@ nonNegativeInteger:
   comment: The datatype representing integers greater than or equal to zero (0, 1, 2, 3, ...)
 float:
   type: Datatype
-  label: float
+  label: Float
   comment: The float datatype represents 32-bit IEEE floating-point numbers
 double:
   type: Datatype
-  label: double
+  label: Double
   comment: The double datatype represents 64-bit IEEE floating-point numbers
 boolean:
   type: Datatype
@@ -48,39 +48,39 @@ boolean:
   comment: Boolean datatype - true or false values
 date:
   type: Datatype
-  label: date
+  label: Date
   comment: The date datatype represents calendar dates
 time:
   type: Datatype
-  label: time
+  label: Time
   comment: The time datatype represents instants of time that recur every day
 dateTime:
   type: Datatype
-  label: dateTime
+  label: Date Time
   comment: Represents a specific instant in time with date and time components
 hexBinary:
   type: Datatype
-  label: hexBinary
+  label: Hex Binary
   comment: Represents arbitrary hex-encoded binary data
 base64Binary:
   type: Datatype
-  label: base64Binary
+  label: Base64 Binary
   comment: Represents Base64-encoded arbitrary binary data
 duration:
   type: Datatype
-  label: duration
+  label: Duration
   comment: Represents a duration of time (e.g., P1Y2M3DT4H5M6S)
 long:
   type: Datatype
-  label: long
+  label: Long
   comment: The long datatype represents 64-bit signed integer values
 short:
   type: Datatype
-  label: short
+  label: Short
   comment: The short datatype represents 16-bit signed integer values
 byte:
   type: Datatype
-  label: byte
+  label: Byte
   comment: The byte datatype represents 8-bit signed integer values
 positiveInteger:
   type: Datatype
@@ -112,9 +112,9 @@ unsignedByte:
   comment: The unsignedByte datatype represents 8-bit unsigned integer values
 int:
   type: Datatype
-  label: int
+  label: Int
   comment: Alias for integer - represents integer values
 bool:
   type: Datatype
-  label: bool
+  label: Bool
   comment: Alias for boolean - true or false values

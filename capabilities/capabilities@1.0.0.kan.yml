@@ -98,7 +98,7 @@ commandName:
   type: owl.DatatypeProperty
   domain: Capability
   range: xsd.string
-  label: command name
+  label: Command Name
   comment: >
     The top-level CLI command name (e.g., "skill"). Must be 1-32
     characters, lowercase letters and hyphens only. This becomes the
@@ -108,7 +108,7 @@ managesType:
   type: owl.ObjectProperty
   domain: Capability
   range: rdfs.Class
-  label: manages type
+  label: Manages Type
   comment: >
     The Kanonak type this capability manages. CLI commands operate on
     instances of this type. For example, the skill capability manages
@@ -118,7 +118,7 @@ hasCommand:
   type: owl.ObjectProperty
   domain: Capability
   range: CapabilityCommand
-  label: has command
+  label: Has Command
   comment: >
     The subcommands available in this capability's command group.
     Each command defines a distinct CLI operation.
@@ -127,7 +127,7 @@ deploymentTarget:
   type: owl.ObjectProperty
   domain: Capability
   range: DeploymentTarget
-  label: deployment target
+  label: Deployment Target
   comment: >
     Specifies how instances are deployed to the local system after
     download. If not specified, instances are cached only.
@@ -136,7 +136,7 @@ hasDependency:
   type: owl.ObjectProperty
   domain: Capability
   range: Dependency
-  label: has dependency
+  label: Has Dependency
   comment: >
     External dependencies that must be installed for this capability
     to function. Resolved during capability installation.
@@ -145,7 +145,7 @@ subcommandName:
   type: owl.DatatypeProperty
   domain: CapabilityCommand
   range: xsd.string
-  label: subcommand name
+  label: Subcommand Name
   comment: >
     The CLI subcommand name (e.g., "add", "remove", "list"). Must be
     lowercase letters and hyphens only.
@@ -154,14 +154,14 @@ hasArgument:
   type: owl.ObjectProperty
   domain: CapabilityCommand
   range: CommandArgument
-  label: has argument
+  label: Has Argument
   comment: Arguments and options accepted by this subcommand.
 
 performs:
   type: owl.ObjectProperty
   domain: CapabilityCommand
   range: Action
-  label: performs
+  label: Performs
   comment: >
     The action that this subcommand performs. The CLI dispatches based
     on this action, so capability authors are free to choose any verb
@@ -172,7 +172,7 @@ argumentName:
   type: owl.DatatypeProperty
   domain: CommandArgument
   range: xsd.string
-  label: argument name
+  label: Argument Name
   comment: >
     The argument name. For positional arguments, this is the display
     name. For options, this becomes the --flag name.
@@ -181,14 +181,14 @@ isRequired:
   type: owl.DatatypeProperty
   domain: CommandArgument
   range: xsd.boolean
-  label: required
+  label: Required
   comment: Whether this argument must be provided. Defaults to false.
 
 isOption:
   type: owl.DatatypeProperty
   domain: CommandArgument
   range: xsd.boolean
-  label: is option
+  label: Is Option
   comment: >
     If true, this argument uses --flag syntax. If false, it is a
     positional argument. Defaults to false.
@@ -197,21 +197,21 @@ defaultValue:
   type: owl.DatatypeProperty
   domain: CommandArgument
   range: xsd.string
-  label: default value
+  label: Default Value
   comment: Default value used when the argument is not provided.
 
 packageManager:
   type: owl.ObjectProperty
   domain: Dependency
   range: PackageManager
-  label: package manager
+  label: Package Manager
   comment: The package manager that resolves this dependency.
 
 packageId:
   type: owl.DatatypeProperty
   domain: Dependency
   range: xsd.string
-  label: package ID
+  label: Package ID
   comment: >
     The package identifier in the target package manager's format
     (e.g., "@kanonak-protocol/cli" for npm, "requests" for pip).
@@ -220,7 +220,7 @@ installCommand:
   type: owl.DatatypeProperty
   domain: PackageManager
   range: xsd.string
-  label: install command
+  label: Install Command
   comment: >
     Shell command template for installing a package once the package
     manager itself is present. Use {package} as a placeholder for the
@@ -230,7 +230,7 @@ checkCommand:
   type: owl.DatatypeProperty
   domain: PackageManager
   range: xsd.string
-  label: check command
+  label: Check Command
   comment: >
     Shell command that exits with status 0 when this package manager
     is already installed and available on PATH. An agent or installer
@@ -240,7 +240,7 @@ homepageUrl:
   type: owl.DatatypeProperty
   domain: PackageManager
   range: xsd.string
-  label: homepage URL
+  label: Homepage URL
   comment: >
     Canonical homepage or documentation URL for this package manager.
     Used as an authoritative fallback when none of the install steps
@@ -250,7 +250,7 @@ bootstrapNote:
   type: owl.DatatypeProperty
   domain: PackageManager
   range: xsd.string
-  label: bootstrap note
+  label: Bootstrap Note
   comment: >
     Short prose context about how this package manager is distributed
     (e.g., "ships with Node.js", "bundled with Python 3.4+"). Helps an
@@ -261,7 +261,7 @@ hasInstallStep:
   type: owl.ObjectProperty
   domain: PackageManager
   range: InstallStep
-  label: has install step
+  label: Has Install Step
   comment: >
     A step describing how to install this package manager on a specific
     platform. An agent selects the step whose forPlatform matches the
@@ -272,14 +272,14 @@ forPlatform:
   type: owl.ObjectProperty
   domain: InstallStep
   range: Platform
-  label: for platform
+  label: For Platform
   comment: The platform that this install step applies to.
 
 command:
   type: owl.DatatypeProperty
   domain: InstallStep
   range: xsd.string
-  label: command
+  label: Command
   comment: >
     Shell command that performs the install on the step's platform.
     Present when the install can be fully automated from a terminal.
@@ -288,7 +288,7 @@ downloadUrl:
   type: owl.DatatypeProperty
   domain: InstallStep
   range: xsd.string
-  label: download URL
+  label: Download URL
   comment: >
     URL to a graphical installer, archive, or release page. Present
     when there is no single shell command that performs the install.
@@ -297,7 +297,7 @@ description:
   type: owl.DatatypeProperty
   domain: Capability, CapabilityCommand, InstallStep
   range: xsd.string
-  label: description
+  label: Description
   comment: >
     Human-readable description. On a Capability it explains what the
     command group does; on a CapabilityCommand it explains the
@@ -449,7 +449,7 @@ pip:
 
 cargo:
   type: PackageManager
-  label: cargo
+  label: Cargo
   comment: Rust package manager.
   installCommand: "cargo install {package}"
   checkCommand: "cargo --version"
@@ -473,7 +473,7 @@ cargo:
 
 nuget:
   type: PackageManager
-  label: nuget
+  label: NuGet
   comment: .NET package manager.
   installCommand: "dotnet add package {package}"
   checkCommand: "dotnet --version"

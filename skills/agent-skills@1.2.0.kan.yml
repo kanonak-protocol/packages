@@ -131,7 +131,7 @@ name:
   type: owl.DatatypeProperty
   domain: Skill
   range: xsd.string
-  label: name
+  label: Name
   comment: >
     Required. 1-64 characters, lowercase letters, numbers, and hyphens
     only. Must not start or end with a hyphen, must not contain
@@ -141,7 +141,7 @@ description:
   type: owl.DatatypeProperty
   domain: Skill
   range: xsd.string
-  label: description
+  label: Description
   comment: >
     Required. 1-1024 characters. Describes what the skill does and when
     to use it. Should include keywords that help agents identify
@@ -151,7 +151,7 @@ license:
   type: owl.ObjectProperty
   domain: Skill
   range: spdx.License
-  label: license
+  label: License
   comment: >
     Optional. The license applied to the skill. May be referenced by
     name (e.g., "license: MIT") or embedded inline for custom licenses.
@@ -160,7 +160,7 @@ compatibility:
   type: owl.DatatypeProperty
   domain: Skill
   range: xsd.string
-  label: compatibility
+  label: Compatibility
   comment: >
     Optional. Max 500 characters. Indicates environment requirements
     such as intended agent product, required system packages, or
@@ -170,7 +170,7 @@ allowedTools:
   type: owl.ObjectProperty
   domain: Skill
   range: Tool
-  label: allowed tools
+  label: Allowed Tools
   comment: >
     Optional, experimental. Tools that are pre-approved to run without
     user confirmation when this skill is active. Serialized to SKILL.md
@@ -180,7 +180,7 @@ metadata:
   type: owl.ObjectProperty
   domain: Skill
   range: MetadataEntry
-  label: metadata
+  label: Metadata
   comment: >
     Optional. Arbitrary key/value metadata on the skill, modeled as a
     list of MetadataEntry instances. Clients can use this to store
@@ -191,7 +191,7 @@ hasResource:
   type: owl.ObjectProperty
   domain: Skill
   range: SkillResource
-  label: has resource
+  label: Has Resource
   comment: >
     A supporting file bundled with this skill. Use for standalone
     resources not tied to a specific section. For section-local
@@ -201,7 +201,7 @@ hasSection:
   type: owl.ObjectProperty
   domain: Skill
   range: SkillSection
-  label: has section
+  label: Has Section
   comment: >
     Ordered list of content sections that form the skill's documentation.
     Each section becomes a headed section in the generated SKILL.md.
@@ -211,7 +211,7 @@ title:
   type: owl.DatatypeProperty
   domain: SkillSection
   range: xsd.string
-  label: title
+  label: Title
   comment: >
     The section heading. Rendered as a level-2 markdown heading (##)
     in the generated SKILL.md.
@@ -220,7 +220,7 @@ body:
   type: owl.DatatypeProperty
   domain: SkillSection
   range: xsd.string
-  label: body
+  label: Body
   comment: >
     Full markdown content for this section, including prose, code
     blocks, tables, and lists. This is rendered directly in the
@@ -230,7 +230,7 @@ hasScript:
   type: owl.ObjectProperty
   domain: SkillSection
   range: ScriptResource
-  label: has script
+  label: Has Script
   comment: >
     Embedded executable scripts within this section. Provides structured
     metadata for programmatic extraction alongside the body content.
@@ -239,7 +239,7 @@ hasReference:
   type: owl.ObjectProperty
   domain: SkillSection
   range: ReferenceResource
-  label: has reference
+  label: Has Reference
   comment: >
     Embedded reference material within this section. Provides structured
     metadata for programmatic extraction alongside the body content.
@@ -248,7 +248,7 @@ hasAsset:
   type: owl.ObjectProperty
   domain: SkillSection
   range: AssetResource
-  label: has asset
+  label: Has Asset
   comment: >
     Embedded static assets within this section. Provides structured
     metadata for programmatic extraction alongside the body content.
@@ -257,63 +257,63 @@ resourceTitle:
   type: owl.DatatypeProperty
   domain: SkillResource
   range: xsd.string
-  label: resource title
+  label: Resource Title
   comment: A short title describing this resource.
 
 content:
   type: owl.DatatypeProperty
   domain: SkillResource
   range: xsd.string
-  label: content
+  label: Content
   comment: The text content of this resource.
 
 language:
   type: owl.DatatypeProperty
   domain: ScriptResource
   range: xsd.string
-  label: language
+  label: Language
   comment: The programming language of the script (e.g., bash, python, javascript).
 
 command:
   type: owl.DatatypeProperty
   domain: ScriptResource
   range: xsd.string
-  label: command
+  label: Command
   comment: A shell command to execute this script.
 
 metadataKey:
   type: owl.DatatypeProperty
   domain: MetadataEntry
   range: xsd.string
-  label: metadata key
+  label: Metadata Key
   comment: The key portion of a metadata entry.
 
 metadataValue:
   type: owl.DatatypeProperty
   domain: MetadataEntry
   range: xsd.string
-  label: metadata value
+  label: Metadata Value
   comment: The value portion of a metadata entry.
 
 pathPattern:
   type: owl.DatatypeProperty
   domain: DiscoveryPath
   range: xsd.string
-  label: path pattern
+  label: Path Pattern
   comment: The filesystem path pattern for this discovery location.
 
 pathScope:
   type: owl.ObjectProperty
   domain: DiscoveryPath
   range: DiscoveryScope
-  label: path scope
+  label: Path Scope
   comment: Whether this path is project-level or user-level.
 
 clientId:
   type: owl.DatatypeProperty
   domain: Client
   range: xsd.string
-  label: client id
+  label: Client ID
   comment: >
     Short identifier used on the command line to select a client
     when installing a skill or agent (e.g., "agents", "claude-code",
@@ -323,7 +323,7 @@ projectSkillDir:
   type: owl.DatatypeProperty
   domain: Client
   range: xsd.string
-  label: project skill dir
+  label: Project Skill Directory
   comment: >
     Relative directory path, from the project root, where this
     client expects project-scoped skills to live. The installer
@@ -336,7 +336,7 @@ userSkillDir:
   type: owl.DatatypeProperty
   domain: Client
   range: xsd.string
-  label: user skill dir
+  label: User Skill Directory
   comment: >
     Absolute-ish directory path, rooted at the user home
     directory, where this client expects user-scoped skills to
@@ -349,7 +349,7 @@ skillFileName:
   type: owl.DatatypeProperty
   domain: Client
   range: xsd.string
-  label: skill file name
+  label: Skill File Name
   comment: >
     File name the client reads to discover a skill's frontmatter
     and instructions inside each skill directory. Defaults to
@@ -360,7 +360,7 @@ projectAgentDir:
   type: owl.DatatypeProperty
   domain: Client
   range: xsd.string
-  label: project agent dir
+  label: Project Agent Directory
   comment: >
     Relative directory path, from the project root, where this
     client expects project-scoped agent (subagent) definitions to
@@ -374,7 +374,7 @@ userAgentDir:
   type: owl.DatatypeProperty
   domain: Client
   range: xsd.string
-  label: user agent dir
+  label: User Agent Directory
   comment: >
     Directory path, rooted at the user home directory, where this
     client expects user-scoped agent definitions to live. The
@@ -386,7 +386,7 @@ agentFileFormat:
   type: owl.ObjectProperty
   domain: Client
   range: AgentFileFormat
-  label: agent file format
+  label: Agent File Format
   comment: >
     The on-disk file format this client reads for agent
     definitions. Installers must write each Agent in this format
@@ -398,14 +398,14 @@ tierOrder:
   type: owl.DatatypeProperty
   domain: DisclosureTier
   range: xsd.integer
-  label: tier order
+  label: Tier Order
   comment: The sequence number of this tier in the progressive disclosure architecture.
 
 tokenBudget:
   type: owl.DatatypeProperty
   domain: DisclosureTier
   range: xsd.string
-  label: token budget
+  label: Token Budget
   comment: Recommended token cost for this tier.
 
 project-scope:

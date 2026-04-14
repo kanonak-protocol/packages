@@ -53,7 +53,7 @@ agentId:
   type: owl.DatatypeProperty
   domain: Agent
   range: xsd.string
-  label: agent id
+  label: Agent ID
   comment: >
     Short machine identifier for the agent. Lowercase letters,
     numbers, and hyphens only. Maps to the name field in Claude
@@ -65,7 +65,7 @@ description:
   type: owl.DatatypeProperty
   domain: Agent
   range: xsd.string
-  label: description
+  label: Description
   comment: >
     Human-readable one-line description telling the host client
     when to delegate to this agent. The host uses this string to
@@ -77,7 +77,7 @@ instructions:
   type: owl.DatatypeProperty
   domain: Agent
   range: xsd.string
-  label: instructions
+  label: Instructions
   comment: >
     The agent's system prompt in markdown. Rendered verbatim into
     the body of the generated Claude Code or Gemini markdown
@@ -89,7 +89,7 @@ model:
   type: owl.DatatypeProperty
   domain: Agent
   range: xsd.string
-  label: model
+  label: Model
   comment: >
     Optional. Model alias or full model id the agent should use
     (e.g., "sonnet", "opus", "haiku", "claude-opus-4-6",
@@ -102,7 +102,7 @@ color:
   type: owl.DatatypeProperty
   domain: Agent
   range: xsd.string
-  label: color
+  label: Color
   comment: >
     Optional display color used by clients that show running
     agents in their UI. Recognized values follow the Claude Code
@@ -113,7 +113,7 @@ maxTurns:
   type: owl.DatatypeProperty
   domain: Agent
   range: xsd.integer
-  label: max turns
+  label: Max Turns
   comment: >
     Optional. Maximum number of agentic turns the agent is
     allowed to take before it stops. Useful to cap runaway
@@ -123,7 +123,7 @@ permissionMode:
   type: owl.ObjectProperty
   domain: Agent
   range: PermissionMode
-  label: permission mode
+  label: Permission Mode
   comment: >
     Optional. The named permission policy the host should apply
     when running this agent. Clients that do not support a
@@ -133,7 +133,7 @@ usesTool:
   type: owl.ObjectProperty
   domain: Agent
   range: Tool
-  label: uses tool
+  label: Uses Tool
   comment: >
     Tools the agent is pre-approved to invoke. Matches the tools
     field in Claude Code subagent frontmatter. Leave empty to
@@ -143,7 +143,7 @@ usesSkill:
   type: owl.ObjectProperty
   domain: Agent
   range: skills.Skill
-  label: uses skill
+  label: Uses Skill
   comment: >
     Skills this agent knows how to use. Deploying the agent to a
     client SHOULD transitively deploy its referenced skills, so
@@ -154,7 +154,7 @@ speaks:
   type: owl.ObjectProperty
   domain: Agent
   range: proto.Protocol
-  label: speaks
+  label: Speaks
   comment: >
     Protocols the agent uses to talk to tools or other agents.
     Typical values point at kanonak.org/mcp for tool access and
@@ -166,7 +166,7 @@ targetClient:
   type: owl.ObjectProperty
   domain: Agent
   range: skills.Client
-  label: target client
+  label: Target Client
   comment: >
     Optional. Restricts this agent to a specific client or set of
     clients (e.g., only claude-code because the instructions rely

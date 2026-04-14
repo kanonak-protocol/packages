@@ -12,7 +12,7 @@ Property:
 type:
   type: Property
   comment: States that a resource is an instance of a class
-  label: type
+  label: Type
   domain: Resource
   range: Class
 Resource:
