@@ -1,0 +1,914 @@
+transformations:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+
+# =============================================================================
+# TOP LEVEL
+# =============================================================================
+
+Transformation:
+  type: rdfs.Class
+  label: Transformation
+  comment: >
+    A declarative description of how to turn instances of some Kanonak
+    Class into one or more output Artifacts in one or more OutputFormats.
+    A Transformation is data: the CLI's generic transformation runner
+    reads an instance of this class and an input scope (a list of
+    packages or resources), and emits Artifacts without needing any
+    format-specific TypeScript per use case.
+
+    Inspired by XSLT (declarative match-and-build, pattern-driven by
+    type), Pandoc (AST-first with per-format backends), and FnO (the
+    Function Ontology — functions described declaratively as RDF).
+    Unlike XSLT, templates here are NOT text with embedded placeholders
+    — the `rule` property is a typed AST-builder tree that constructs
+    a document-ast Document structurally. Format backends then
+    serialize the resulting Document to bytes.
+
+# =============================================================================
+# INPUT SELECTION
+# =============================================================================
+
+InputPattern:
+  type: rdfs.Class
+  label: Input Pattern
+  comment: >
+    Selector that picks which input instances this Transformation
+    operates on. Matches subjects whose type URI equals `matchesClass`,
+    optionally filtered by a list of property URIs that must be
+    present and non-empty (`requires`). Subjects that fail the
+    `requires` check are silently skipped — matching the current
+    behavior of SkillTransformer and AgentTransformer, which return
+    undefined for instances missing required fields.
+
+# =============================================================================
+# EXPRESSION — unified tagged-union shape
+#
+# Every node in the `rule` tree is a single `Expression` instance
+# discriminated by its `kind` property (a reference to a named
+# ExpressionKind instance). The runner dispatches on the resolved
+# ExpressionKind URI — no string matching, no subclass polymorphism.
+#
+# This collapses what would otherwise be a deep class hierarchy
+# (BuildAstNode, ForEach, When, PropertyRead, Traverse, ...) into
+# one Kanonak class so that deeply-nested embedded Expression trees
+# can be authored in YAML without running afoul of the
+# EmbeddedKanonakNoExplicitType validator rule.
+#
+# An Expression only uses the subset of properties relevant to its
+# kind. Properties not relevant to a particular kind are simply
+# omitted from the instance.
+# =============================================================================
+
+Expression:
+  type: rdfs.Class
+  label: Expression
+  comment: >
+    A single tagged-union expression node. The `kind` property
+    discriminates which concrete behavior (build-ast-node, for-each,
+    when, concat, property-read, traverse, fallback, uri-name,
+    list-map, join, normalize, var-ref, is-set, string-literal,
+    integer-literal, boolean-literal) this instance represents.
+
+    The runner reads `kind` as a ReferenceKanonak, compares its
+    resolved URI against the canonical ExpressionKind URIs, and
+    dispatches to the appropriate handler. Each handler reads only
+    the properties relevant to its kind.
+
+ExpressionKind:
+  type: rdfs.Class
+  label: Expression Kind
+  comment: >
+    The discriminator vocabulary for Expression. Named instances
+    below enumerate the complete set of expression behaviors the
+    runner knows about. New expression types are added by declaring
+    new ExpressionKind instances and teaching the runner the
+    corresponding handler.
+
+# =============================================================================
+# AST FIELD BINDINGS
+# =============================================================================
+
+AstFieldBinding:
+  type: rdfs.Class
+  label: AST Field Binding
+  comment: >
+    Binds one document-ast property (`field`, identified by its
+    canonical URI) to an Expression that produces the value. A
+    BuildAstNode-kind Expression contains zero or more
+    AstFieldBindings in its `set` list. If an Expression yields
+    nothing (empty Fallback, unbound When without elseBuild, etc.),
+    the binding is omitted — the output AST node simply does not
+    carry that property.
+
+# =============================================================================
+# OUTPUT FORMAT / BACKEND SELECTION
+# =============================================================================
+
+OutputFormat:
+  type: rdfs.Class
+  label: Output Format
+  comment: >
+    A named output format the runner can serialize a document-ast
+    Document into. Each instance carries a `backendUri` string that
+    the runner maps to a registered `IDocumentAstBackend`
+    implementation in TypeScript. New formats can be added simply by
+    declaring more OutputFormat instances and registering a backend
+    for them — no changes to the ontology required.
+
+FormatOverride:
+  type: rdfs.Class
+  label: Format Override
+  comment: >
+    Per-transformation, per-format configuration that tells a backend
+    which metadata keys to include, how to rename them, and whether
+    to emit a trailing newline. Enables one Transformation to produce
+    byte-identical output in multiple formats without duplicating the
+    rule tree — the Agent transformation emits both
+    markdown-with-frontmatter (keys `name, description, model, color,
+    maxTurns, permissionMode, tools`) and TOML (keys `name,
+    description, developer_instructions, model, max_turns, tools` —
+    with the `maxTurns -> max_turns` rename and the omission of
+    `color`/`permissionMode`).
+
+RenameEntry:
+  type: rdfs.Class
+  label: Rename Entry
+  comment: >
+    One key rename applied by a FormatOverride. `fromKey` is the
+    StructuredEntry key as it appears in the AST; `toKey` is the key
+    the backend should emit. Used by the Agent TOML backend to rewrite
+    `maxTurns` as `max_turns` and `instructions` as
+    `developer_instructions`.
+
+# =============================================================================
+# RUNTIME RESULT TYPES (described here for contract clarity — not
+# authored by transformation writers)
+# =============================================================================
+
+Artifact:
+  type: rdfs.Class
+  label: Artifact
+  comment: >
+    A single output file produced by running a Transformation against
+    one input instance. Carries its filename, the OutputFormat it was
+    serialized as, and the byte content. The transformation runner
+    returns a list of Artifacts; the DeploymentHandler is responsible
+    for actually writing them to disk (along with integrity hashing,
+    lock-file updates, and directory management).
+
+NormalizeKind:
+  type: rdfs.Class
+  label: Normalize Kind
+  comment: >
+    A named normalization operation available to normalize-kind
+    Expressions. Extensible via new named instances.
+
+ExpressionFragment:
+  type: rdfs.Class
+  label: Expression Fragment
+  comment: >
+    A named, reusable Expression that other Expressions can invoke
+    by reference. Analogous to a pure function in any programming
+    language — a fragment has no input pattern, no output format, no
+    artifact name; it is purely a parameterless subroutine that
+    evaluates against whatever environment its caller has bound.
+
+    Fragments exist to let a single canonical description of a
+    visualization or rule subtree drive multiple transformations.
+    Typical use: author an SVG-building expression once as a fragment,
+    then invoke it (via kind=call-fragment) from both a standalone
+    SVG transformation and an HTML-embedding transformation. One
+    source of truth, multiple derivative outputs.
+
+    Fragment resolution is compile-time: the loader looks up the
+    referenced fragment's `expr` property and inlines it into the
+    caller's rule tree at compile time, so there is zero runtime
+    cost per call and no recursion machinery at evaluation time.
+    Cycles and unresolved references are detected during compilation.
+
+# =============================================================================
+# PROPERTIES — Transformation
+# =============================================================================
+
+inputPattern:
+  type: owl.ObjectProperty
+  domain: Transformation
+  range: InputPattern
+  label: Input Pattern
+  comment: Which input instances this transformation runs on.
+
+rule:
+  type: owl.ObjectProperty
+  domain: Transformation
+  range: Expression
+  label: Rule
+  comment: >
+    The root AST-builder expression. Always a kind=build-ast-node
+    Expression whose `astClass` is document-ast's `Document`.
+    Executed once per matched input instance with the input bound
+    as the `input` environment variable.
+
+artifactName:
+  type: owl.ObjectProperty
+  domain: Transformation
+  range: Expression
+  label: Artifact Name
+  comment: >
+    Expression that yields the filename stem for an output artifact.
+    Evaluated against the same input-bound environment as `rule`.
+    The runner prepends no path and appends no extension — the
+    DeploymentHandler adds those.
+
+outputs:
+  type: owl.ObjectProperty
+  domain: Transformation
+  range: OutputFormat
+  label: Outputs
+  comment: >
+    The list of OutputFormat instances this Transformation is valid
+    for. The runner refuses to serialize to a format not in this list.
+
+formatOverrides:
+  type: owl.ObjectProperty
+  domain: Transformation
+  range: FormatOverride
+  label: Format Overrides
+  comment: >
+    Optional per-format tweaks applied at serialization time. Each
+    override targets one OutputFormat and carries metadata key
+    selection, renames, and trailing-newline policy for that format.
+
+# =============================================================================
+# PROPERTIES — InputPattern
+# =============================================================================
+
+matchesClass:
+  type: owl.ObjectProperty
+  domain: InputPattern
+  range: rdfs.Class
+  label: Matches Class
+  comment: >
+    The rdfs.Class URI this pattern matches. Subject instances whose
+    `type` statement's object URI equals this are candidates. Compared
+    by canonical URI, never by string suffix or alias prefix.
+
+requires:
+  type: owl.DatatypeProperty
+  domain: InputPattern
+  range: xsd.string
+  label: Requires
+  comment: >
+    Zero-or-more property URI strings (in canonical
+    `publisher/package/name` form) that an input instance must have
+    set (non-empty) in order to be accepted. Matches the
+    return-undefined-on-missing behavior of the current transformers.
+
+# =============================================================================
+# PROPERTIES — Expression (tagged union)
+#
+# All Expression properties have domain Expression. Each kind uses
+# only the subset of properties relevant to it. The runner enforces
+# per-kind required properties at compile time.
+# =============================================================================
+
+kind:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: ExpressionKind
+  label: Kind
+  comment: Discriminator. Required on every Expression.
+
+# --- kind=build-ast-node ---
+
+astClass:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: rdfs.Class
+  label: AST Class
+  comment: >
+    (kind=build-ast-node) The document-ast Class URI of the node
+    this Expression constructs (e.g. `document-ast/Document`,
+    `document-ast/Heading`).
+
+set:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: AstFieldBinding
+  label: Set
+  comment: >
+    (kind=build-ast-node) The ordered list of field bindings for
+    this node. Each binding sets one document-ast property of the
+    constructed node.
+
+# --- kind=for-each ---
+
+iterate:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Iterate
+  comment: (kind=for-each) Expression yielding the list to iterate.
+
+loopVar:
+  type: owl.DatatypeProperty
+  domain: Expression
+  range: xsd.string
+  label: Loop Variable
+  comment: >
+    (kind=for-each, kind=list-map) The environment-variable name
+    each element is bound to during evaluation of `emit` / `mapBody`.
+
+emit:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Emit
+  comment: >
+    (kind=for-each) Expression evaluated once per element. Its
+    per-iteration results are concatenated into the ForEach's
+    final list output.
+
+# --- kind=when ---
+
+condition:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Condition
+  comment: (kind=when) Boolean Expression deciding between branches.
+
+thenBuild:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Then Build
+  comment: (kind=when) Expression evaluated when the condition is truthy.
+
+elseBuild:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Else Build
+  comment: >
+    (kind=when) Optional. Expression evaluated when the condition is
+    falsy. If omitted and the condition is false, the When yields
+    nothing and the enclosing binding is dropped.
+
+# --- kind=concat ---
+
+parts:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Parts
+  comment: >
+    (kind=concat) Ordered child expressions whose results are
+    flattened into one list.
+
+# --- kind=string-literal / integer-literal / boolean-literal ---
+
+stringLiteral:
+  type: owl.DatatypeProperty
+  domain: Expression
+  range: xsd.string
+  label: String Literal
+  comment: (kind=string-literal) The constant string value.
+
+integerLiteral:
+  type: owl.DatatypeProperty
+  domain: Expression
+  range: xsd.integer
+  label: Integer Literal
+  comment: (kind=integer-literal) The constant integer value.
+
+booleanLiteral:
+  type: owl.DatatypeProperty
+  domain: Expression
+  range: xsd.boolean
+  label: Boolean Literal
+  comment: (kind=boolean-literal) The constant boolean value.
+
+# --- kind=var-ref ---
+
+varName:
+  type: owl.DatatypeProperty
+  domain: Expression
+  range: xsd.string
+  label: Variable Name
+  comment: >
+    (kind=var-ref) The name of the binding to reference. At minimum
+    the runner binds `input` at the root. ForEach and ListMap add
+    scoped bindings.
+
+# --- kind=property-read ---
+
+readSource:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Read Source
+  comment: >
+    (kind=property-read) Expression yielding the subject whose
+    property is being read. Most commonly `{kind: var-ref, varName: input}`.
+
+readProp:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: rdfs.Class
+  label: Read Property
+  comment: >
+    (kind=property-read) Reference to the property entity URI to
+    read. The runner walks `statement[]` by canonical predicate URI.
+
+# --- kind=traverse ---
+
+traverseSource:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Traverse Source
+  comment: (kind=traverse) Expression yielding the start subject.
+
+through:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: rdfs.Class
+  label: Through
+  comment: >
+    (kind=traverse) The owl.ObjectProperty to follow. The runner
+    reads this reference from the source, resolves the target
+    SubjectKanonak through the repository, then evaluates `step`
+    against the resolved target.
+
+step:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Step
+  comment: >
+    (kind=traverse) Expression evaluated against the resolved
+    target subject. Most commonly another property-read for a
+    datatype field like `spdxId`.
+
+# --- kind=fallback ---
+
+primary:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Primary
+  comment: (kind=fallback) The expression tried first.
+
+alternate:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Alternate
+  comment: >
+    (kind=fallback) Evaluated only if `primary` yields nothing
+    (empty string, null, empty list, unresolved reference).
+
+# --- kind=uri-name ---
+
+uriNameOf:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: URI Name Of
+  comment: >
+    (kind=uri-name) Expression yielding a ReferenceKanonak whose
+    URI's `.name` segment is extracted. Result is a plain string.
+
+# --- kind=list-map ---
+
+listMapSource:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: List Map Source
+  comment: (kind=list-map) Expression yielding the list to map.
+
+mapBody:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Map Body
+  comment: (kind=list-map) Expression evaluated once per element.
+
+# --- kind=join ---
+
+separator:
+  type: owl.DatatypeProperty
+  domain: Expression
+  range: xsd.string
+  label: Separator
+  comment: >
+    (kind=join) Exact separator string placed between items. The
+    Skill case uses " " for allowed-tools; the Agent Markdown case
+    uses ", " for tools.
+
+items:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Items
+  comment: (kind=join) Expression yielding the list of strings to join.
+
+# --- kind=normalize ---
+
+normSource:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Normalize Source
+  comment: (kind=normalize) Expression yielding the string to normalize.
+
+normKind:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: NormalizeKind
+  label: Normalize Kind
+  comment: (kind=normalize) Which normalization to apply.
+
+# --- kind=is-set ---
+
+checkExpr:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Check Expression
+  comment: >
+    (kind=is-set) Expression whose value is checked for presence.
+    Yields true when non-null, non-empty-string, and non-empty-list;
+    false otherwise.
+
+# --- kind=uri-literal ---
+
+refTo:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: rdfs.Class
+  label: Reference To
+  comment: >
+    (kind=uri-literal) Reference to a named entity. Evaluates to the
+    target's resolved KanonakUri, preserved as the authoritative
+    identity. Used to bind AST fields whose range is a named-instance
+    vocabulary (e.g. document-ast's `escapeHint` field, whose range
+    is `EscapeHint`).
+
+# --- kind=call-fragment ---
+
+fragmentRef:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: rdfs.Class
+  label: Fragment Reference
+  comment: >
+    (kind=call-fragment) Reference to a named ExpressionFragment.
+    The loader resolves this reference at compile time, fetches the
+    fragment's `expr`, recursively compiles it, and inlines the
+    result into the caller's rule tree. At evaluation time the
+    call-fragment node is gone — only its inlined body remains.
+
+    A fragment evaluates against the caller's environment, so a
+    fragment expression may reference `VarRef(input)` and similar
+    bindings expected to exist in the caller's context.
+
+# --- kind=display-label ---
+
+labelTarget:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: rdfs.Class
+  label: Label Target
+  comment: >
+    (kind=display-label) Reference to a named entity (typically an
+    owl.DatatypeProperty or owl.ObjectProperty — e.g. skills.name)
+    whose display label this expression resolves at evaluation time.
+    Authors specify this as a first-class ontological reference so
+    any visualization tooling can follow and validate the relationship.
+
+labelSource:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: rdfs.Class
+  label: Label Source
+  comment: >
+    (kind=display-label) Reference to the property whose value on
+    the `labelTarget` entity carries the human-readable display
+    label. Typically `rdfs.label`, but authors can pick any
+    annotation property — `rdfs.comment`, a custom `displayName`,
+    `dc:title`, etc. — as long as the target entity defines it.
+
+    Modeled as an ObjectProperty so the choice of label source is
+    a real, validatable relationship in the ontology — not a magic
+    string baked into the transformation author's head.
+
+# =============================================================================
+# PROPERTIES — AstFieldBinding
+# =============================================================================
+
+field:
+  type: owl.ObjectProperty
+  domain: AstFieldBinding
+  range: rdfs.Class
+  label: Field
+  comment: >
+    The document-ast property URI being bound. Compared against the
+    canonical property URI — no string matching.
+
+bindValue:
+  type: owl.ObjectProperty
+  domain: AstFieldBinding
+  range: Expression
+  label: Bind Value
+  comment: >
+    The Expression that produces the value for this binding. May be
+    any Expression kind, including a nested kind=build-ast-node for
+    object-valued document-ast properties.
+
+# =============================================================================
+# PROPERTIES — OutputFormat
+# =============================================================================
+
+backendUri:
+  type: owl.DatatypeProperty
+  domain: OutputFormat
+  range: xsd.string
+  label: Backend URI
+  comment: >
+    Identifier the runner uses to look up the TypeScript
+    IDocumentAstBackend implementation for this format.
+
+# =============================================================================
+# PROPERTIES — FormatOverride
+# =============================================================================
+
+formatTarget:
+  type: owl.ObjectProperty
+  domain: FormatOverride
+  range: OutputFormat
+  label: Format Target
+  comment: Which OutputFormat this override applies to.
+
+metadataKeys:
+  type: owl.DatatypeProperty
+  domain: FormatOverride
+  range: xsd.string
+  label: Metadata Keys
+  comment: >
+    Ordered list of StructuredMap entry keys the backend should
+    emit. Keys not in the list are skipped entirely. Order matches
+    the emission order in the output file.
+
+metadataRenames:
+  type: owl.ObjectProperty
+  domain: FormatOverride
+  range: RenameEntry
+  label: Metadata Renames
+  comment: >
+    Optional key renames applied at emission time. Each entry maps
+    an AST key (`fromKey`) to the actual key the backend should
+    emit (`toKey`).
+
+trailingNewline:
+  type: owl.DatatypeProperty
+  domain: FormatOverride
+  range: xsd.boolean
+  label: Trailing Newline
+  comment: >
+    Whether this format override wants a final newline appended to
+    the serialized output. The Skill SKILL.md case wants false; the
+    Agent Markdown and TOML cases both want true.
+
+# =============================================================================
+# PROPERTIES — RenameEntry
+# =============================================================================
+
+fromKey:
+  type: owl.DatatypeProperty
+  domain: RenameEntry
+  range: xsd.string
+  label: From Key
+  comment: The AST StructuredEntry key to be renamed.
+
+toKey:
+  type: owl.DatatypeProperty
+  domain: RenameEntry
+  range: xsd.string
+  label: To Key
+  comment: The key string the backend should emit in its place.
+
+# =============================================================================
+# Named ExpressionKind instances — the v1 discriminator vocabulary.
+# =============================================================================
+
+build-ast-node:
+  type: ExpressionKind
+  label: Build AST Node
+  comment: Constructs a document-ast node (astClass + set bindings).
+
+for-each:
+  type: ExpressionKind
+  label: For Each
+  comment: Iterates a list, binds loopVar, flattens emit results.
+
+when:
+  type: ExpressionKind
+  label: When
+  comment: Conditional evaluation of thenBuild or elseBuild.
+
+concat:
+  type: ExpressionKind
+  label: Concat
+  comment: Flattens parts into a single list.
+
+string-literal:
+  type: ExpressionKind
+  label: String Literal
+  comment: Constant string value from the stringLiteral property.
+
+integer-literal:
+  type: ExpressionKind
+  label: Integer Literal
+  comment: Constant integer value from the integerLiteral property.
+
+boolean-literal:
+  type: ExpressionKind
+  label: Boolean Literal
+  comment: Constant boolean value from the booleanLiteral property.
+
+var-ref:
+  type: ExpressionKind
+  label: Variable Reference
+  comment: Reads a binding from the environment by varName.
+
+property-read:
+  type: ExpressionKind
+  label: Property Read
+  comment: Reads a property off a subject via readSource + readProp.
+
+traverse:
+  type: ExpressionKind
+  label: Traverse
+  comment: Follows a reference via traverseSource + through, then evaluates step.
+
+fallback:
+  type: ExpressionKind
+  label: Fallback
+  comment: Returns primary if non-empty, else alternate.
+
+uri-name:
+  type: ExpressionKind
+  label: URI Name
+  comment: Yields the `.name` segment of a reference URI.
+
+list-map:
+  type: ExpressionKind
+  label: List Map
+  comment: Maps a body expression over a source list.
+
+join:
+  type: ExpressionKind
+  label: Join
+  comment: Joins a list of strings with a separator.
+
+normalize:
+  type: ExpressionKind
+  label: Normalize
+  comment: Applies a named normalization (e.g. trim-end) to a string.
+
+is-set:
+  type: ExpressionKind
+  label: Is Set
+  comment: Yields true iff checkExpr is non-empty.
+
+uri-literal:
+  type: ExpressionKind
+  label: URI Literal
+  comment: >
+    Yields the resolved KanonakUri of a named entity (the refTo
+    property). Preserves full URI identity so backends can compare
+    by canonical URI, not by string local name.
+
+call-fragment:
+  type: ExpressionKind
+  label: Call Fragment
+  comment: >
+    Inlines a named ExpressionFragment at compile time. The loader
+    looks up the referenced fragment (via the fragmentRef property),
+    recursively compiles its `expr`, and substitutes the result in
+    place of the call-fragment node. Enables a single canonical
+    visualization or rule subtree to be shared across multiple
+    transformations.
+
+display-label:
+  type: ExpressionKind
+  label: Display Label
+  comment: >
+    Resolves the human-readable display label of a named entity by
+    looking up `labelTarget` and reading `labelSource` off of it —
+    typically the target is an owl.DatatypeProperty like skills.name
+    and the source is rdfs.label, producing a friendly version of
+    the property's name.
+
+    If the target entity can't be resolved, or the label source
+    returns an empty value, the expression falls back to the
+    target's URI local name. This means a transformation author
+    can switch hardcoded display strings like "allowed-tools" to
+    display-label references and the output stays sensible even
+    if the target ontology changes.
+
+    Ontologically equivalent to (but more concise than) wrapping
+    a traverse/property-read pair in a fallback expression; the
+    dedicated kind makes the intent explicit so visualization
+    tooling can follow label references without walking the tree.
+
+# -----------------------------------------------------------------------------
+# ExpressionFragment properties — the reusable-subroutine container.
+# -----------------------------------------------------------------------------
+
+expr:
+  type: owl.ObjectProperty
+  domain: ExpressionFragment
+  range: Expression
+  label: Expression
+  comment: >
+    The Expression tree the fragment encapsulates. Inlined into each
+    caller's rule at compile time.
+
+# =============================================================================
+# Named NormalizeKind instances — v1 vocabulary.
+# =============================================================================
+
+trim-end:
+  type: NormalizeKind
+  label: Trim End
+  comment: >
+    Remove trailing whitespace from the string (mirrors
+    String.prototype.trimEnd in JavaScript). The only normalization
+    the current SkillTransformer and AgentTransformer apply.
+
+# =============================================================================
+# Named OutputFormat instances — v1 vocabulary.
+# =============================================================================
+
+markdown-with-frontmatter:
+  type: OutputFormat
+  backendUri: "kanonak.org/transformations/backend/markdown-with-frontmatter"
+  label: Markdown with YAML Frontmatter
+  comment: >
+    A `---`-delimited YAML frontmatter block followed by a rendered
+    Markdown body. Uses both the `metadata` and `children` channels.
+
+toml:
+  type: OutputFormat
+  backendUri: "kanonak.org/transformations/backend/toml"
+  label: TOML
+  comment: >
+    A flat TOML file. Uses only the `metadata` channel; ignores
+    narrative `children`. Respects per-entry `escapeHint` for
+    tomlString vs. tomlMultiline scalars.
+
+json:
+  type: OutputFormat
+  backendUri: "kanonak.org/transformations/backend/json"
+  label: JSON
+  comment: >
+    A plain JSON serialization of the Document. Useful as a
+    regression-test oracle independent of whitespace-sensitive
+    text formats.
+
+plain-markdown:
+  type: OutputFormat
+  backendUri: "kanonak.org/transformations/backend/plain-markdown"
+  label: Plain Markdown
+  comment: Markdown body only, no frontmatter. Uses only `children`.
+
+svg:
+  type: OutputFormat
+  backendUri: "kanonak.org/transformations/backend/svg"
+  label: SVG
+  comment: >
+    Standalone SVG file. The backend walks Document.children and
+    returns the rawContent of the first RawBlock whose mediaType is
+    image-svg-xml. Used by transformations that build ontology-driven
+    vector visualizations and want to produce plain .svg artifacts
+    (as opposed to embedding the SVG inside an HTML document).

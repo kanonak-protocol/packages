@@ -1,0 +1,454 @@
+document-ast:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+
+# -----------------------------------------------------------------------------
+# Root + abstract marker classes
+# -----------------------------------------------------------------------------
+
+Document:
+  type: rdfs.Class
+  label: Document
+  comment: >
+    Root of a document AST. Carries two parallel channels: `metadata`
+    (structured key-value data, used by frontmatter/TOML/JSON backends)
+    and `children` (a block list, used by narrative backends such as
+    Markdown and HTML). A single Document can be serialized by any
+    number of format backends — each backend reads whichever channels
+    it supports and ignores the rest. This dual-channel shape is what
+    lets one Transformation produce both markdown-with-frontmatter and
+    flat TOML from the same input.
+
+Block:
+  type: rdfs.Class
+  label: Block
+  comment: >
+    Abstract marker class for block-level content in a narrative
+    document. Subclassed by Heading, Paragraph, and (in future
+    revisions) CodeBlock, BulletList, Table, BlockQuote, HorizontalRule,
+    RawBlock, etc. Block instances live in Document.children.
+
+Inline:
+  type: rdfs.Class
+  label: Inline
+  comment: >
+    Abstract marker class for inline (intra-paragraph) content:
+    runs of text, emphasis, links, and so on. Inline instances live
+    inside Block.inlines slots. v1.0.0 only ships the Text subclass;
+    Emphasis/Strong/InlineCode/Link/LineBreak/SoftBreak follow.
+
+StructuredValue:
+  type: rdfs.Class
+  label: Structured Value
+  comment: >
+    Abstract marker class for key-value / list / scalar data. Subclassed
+    by StructuredMap, StructuredList, StringScalar, and IntegerScalar.
+    Used for Document.metadata and for any nested data inside it.
+    Distinct from Block/Inline so frontmatter/TOML/JSON backends can
+    walk metadata recursively without needing to understand narrative
+    block types.
+
+# -----------------------------------------------------------------------------
+# Block subclasses (v1 minimum — grows as use cases land)
+# -----------------------------------------------------------------------------
+
+Heading:
+  type: rdfs.Class
+  subClassOf: Block
+  label: Heading
+  comment: >
+    A section heading, numbered by `level` (1 = H1, 2 = H2, ...).
+    Contains inline content in `inlines`. In Markdown backends this
+    becomes `# text`, `## text`, etc; HTML backends emit `<h1>` etc.
+
+Paragraph:
+  type: rdfs.Class
+  subClassOf: Block
+  label: Paragraph
+  comment: >
+    A block of flowing text. Contains inline content in `inlines`.
+    Markdown backends emit the inlines as a line followed by a blank
+    line; HTML backends wrap in `<p>`.
+
+RawBlock:
+  type: rdfs.Class
+  subClassOf: Block
+  label: Raw Block
+  comment: >
+    A block of pre-formatted content in a declared media type.
+    Borrowed from Pandoc's AST. Use for content that is already in a
+    specific format (e.g., a markdown-formatted section body, a JSON
+    snippet, an HTML fragment) and should be either parsed natively
+    by backends that understand the format, or passed through
+    verbatim by those that don't.
+
+    This is how the transformation system expresses "this string is
+    markdown, not plain text". A Markdown backend emits the
+    `rawContent` verbatim because the content is already markdown; an
+    HTML backend dispatches on `mediaType` and runs text/markdown
+    content through its own markdown renderer before emitting HTML;
+    a JSON backend serializes the RawBlock as a structured object
+    with both channels.
+
+    Pandoc's `RawBlock(format, content)` is the direct analogue.
+
+# -----------------------------------------------------------------------------
+# Inline subclasses (v1 minimum)
+# -----------------------------------------------------------------------------
+
+Text:
+  type: rdfs.Class
+  subClassOf: Inline
+  label: Text
+  comment: >
+    A run of plain text. Carries no formatting of its own. Backends
+    may apply format-specific escaping (HTML entity encoding, etc.)
+    when serializing.
+
+# -----------------------------------------------------------------------------
+# StructuredValue subclasses — the metadata / JSON / TOML channel
+# -----------------------------------------------------------------------------
+
+StructuredMap:
+  type: rdfs.Class
+  subClassOf: StructuredValue
+  label: Structured Map
+  comment: >
+    An ordered key-value collection. Entry order is significant and
+    is preserved from the author's specification through to the output
+    file. Backends that produce key-value formats (YAML frontmatter,
+    TOML, JSON) walk `entries` in order.
+
+StructuredEntry:
+  type: rdfs.Class
+  label: Structured Entry
+  comment: >
+    One key-value pair inside a StructuredMap. The optional
+    `escapeHint` property tells each backend how to serialize the
+    value — raw, YAML-safe scalar, TOML single-line string, TOML
+    multiline string, or JSON-encoded. StructuredEntry is NOT a
+    StructuredValue (it is not itself a value — it holds one).
+
+StructuredList:
+  type: rdfs.Class
+  subClassOf: StructuredValue
+  label: Structured List
+  comment: >
+    An ordered collection of StructuredValues. Used for array-valued
+    metadata fields (e.g., an agent's `tools` list). Backends serialize
+    this as a YAML flow sequence, TOML array, or JSON array depending
+    on context.
+
+StringScalar:
+  type: rdfs.Class
+  subClassOf: StructuredValue
+  label: String Scalar
+  comment: >
+    A string leaf value. Carries the raw unescaped string in
+    `stringValue`. The containing StructuredEntry's `escapeHint`
+    controls how backends serialize it.
+
+IntegerScalar:
+  type: rdfs.Class
+  subClassOf: StructuredValue
+  label: Integer Scalar
+  comment: >
+    An integer leaf value. Serialized as a bare numeric literal by all
+    backends (no quoting). Used for fields like an agent's `maxTurns`.
+
+# -----------------------------------------------------------------------------
+# Escape policy — per-entry hint read by backends during serialization.
+# Named instances of EscapeHint (below) supply the vocabulary.
+# -----------------------------------------------------------------------------
+
+MediaType:
+  type: rdfs.Class
+  label: Media Type
+  comment: >
+    A named IANA media type (MIME type). Used on RawBlock instances
+    to tell backends how to interpret the raw content. Modeled as a
+    named-instance vocabulary (rather than plain strings) so backend
+    dispatch stays URI-equal rather than string-equal, consistent
+    with the rest of the ontology.
+
+mimeType:
+  type: owl.DatatypeProperty
+  domain: MediaType
+  range: xsd.string
+  label: MIME Type
+  comment: >
+    The canonical IANA MIME type string for this MediaType instance
+    (e.g. "text/markdown", "text/html", "application/json"). Useful
+    for interop with systems that key on MIME strings, and for
+    labeling purposes in backends that don't recognize the URI.
+
+EscapeHint:
+  type: rdfs.Class
+  label: Escape Hint
+  comment: >
+    Per-StructuredEntry policy that tells each format backend how to
+    serialize the entry's value. Lives on StructuredEntry rather than
+    on the StructuredScalar itself so that the same scalar type can
+    be emitted differently in different output contexts.
+
+    Exists because the two existing hardcoded transformers disagree on
+    scalar escaping: SkillTransformer emits the skill `description`
+    raw in YAML frontmatter, while AgentTransformer wraps the agent
+    `description` in a YAML-safe double-quoted scalar. Both are valid
+    for their case — the difference belongs to the transformation
+    instance, not to the backend.
+
+# -----------------------------------------------------------------------------
+# Properties
+# -----------------------------------------------------------------------------
+
+metadata:
+  type: owl.ObjectProperty
+  domain: Document
+  range: StructuredMap
+  label: Metadata
+  comment: >
+    The document's structured metadata channel. Backends that support
+    key-value output (YAML frontmatter, TOML, JSON) serialize this
+    channel. Narrative-only backends ignore it.
+
+children:
+  type: owl.ObjectProperty
+  domain: Document
+  range: Block
+  label: Children
+  comment: >
+    The document's narrative block list, in render order. Backends
+    that support narrative content (Markdown, HTML, plain-text) walk
+    this channel. Structured-only backends (TOML, JSON) ignore it.
+
+level:
+  type: owl.DatatypeProperty
+  domain: Heading
+  range: xsd.integer
+  label: Level
+  comment: >
+    Heading depth, starting at 1. Markdown `# H1` is level 1, `## H2`
+    is level 2, and so on.
+
+inlines:
+  type: owl.ObjectProperty
+  domain: Block
+  range: Inline
+  label: Inlines
+  comment: >
+    The ordered inline content of a block (Heading, Paragraph).
+
+text:
+  type: owl.DatatypeProperty
+  domain: Text
+  range: xsd.string
+  label: Text
+  comment: >
+    The raw character data of a Text inline.
+
+entries:
+  type: owl.ObjectProperty
+  domain: StructuredMap
+  range: StructuredEntry
+  label: Entries
+  comment: >
+    The ordered list of key-value pairs inside a StructuredMap.
+    Order is significant and preserved through serialization.
+
+key:
+  type: owl.DatatypeProperty
+  domain: StructuredEntry
+  range: xsd.string
+  label: Key
+  comment: >
+    The string key of a StructuredEntry.
+
+value:
+  type: owl.ObjectProperty
+  domain: StructuredEntry
+  range: StructuredValue
+  label: Value
+  comment: >
+    The value of a StructuredEntry. May be a scalar, list, or nested map.
+
+escapeHint:
+  type: owl.ObjectProperty
+  domain: StructuredEntry
+  range: EscapeHint
+  label: Escape Hint
+  comment: >
+    Optional. Per-entry serialization hint consulted by backends when
+    emitting the value. If omitted, the backend applies its default
+    escaping for the value's type.
+
+items:
+  type: owl.ObjectProperty
+  domain: StructuredList
+  range: StructuredValue
+  label: Items
+  comment: >
+    The ordered elements of a StructuredList.
+
+stringValue:
+  type: owl.DatatypeProperty
+  domain: StringScalar
+  range: xsd.string
+  label: String Value
+  comment: >
+    The raw unescaped characters of a StringScalar. Backends apply
+    per-EscapeHint escaping at serialization time.
+
+integerValue:
+  type: owl.DatatypeProperty
+  domain: IntegerScalar
+  range: xsd.integer
+  label: Integer Value
+  comment: >
+    The numeric value of an IntegerScalar.
+
+rawContent:
+  type: owl.DatatypeProperty
+  domain: RawBlock
+  range: xsd.string
+  label: Raw Content
+  comment: >
+    The raw, pre-formatted content string of a RawBlock. Interpreted
+    by backends according to the sibling `mediaType` property.
+
+mediaType:
+  type: owl.ObjectProperty
+  domain: RawBlock
+  range: MediaType
+  label: Media Type
+  comment: >
+    The media type of the sibling `rawContent`. Backends dispatch on
+    this URI: HTML backend runs `text/markdown` content through a
+    markdown renderer, passes `text/html` through verbatim (trusted),
+    and falls back to `<pre>` escaping for unknown types.
+
+# -----------------------------------------------------------------------------
+# Named EscapeHint instances — the v1 vocabulary.
+# -----------------------------------------------------------------------------
+
+esc-raw:
+  type: EscapeHint
+  label: Raw
+  comment: >
+    Emit the value verbatim, with no escaping. Unsafe if the value
+    contains format-significant characters. Used today by
+    SkillTransformer for the `description` field in SKILL.md
+    frontmatter.
+
+esc-yaml-safe:
+  type: EscapeHint
+  label: YAML-safe Scalar
+  comment: >
+    Emit as a YAML scalar, double-quoting and escaping if the value
+    contains any YAML flow indicators (colon, hash, brackets, quotes,
+    etc.), or as a block literal (`|-`) if it contains newlines.
+    Used today by AgentTransformer for the agent `description` field.
+
+esc-toml-string:
+  type: EscapeHint
+  label: TOML Single-line String
+  comment: >
+    Emit as a TOML basic string: double-quoted with backslash escaping
+    for quotes, backslashes, and newlines. Used today for TOML keys
+    like `name`, `description`, `model`.
+
+esc-toml-multiline:
+  type: EscapeHint
+  label: TOML Multiline String
+  comment: >
+    Emit as a TOML multiline basic string: triple-double-quoted, with
+    embedded `"""` sequences escaped. Used today for the agent
+    `developer_instructions` TOML key, which is long prose.
+
+esc-json:
+  type: EscapeHint
+  label: JSON-encoded
+  comment: >
+    Emit as a JSON string literal. Produces a double-quoted, fully
+    escaped value suitable for any JSON backend.
+
+# -----------------------------------------------------------------------------
+# Named MediaType instances — the v1 IANA-aligned vocabulary.
+# -----------------------------------------------------------------------------
+
+text-plain:
+  type: MediaType
+  mimeType: "text/plain"
+  label: Plain Text
+  comment: >
+    Unformatted text. Backends should emit without interpretation
+    (but with format-appropriate escaping, e.g., HTML entity encoding).
+
+text-markdown:
+  type: MediaType
+  mimeType: "text/markdown"
+  label: Markdown
+  comment: >
+    CommonMark-flavored markdown. HTML backends run this content
+    through a markdown renderer; Markdown backends emit it verbatim.
+
+text-html:
+  type: MediaType
+  mimeType: "text/html"
+  label: HTML
+  comment: >
+    An HTML fragment, already rendered. HTML backends emit it
+    unescaped (trusted passthrough). Non-HTML backends typically
+    fall back to escaped-text behavior or drop the block.
+
+application-json:
+  type: MediaType
+  mimeType: "application/json"
+  label: JSON
+  comment: >
+    A JSON value (serialized as text). Backends may pretty-print or
+    pass through depending on target format.
+
+text-yaml:
+  type: MediaType
+  mimeType: "text/yaml"
+  label: YAML
+  comment: >
+    A YAML document. Useful for embedding configuration snippets
+    inside generated documentation.
+
+image-svg-xml:
+  type: MediaType
+  mimeType: "image/svg+xml"
+  label: SVG
+  comment: >
+    An SVG (Scalable Vector Graphics) fragment. Because SVG is valid
+    inline HTML5, the HTML backend embeds it verbatim (trusted
+    passthrough, same policy as text/html). Transformations build
+    SVG strings via the expression DSL — typically as a Concat of
+    string-literal chunks interleaved with ontology-driven dynamic
+    values — and wrap the result in a RawBlock for composition
+    into a larger Document.
+
+    This is how a visualization designer controls how types,
+    instances, and their relationships should be drawn: write a
+    transformation whose rule tree emits SVG, bind its dynamic parts
+    to ontology property reads, and either output a standalone .svg
+    file or compose the RawBlock inside a Document's narrative
+    children to embed the visualization inside an HTML report.
