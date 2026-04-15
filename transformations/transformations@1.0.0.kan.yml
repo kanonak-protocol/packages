@@ -126,11 +126,13 @@ OutputFormat:
   label: Output Format
   comment: >
     A named output format the runner can serialize a document-ast
-    Document into. Each instance carries a `backendUri` string that
-    the runner maps to a registered `IDocumentAstBackend`
-    implementation in TypeScript. New formats can be added simply by
-    declaring more OutputFormat instances and registering a backend
-    for them — no changes to the ontology required.
+    Document into. Each instance is identified by its own canonical
+    Kanonak URI (`kanonak.org/transformations/<name>` — for example,
+    `kanonak.org/transformations/markdown-with-frontmatter`); the
+    runner keys its backend map on that same URI, so registering a
+    new backend only requires declaring a new OutputFormat instance
+    and providing the matching `IDocumentAstBackend` implementation
+    in TypeScript. No changes to the ontology schema required.
 
 FormatOverride:
   type: rdfs.Class
@@ -667,19 +669,6 @@ bindValue:
     object-valued document-ast properties.
 
 # =============================================================================
-# PROPERTIES — OutputFormat
-# =============================================================================
-
-backendUri:
-  type: owl.DatatypeProperty
-  domain: OutputFormat
-  range: xsd.string
-  label: Backend URI
-  comment: >
-    Identifier the runner uses to look up the TypeScript
-    IDocumentAstBackend implementation for this format.
-
-# =============================================================================
 # PROPERTIES — FormatOverride
 # =============================================================================
 
@@ -927,7 +916,6 @@ trim-end:
 
 markdown-with-frontmatter:
   type: OutputFormat
-  backendUri: "kanonak.org/transformations/backend/markdown-with-frontmatter"
   label: Markdown with YAML Frontmatter
   comment: >
     A `---`-delimited YAML frontmatter block followed by a rendered
@@ -935,7 +923,6 @@ markdown-with-frontmatter:
 
 toml:
   type: OutputFormat
-  backendUri: "kanonak.org/transformations/backend/toml"
   label: TOML
   comment: >
     A flat TOML file. Uses only the `metadata` channel; ignores
@@ -944,7 +931,6 @@ toml:
 
 json:
   type: OutputFormat
-  backendUri: "kanonak.org/transformations/backend/json"
   label: JSON
   comment: >
     A plain JSON serialization of the Document. Useful as a
@@ -953,13 +939,11 @@ json:
 
 plain-markdown:
   type: OutputFormat
-  backendUri: "kanonak.org/transformations/backend/plain-markdown"
   label: Plain Markdown
   comment: Markdown body only, no frontmatter. Uses only `children`.
 
 svg:
   type: OutputFormat
-  backendUri: "kanonak.org/transformations/backend/svg"
   label: SVG
   comment: >
     Standalone SVG file. The backend walks Document.children and
@@ -967,3 +951,14 @@ svg:
     image-svg-xml. Used by transformations that build ontology-driven
     vector visualizations and want to produce plain .svg artifacts
     (as opposed to embedding the SVG inside an HTML document).
+
+html:
+  type: OutputFormat
+  label: HTML
+  comment: >
+    HTML document. The backend wraps the Document's metadata channel
+    as a `<dl class="metadata">` block, renders narrative children
+    as semantic HTML (headings, paragraphs, tables, lists, code
+    blocks), and embeds `image-svg-xml` RawBlocks inline inside
+    `<figure>` elements. Accepts `text-markdown` RawBlocks and pipes
+    them through a CommonMark-subset renderer.
