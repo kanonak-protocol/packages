@@ -591,6 +591,28 @@ fragmentRef:
     fragment expression may reference `VarRef(input)` and similar
     bindings expected to exist in the caller's context.
 
+# --- kind=resolve-ref ---
+
+resolveSource:
+  type: owl.ObjectProperty
+  domain: Expression
+  range: Expression
+  label: Resolve Source
+  comment: >
+    (kind=resolve-ref) Expression that yields a ReferenceKanonak
+    (or a KanonakUri/EntityUri from uri-literal). The resolve-ref
+    expression dereferences this value through the shared
+    ReferenceResolver — which consults the transformation's input
+    kanonaks first, then falls through to the broader repository —
+    and returns the target SubjectKanonak.
+
+    Most commonly used inside a list-map body where the loop
+    variable is a reference from an object-valued list property
+    (e.g., Program.hasTrack elements pointing at Track instances,
+    or Skill.allowedTools elements pointing at Tool instances).
+    Compose with property-read downstream to access fields on the
+    resolved target.
+
 # --- kind=display-label ---
 
 labelTarget:
@@ -818,6 +840,39 @@ call-fragment:
     place of the call-fragment node. Enables a single canonical
     visualization or rule subtree to be shared across multiple
     transformations.
+
+resolve-ref:
+  type: ExpressionKind
+  label: Resolve Reference
+  comment: >
+    Dereferences a ReferenceKanonak value to the target SubjectKanonak
+    it points at. The input expression (`resolveSource`) must yield
+    either a ReferenceKanonak (the common case — e.g. each item of a
+    list-map iterating over an ObjectProperty list) or an EntityUri
+    from uri-literal.
+
+    Returns the resolved SubjectKanonak, or undefined if the reference
+    cannot be resolved through the repository (so Fallback composes
+    correctly for missing-target handling).
+
+    Distinct from `traverse`: `traverse` starts from a subject and
+    follows a specific property through it to reach a reference,
+    then resolves that reference. `resolve-ref` starts from an
+    already-in-hand reference value and just dereferences it. Use
+    `traverse` when you have a subject + a named property to follow;
+    use `resolve-ref` when the reference value is already bound in
+    the current environment (e.g., from list-map, property-read, or
+    uri-literal).
+
+    Typical usage:
+
+      property-read(
+        resolve-ref(var-ref(trackRef)),
+        rdfs.label
+      )
+
+    reads `rdfs:label` off a Track whose reference was just yielded
+    by a list-map iteration.
 
 display-label:
   type: ExpressionKind
