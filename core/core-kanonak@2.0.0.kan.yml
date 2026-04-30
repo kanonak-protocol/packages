@@ -1,0 +1,124 @@
+# =============================================================================
+# core-kanonak @ 2.0.0
+#
+# Major release. Fixes the malformed multi-class `domain` declarations
+# on the `publisher` and `version` properties.
+#
+# In v1.0.0 these were authored as comma-separated strings:
+#
+#   publisher: domain: Package, Import, PublisherImport
+#   version:   domain: Package, Import
+#
+# YAML treats those values as a single bare string, which the parser
+# then resolved as a (non-existent) class reference. An RDFS reasoner
+# saw `(publisher, domain, "Package, Import, PublisherImport")` and
+# dragged that nonsense URI through `rdfs2`/`rdfs3` entailments,
+# producing spurious type triples on every package whose `publisher`
+# property was set.
+#
+# v2.0.0 drops the explicit `domain` on both properties. Following
+# W3C convention for broadly-applicable metadata properties (mirrors
+# `rdfs:label` / `rdfs:comment` whose domain is `rdfs:Resource`), the
+# property simply applies wherever it is asserted — no over-restrictive
+# schema constraint.
+#
+# This is a breaking change because removing a `domain` triple changes
+# the schema that consumers may have been validating against. Existing
+# data does not need updating — the property values themselves remain
+# the same.
+# =============================================================================
+
+core-kanonak:
+  type: Package
+  publisher: kanonak.org
+  version: 2.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+
+Publisher:
+  type: rdfs.Class
+  label: Publisher
+  comment: A package publisher identified by domain
+
+Package:
+  type: rdfs.Class
+  label: Package
+  comment: A Kanonak package with version and dependencies
+
+Import:
+  type: rdfs.Class
+  label: Import
+  comment: A package import specification
+
+PublisherImport:
+  type: rdfs.Class
+  label: Publisher Import
+  comment: A group of package imports from a single publisher
+
+publisher:
+  type: owl.ObjectProperty
+  label: Publisher
+  comment: >
+    The publisher of a package or import group. Used on Package,
+    Import, and PublisherImport instances. No `domain` is asserted —
+    the property describes a relationship that may be reused across
+    package-metadata structures and over-constraining the domain
+    invites incorrect entailments through `rdfs2`.
+  range: Publisher
+
+version:
+  type: owl.DatatypeProperty
+  label: Version
+  comment: >
+    The semantic version of a package or import constraint. Used on
+    Package and Import instances. No `domain` is asserted (see
+    `publisher` for the rationale).
+  range: xsd.string
+
+imports:
+  type: owl.ObjectProperty
+  label: Imports
+  comment: List of package imports grouped by publisher
+  domain: Package
+  range: PublisherImport
+
+packages:
+  type: owl.ObjectProperty
+  label: Packages
+  comment: List of package imports from this publisher
+  domain: PublisherImport
+  range: Import
+
+package:
+  type: owl.ObjectProperty
+  label: Package
+  comment: The package being imported
+  domain: Import
+  range: Package
+
+match:
+  type: owl.DatatypeProperty
+  label: Match
+  comment: Version match operator (*, ~, ^, =)
+  domain: Import
+  range: xsd.string
+
+alias:
+  type: owl.DatatypeProperty
+  label: Alias
+  comment: Optional namespace alias for the import
+  domain: Import
+  range: xsd.string

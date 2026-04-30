@@ -1,0 +1,320 @@
+# =============================================================================
+# core-rdf @ 1.1.0
+#
+# Additive minor release. Adds the W3C-standard RDF/RDFS terms that
+# v1.0.0 did not yet declare. Every entity that existed in 1.0.0 is
+# preserved bit-for-bit; consumers pinned to ^1.0.0 see the new
+# terms automatically without code changes.
+#
+# Newly declared in 1.1.0:
+#
+#   RDFS annotation/structure properties:
+#     seeAlso, isDefinedBy, member
+#
+#   RDFS container types:
+#     Container, ContainerMembershipProperty
+#
+#   RDF reification (W3C RDF Concepts §5.3):
+#     Statement, subject, predicate, object
+#
+#   RDF utility:
+#     value
+#
+#   RDF datatype literals:
+#     langString, HTML, XMLLiteral, PlainLiteral
+#
+# All additions track the canonical W3C IRIs:
+#   rdf:  http://www.w3.org/1999/02/22-rdf-syntax-ns#
+#   rdfs: http://www.w3.org/2000/01/rdf-schema#
+#
+# Reference specs:
+#   https://www.w3.org/TR/rdf11-concepts/
+#   https://www.w3.org/TR/rdf-schema/
+# =============================================================================
+
+# Package declaration
+core-rdf:
+  type: Package
+  publisher: kanonak.org
+  version: 1.1.0
+
+# =============================================================================
+# Original 1.0.0 entities — preserved bit-for-bit.
+# =============================================================================
+
+Property:
+  type: Class
+  label: Property
+  comment: The class of RDF properties
+  subClassOf: Resource
+type:
+  type: Property
+  comment: States that a resource is an instance of a class
+  label: Type
+  domain: Resource
+  range: Class
+Resource:
+  type: Class
+  label: Resource
+  comment: The class resource, everything
+Class:
+  type: Class
+  label: Class
+  comment: The class of classes
+  subClassOf: Resource
+Datatype:
+  type: Class
+  label: Datatype
+  comment: The class of RDF datatypes
+  subClassOf: Class
+Literal:
+  type: Class
+  label: Literal
+  comment: The class of literal values, e.g. textual strings and integers
+  subClassOf: Resource
+List:
+  type: Class
+  label: List
+  comment: The class of RDF Lists
+  subClassOf: Resource
+label:
+  type: Property
+  comment: A human-readable name for the subject
+  label: Label
+  domain: Resource
+  range: Literal
+comment:
+  type: Property
+  comment: A description of the subject resource
+  label: Comment
+  domain: Resource
+  range: Literal
+domain:
+  type: Property
+  comment: A domain of a property
+  label: Domain
+  domain: Property
+  range: Class
+range:
+  type: Property
+  comment: A range of a property
+  label: Range
+  domain: Property
+  range: Class
+subClassOf:
+  type: Property
+  label: Subclass Of
+  comment: The subject is a subclass of a class
+  domain: Class
+  range: Class
+subPropertyOf:
+  type: Property
+  label: Subproperty Of
+  comment: The subject is a subproperty of a property
+  domain: Property
+  range: Property
+first:
+  type: Property
+  label: First
+  comment: The first item in the subject RDF list
+  domain: List
+  range: Resource
+rest:
+  type: Property
+  label: Rest
+  comment: The rest of the subject RDF list after the first item
+  domain: List
+  range: List
+nil:
+  type: List
+  label: Nil
+  comment: The empty list, with no items in it
+
+# =============================================================================
+# RDFS annotation / cross-reference properties (new in 1.1.0).
+# =============================================================================
+
+seeAlso:
+  type: Property
+  label: See Also
+  comment: >
+    Indicates a resource that might provide additional information about
+    the subject resource. Annotation only — implies no formal relationship.
+    Mirrors `rdfs:seeAlso` in the W3C RDFS specification.
+  domain: Resource
+  range: Resource
+
+isDefinedBy:
+  type: Property
+  label: Is Defined By
+  comment: >
+    Indicates a resource (typically an ontology document) defining the
+    subject resource. A more precise statement than `seeAlso`: the target
+    is the authoritative definition source, not merely a related document.
+    Mirrors `rdfs:isDefinedBy`.
+  domain: Resource
+  range: Resource
+  subPropertyOf: seeAlso
+
+member:
+  type: Property
+  label: Member
+  comment: >
+    A member of the subject container. The most general membership
+    property — every container-membership property
+    (e.g. rdf:_1, rdf:_2, ...) is a `subPropertyOf` `member`. Mirrors
+    `rdfs:member`.
+  domain: Resource
+  range: Resource
+
+# =============================================================================
+# RDFS container vocabulary (new in 1.1.0).
+# =============================================================================
+
+Container:
+  type: Class
+  label: Container
+  comment: >
+    The class of RDF containers — Bag, Seq, and Alt. Containers are RDF
+    resources whose members are reachable via `rdf:_1`, `rdf:_2`, ...
+    (instances of `ContainerMembershipProperty`). Mirrors `rdfs:Container`.
+  subClassOf: Resource
+
+ContainerMembershipProperty:
+  type: Class
+  label: Container Membership Property
+  comment: >
+    The class of properties (e.g. `rdf:_1`) that relate a container to
+    one of its members. Every instance of this class has `rdfs:member`
+    as a super-property. Mirrors `rdfs:ContainerMembershipProperty`.
+  subClassOf: Property
+
+Bag:
+  type: Class
+  label: Bag
+  comment: >
+    The class of unordered containers — a collection of resources whose
+    membership is significant but order is not. Mirrors `rdf:Bag`.
+  subClassOf: Container
+
+Seq:
+  type: Class
+  label: Seq
+  comment: >
+    The class of ordered containers — a sequence of resources where
+    member order is significant. Mirrors `rdf:Seq`.
+  subClassOf: Container
+
+Alt:
+  type: Class
+  label: Alt
+  comment: >
+    The class of containers of alternatives — a set of resources from
+    which one is selected, typically based on application criteria.
+    Mirrors `rdf:Alt`.
+  subClassOf: Container
+
+# =============================================================================
+# RDF reification (new in 1.1.0).
+#
+# Reification lets an RDF graph make statements about other statements
+# — useful for provenance, scoping, and metadata. The four-triple
+# pattern is:
+#
+#   _:s rdf:type      rdf:Statement
+#   _:s rdf:subject   <subjectIRI>
+#   _:s rdf:predicate <predicateIRI>
+#   _:s rdf:object    <objectIRI-or-literal>
+#
+# See W3C RDF 1.1 Concepts §5.3 "Reification".
+# =============================================================================
+
+Statement:
+  type: Class
+  label: Statement
+  comment: >
+    The class of reified RDF statements. An instance describes a single
+    triple — its subject, predicate, and object — so that further
+    metadata (provenance, certainty, scope) can be attached. Mirrors
+    `rdf:Statement`.
+  subClassOf: Resource
+
+subject:
+  type: Property
+  label: Subject
+  comment: >
+    The subject of the reified statement. Mirrors `rdf:subject`.
+  domain: Statement
+  range: Resource
+
+predicate:
+  type: Property
+  label: Predicate
+  comment: >
+    The predicate of the reified statement. Mirrors `rdf:predicate`.
+  domain: Statement
+  range: Resource
+
+object:
+  type: Property
+  label: Object
+  comment: >
+    The object of the reified statement. May be either a Resource or a
+    Literal — `rdfs:Resource` is the most general type that covers
+    both. Mirrors `rdf:object`.
+  domain: Statement
+  range: Resource
+
+# =============================================================================
+# RDF utility properties (new in 1.1.0).
+# =============================================================================
+
+value:
+  type: Property
+  label: Value
+  comment: >
+    Idiomatic property used to identify the principal value (usually a
+    string) of a property when the property value is a structured
+    resource (e.g. a quantity with a unit). Annotation-style; carries
+    no formal semantics. Mirrors `rdf:value`.
+  domain: Resource
+  range: Resource
+
+# =============================================================================
+# RDF datatype literals (new in 1.1.0).
+#
+# These are the built-in RDF datatype URIs for typed literals — they
+# extend the XSD datatype set with a few RDF-specific shapes.
+# =============================================================================
+
+langString:
+  type: Datatype
+  label: Lang String
+  comment: >
+    The datatype of language-tagged strings. Every plain literal that
+    carries a language tag (e.g. `"hello"@en`) has this datatype.
+    Mirrors `rdf:langString`.
+
+HTML:
+  type: Datatype
+  label: HTML
+  comment: >
+    The datatype of HTML literals — string lexical values that conform
+    to the HTML5 fragment serialization. Mirrors `rdf:HTML`.
+
+XMLLiteral:
+  type: Datatype
+  label: XML Literal
+  comment: >
+    The datatype of XML literals — well-formed XML fragments. Mirrors
+    `rdf:XMLLiteral`.
+
+PlainLiteral:
+  type: Datatype
+  label: Plain Literal
+  comment: >
+    The datatype of plain literals (with or without a language tag).
+    Retained for compatibility with RDF 1.0 / OWL 2 RDF-Based
+    Semantics; in RDF 1.1, plain literals without a language tag have
+    datatype `xsd:string` and those with a tag have `rdf:langString`.
+    Mirrors `rdf:PlainLiteral`.
