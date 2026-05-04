@@ -9,6 +9,7 @@ agents-md:
         - package: protocols
           match: ^
           version: 1.0.0
+          alias: pro
 
 agents-md-protocol:
   type: Protocol
@@ -31,11 +32,11 @@ agents-md-protocol:
           rationale: Agents read the file directly at clone time; anything that requires a build step or network fetch defeats the zero-config promise
       hasValidExample:
         repo-root:
-          value: './AGENTS.md'
+          pro.value: './AGENTS.md'
           description: An AGENTS.md file placed directly at the repository root alongside README.md and the project manifest
       hasInvalidExample:
         nested-location:
-          value: './docs/agents/AGENTS.md'
+          pro.value: './docs/agents/AGENTS.md'
           description: Invalid - agents look at the repository root; a file buried under docs will not be found by default
 
     structure:
@@ -49,11 +50,11 @@ agents-md-protocol:
           rationale: The file doubles as onboarding documentation for human contributors; keeping it human-first means it stays current as part of normal code review
       hasValidExample:
         standard-skeleton:
-          value: '# Project Name\n\n## Project Overview\n...\n\n## Setup Commands\n- npm install\n- npm run build\n\n## Testing Instructions\n- npm test\n\n## Code Style\n- TypeScript strict mode\n- 2 space indent'
+          pro.value: '# Project Name\n\n## Project Overview\n...\n\n## Setup Commands\n- npm install\n- npm run build\n\n## Testing Instructions\n- npm test\n\n## Code Style\n- TypeScript strict mode\n- 2 space indent'
           description: A well-structured AGENTS.md with standard headings and short command lists under each section
       hasInvalidExample:
         json-blob:
-          value: '{"overview":"A project","setup":["npm install"],"tests":["npm test"]}'
+          pro.value: '{"overview":"A project","setup":["npm install"],"tests":["npm test"]}'
           description: Invalid - AGENTS.md is intended to be human-readable Markdown, not a machine-encoded config blob
 
     sections:
@@ -67,11 +68,11 @@ agents-md-protocol:
           rationale: Agents that know how to run the tests can self-verify their changes before handing them back; agents that do not know routinely ship broken patches
       hasValidExample:
         setup-block:
-          value: '## Setup Commands\n\n- `pnpm install`\n- `pnpm run build`\n- `cp .env.example .env`'
+          pro.value: '## Setup Commands\n\n- `pnpm install`\n- `pnpm run build`\n- `cp .env.example .env`'
           description: A Setup Commands section with a precise ordered list of shell commands an agent can execute verbatim
       hasInvalidExample:
         vague-setup:
-          value: '## Setup\n\nInstall dependencies and configure your environment as appropriate.'
+          pro.value: '## Setup\n\nInstall dependencies and configure your environment as appropriate.'
           description: Invalid - the prose is meaningless to an agent that has no prior context about which dependency manager or environment variables are required
 
     precedence:
@@ -86,11 +87,11 @@ agents-md-protocol:
           rationale: Duplicated content drifts out of sync; splitting by audience keeps each file useful without forcing every change to happen twice
       hasValidExample:
         user-override:
-          value: 'user says "skip the build step this time" - agent skips the Setup Commands build step for this task'
+          pro.value: 'user says "skip the build step this time" - agent skips the Setup Commands build step for this task'
           description: Agent honors a task-specific instruction that contradicts the default guidance in AGENTS.md
       hasInvalidExample:
         rigid-following:
-          value: 'user says "skip the build step" but agent runs it anyway because AGENTS.md says to'
+          pro.value: 'user says "skip the build step" but agent runs it anyway because AGENTS.md says to'
           description: Invalid - AGENTS.md defaults must yield to explicit user instructions for the current task
 
     nested-agents-md:
@@ -104,9 +105,9 @@ agents-md-protocol:
           rationale: Writing every rule from scratch in every package is a maintenance burden; inheritance keeps shared defaults in one place and lets subprojects customize only what they need
       hasValidExample:
         monorepo-layout:
-          value: './AGENTS.md (global)\n./packages/frontend/AGENTS.md (frontend-specific)\n./packages/backend/AGENTS.md (backend-specific)'
+          pro.value: './AGENTS.md (global)\n./packages/frontend/AGENTS.md (frontend-specific)\n./packages/backend/AGENTS.md (backend-specific)'
           description: A monorepo with global guidance at the root and subpackage-specific guidance scoped to each package directory
       hasInvalidExample:
         global-override-from-nested:
-          value: 'packages/frontend/AGENTS.md declares "ignore the repository-wide Code Style section"'
+          pro.value: 'packages/frontend/AGENTS.md declares "ignore the repository-wide Code Style section"'
           description: Invalid - a nested file should not override global rules outside its own scope; if the global rule is wrong, fix the global file

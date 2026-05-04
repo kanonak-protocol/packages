@@ -9,6 +9,7 @@ mcp:
         - package: protocols
           match: ^
           version: 1.0.0
+          alias: pro
 
 model-context-protocol:
   type: Protocol
@@ -35,11 +36,11 @@ model-context-protocol:
           rationale: The stdio transport frames messages by newline; embedding literal newlines inside a message would corrupt the frame boundary
       hasValidExample:
         initialize-request:
-          value: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ExampleClient","version":"1.0.0"}}}'
+          pro.value: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ExampleClient","version":"1.0.0"}}}'
           description: A well-formed JSON-RPC 2.0 initialize request with the mandatory jsonrpc field and the MCP method name
       hasInvalidExample:
         missing-json-rpc-field:
-          value: '{"id":1,"method":"initialize","params":{}}'
+          pro.value: '{"id":1,"method":"initialize","params":{}}'
           description: Invalid - missing the required jsonrpc field, so this is not a JSON-RPC 2.0 message
 
     lifecycle:
@@ -53,11 +54,11 @@ model-context-protocol:
           rationale: Explicit version negotiation avoids silent incompatibility where two peers keep talking while interpreting the same method name differently
       hasValidExample:
         initialized-notification:
-          value: '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+          pro.value: '{"jsonrpc":"2.0","method":"notifications/initialized"}'
           description: The notification a client sends after receiving a successful initialize response - it has no id because it is a JSON-RPC notification, not a request
       hasInvalidExample:
         tool-call-before-initialize:
-          value: 'client sends tools/call as its first message on a fresh connection'
+          pro.value: 'client sends tools/call as its first message on a fresh connection'
           description: Invalid - a client must not call any method other than initialize until the handshake has completed
 
     capabilities:
@@ -72,11 +73,11 @@ model-context-protocol:
           rationale: Clients that know a server will emit list_changed can cache listings and refresh reactively instead of polling
       hasValidExample:
         server-capabilities-object:
-          value: '{"capabilities":{"tools":{"listChanged":true},"resources":{"subscribe":true,"listChanged":true},"prompts":{}}}'
+          pro.value: '{"capabilities":{"tools":{"listChanged":true},"resources":{"subscribe":true,"listChanged":true},"prompts":{}}}'
           description: A server capabilities object declaring tools with listChanged, resources with subscribe and listChanged, and prompts with no sub-capabilities
       hasInvalidExample:
         undeclared-tools-call:
-          value: 'server accepts tools/call without having declared the tools capability in initialize'
+          pro.value: 'server accepts tools/call without having declared the tools capability in initialize'
           description: Invalid - a server must only answer method groups it has advertised
 
     tools:
@@ -94,11 +95,11 @@ model-context-protocol:
           rationale: The description is what the model reads to decide whether to call the tool; terse or missing descriptions lead to either never-called or incorrectly-called tools
       hasValidExample:
         read-file-tool:
-          value: '{"name":"read_file","description":"Read the contents of a UTF-8 text file from the local filesystem","inputSchema":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}'
+          pro.value: '{"name":"read_file","description":"Read the contents of a UTF-8 text file from the local filesystem","inputSchema":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}'
           description: A well-formed tool declaration with a name, description, and JSON Schema for its single required string parameter
       hasInvalidExample:
         tool-missing-input-schema:
-          value: '{"name":"read_file","description":"Read a file"}'
+          pro.value: '{"name":"read_file","description":"Read a file"}'
           description: Invalid - inputSchema is required, even for tools that take no parameters (an empty object schema is acceptable)
 
     resources:
@@ -116,11 +117,11 @@ model-context-protocol:
           rationale: Push updates reduce latency and avoid wasted round-trips, which matters when a resource backs a live UI element
       hasValidExample:
         file-resource:
-          value: '{"uri":"file:///project/README.md","name":"Project README","description":"Top-level project README","mimeType":"text/markdown"}'
+          pro.value: '{"uri":"file:///project/README.md","name":"Project README","description":"Top-level project README","mimeType":"text/markdown"}'
           description: A resource listing entry using a file URI, a readable name, and a declared mimeType
       hasInvalidExample:
         resource-without-uri:
-          value: '{"name":"README","mimeType":"text/markdown"}'
+          pro.value: '{"name":"README","mimeType":"text/markdown"}'
           description: Invalid - resources must be addressable by a URI, not just by name
 
     prompts:
@@ -131,11 +132,11 @@ model-context-protocol:
           rationale: Clients cannot present a prompt to an end user without knowing which variables need to be filled in - hidden arguments break the authoring UX
       hasValidExample:
         review-prompt:
-          value: '{"name":"review_code","description":"Review a snippet of code","arguments":[{"name":"language","description":"The programming language","required":true},{"name":"code","description":"The code to review","required":true}]}'
+          pro.value: '{"name":"review_code","description":"Review a snippet of code","arguments":[{"name":"language","description":"The programming language","required":true},{"name":"code","description":"The code to review","required":true}]}'
           description: A prompt declaration with two required arguments and human-readable descriptions
       hasInvalidExample:
         prompt-missing-argument-names:
-          value: '{"name":"review_code","arguments":["language","code"]}'
+          pro.value: '{"name":"review_code","arguments":["language","code"]}'
           description: Invalid - arguments must be objects with name and required flag, not bare strings
 
     sampling:
@@ -150,11 +151,11 @@ model-context-protocol:
           rationale: Sampling lets a server indirectly instruct the client's model; human review protects against prompt injection and quota abuse
       hasValidExample:
         sampling-create-message:
-          value: '{"jsonrpc":"2.0","id":42,"method":"sampling/createMessage","params":{"messages":[{"role":"user","content":{"type":"text","text":"Summarize the attached file"}}],"maxTokens":500}}'
+          pro.value: '{"jsonrpc":"2.0","id":42,"method":"sampling/createMessage","params":{"messages":[{"role":"user","content":{"type":"text","text":"Summarize the attached file"}}],"maxTokens":500}}'
           description: A sampling/createMessage request with a single user turn and a maxTokens budget
       hasInvalidExample:
         sampling-without-capability:
-          value: 'server issues sampling/createMessage to a client that did not declare the sampling capability'
+          pro.value: 'server issues sampling/createMessage to a client that did not declare the sampling capability'
           description: Invalid - sampling is opt-in on the client side and must not be used unilaterally
 
     error-handling:
@@ -165,11 +166,11 @@ model-context-protocol:
           rationale: Treating application errors as successful results breaks every generic JSON-RPC client library and defeats the purpose of a standard error shape
       hasValidExample:
         method-not-found-error:
-          value: '{"jsonrpc":"2.0","id":7,"error":{"code":-32601,"message":"Method not found","data":{"method":"tools/nonexistent"}}}'
+          pro.value: '{"jsonrpc":"2.0","id":7,"error":{"code":-32601,"message":"Method not found","data":{"method":"tools/nonexistent"}}}'
           description: A well-formed error response reusing the JSON-RPC 2.0 method-not-found code
       hasInvalidExample:
         error-in-result:
-          value: '{"jsonrpc":"2.0","id":7,"result":{"ok":false,"error":"Method not found"}}'
+          pro.value: '{"jsonrpc":"2.0","id":7,"result":{"ok":false,"error":"Method not found"}}'
           description: Invalid - errors must use the error envelope, not a successful result with a flag
 
     notifications:
@@ -180,9 +181,9 @@ model-context-protocol:
           rationale: Notifications are fire-and-forget by design; responding to them breaks the JSON-RPC contract and can put the transport into an inconsistent state
       hasValidExample:
         list-changed-notification:
-          value: '{"jsonrpc":"2.0","method":"notifications/tools/list_changed"}'
+          pro.value: '{"jsonrpc":"2.0","method":"notifications/tools/list_changed"}'
           description: The notification a server emits when its advertised tool set has changed
       hasInvalidExample:
         response-to-notification:
-          value: '{"jsonrpc":"2.0","id":null,"result":{}}'
+          pro.value: '{"jsonrpc":"2.0","id":null,"result":{}}'
           description: Invalid - a notification has no id and must receive no response at all

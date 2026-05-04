@@ -9,6 +9,7 @@ acp:
         - package: protocols
           match: ^
           version: 1.0.0
+          alias: pro
         - package: mcp
           match: ^
           version: 1.0.0
@@ -48,11 +49,11 @@ agent-client-protocol:
           rationale: A fixed handshake prevents the Agent from having to guess which Client capabilities are available when answering early requests, and gives both peers one deterministic place to negotiate protocol version and feature flags
       hasValidExample:
         initialize-request:
-          value: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"1","capabilities":{"fs":{"readTextFile":true,"writeTextFile":true},"terminal":true}}}'
+          pro.value: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"1","capabilities":{"fs":{"readTextFile":true,"writeTextFile":true},"terminal":true}}}'
           description: A well-formed JSON-RPC 2.0 initialize request declaring the Client's supported protocol version and advertising its file-system and terminal capabilities
       hasInvalidExample:
         session-before-initialize:
-          value: 'client sends session/new before it has received an initialize response'
+          pro.value: 'client sends session/new before it has received an initialize response'
           description: Invalid - the initialize handshake must complete before any session or authentication method is issued
 
     authentication:
@@ -63,11 +64,11 @@ agent-client-protocol:
           rationale: Ordering authentication after initialize keeps the capability handshake and the credential exchange on the same deterministic path, so Agents never have to accept or reject session methods based on an ambiguous auth state
       hasValidExample:
         authenticate-request:
-          value: '{"jsonrpc":"2.0","id":2,"method":"authenticate","params":{"method":"oauth-device-code","credentials":{"token":"..."}}}'
+          pro.value: '{"jsonrpc":"2.0","id":2,"method":"authenticate","params":{"method":"oauth-device-code","credentials":{"token":"..."}}}'
           description: An authenticate request following the initialize handshake, carrying credentials in the JSON-RPC params rather than the transport layer
       hasInvalidExample:
         auth-in-initialize:
-          value: 'client embeds credentials inside the initialize params'
+          pro.value: 'client embeds credentials inside the initialize params'
           description: Invalid - credentials belong in the authenticate request, not in initialize; initialize is for version and capability negotiation only
 
     session-setup:
@@ -81,14 +82,14 @@ agent-client-protocol:
           rationale: session/load is optional and some Agents do not persist sessions across connections; calling it unconditionally produces a cryptic error instead of the capability-gated failure the handshake is designed to prevent
       hasValidExample:
         session-new-request:
-          value: '{"jsonrpc":"2.0","id":3,"method":"session/new","params":{}}'
+          pro.value: '{"jsonrpc":"2.0","id":3,"method":"session/new","params":{}}'
           description: A session/new request that will return a session ID the Client uses for every subsequent session-scoped call
         session-load-request:
-          value: '{"jsonrpc":"2.0","id":4,"method":"session/load","params":{"sessionId":"sess-abc-123"}}'
+          pro.value: '{"jsonrpc":"2.0","id":4,"method":"session/load","params":{"sessionId":"sess-abc-123"}}'
           description: A session/load request targeting a previously-persisted session ID, issued only because the Agent declared the loadSession capability
       hasInvalidExample:
         reuse-id-across-agents:
-          value: 'client reuses a sessionId obtained from agent A when talking to agent B'
+          pro.value: 'client reuses a sessionId obtained from agent A when talking to agent B'
           description: Invalid - session IDs are scoped to the Agent that issued them and must not be treated as globally unique identifiers
 
     prompt-turn:
@@ -103,14 +104,14 @@ agent-client-protocol:
           rationale: Streaming updates let the editor show real-time progress and cancel early if the user changes direction; batching everything into the final response makes the editor feel unresponsive
       hasValidExample:
         prompt-request:
-          value: '{"jsonrpc":"2.0","id":5,"method":"session/prompt","params":{"sessionId":"sess-abc-123","prompt":"Refactor this file to use async/await"}}'
+          pro.value: '{"jsonrpc":"2.0","id":5,"method":"session/prompt","params":{"sessionId":"sess-abc-123","prompt":"Refactor this file to use async/await"}}'
           description: A session/prompt request that kicks off a prompt turn inside an existing session
         update-notification:
-          value: '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess-abc-123","kind":"agent-text","content":"Analyzing imports..."}}'
+          pro.value: '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess-abc-123","kind":"agent-text","content":"Analyzing imports..."}}'
           description: A session/update notification streaming an in-progress status message for the active prompt turn
       hasInvalidExample:
         response-to-update:
-          value: '{"jsonrpc":"2.0","id":null,"result":{"ok":true}}'
+          pro.value: '{"jsonrpc":"2.0","id":null,"result":{"ok":true}}'
           description: Invalid - session/update is a notification, not a request, and must not receive a response
 
     tool-calls:
@@ -121,11 +122,11 @@ agent-client-protocol:
           rationale: The whole point of the permission handshake is human-in-the-loop control over Agent actions - a Client that auto-approves defeats the security model and turns ACP into a trust-me back channel
       hasValidExample:
         request-permission:
-          value: '{"jsonrpc":"2.0","id":6,"method":"session/request_permission","params":{"sessionId":"sess-abc-123","toolCall":{"name":"bash","input":{"command":"rm -rf ./dist"}}}}'
+          pro.value: '{"jsonrpc":"2.0","id":6,"method":"session/request_permission","params":{"sessionId":"sess-abc-123","toolCall":{"name":"bash","input":{"command":"rm -rf ./dist"}}}}'
           description: A session/request_permission request in which the Agent asks the Client to get user approval before executing a destructive bash command
       hasInvalidExample:
         silent-auto-approve:
-          value: 'client returns an approved response to session/request_permission without ever prompting the user'
+          pro.value: 'client returns an approved response to session/request_permission without ever prompting the user'
           description: Invalid - the Client is required to route the decision through the user, not through a policy that silently says yes
 
     file-system:
@@ -142,11 +143,11 @@ agent-client-protocol:
           rationale: File system methods are optional; Clients that do not expose the user's workspace (for example, a browser-based host) cannot support them, and capability gating prevents the Agent from issuing requests that will always fail
       hasValidExample:
         read-file-request:
-          value: '{"jsonrpc":"2.0","id":7,"method":"fs/read_text_file","params":{"path":"/Users/alice/project/src/index.ts","startLine":1,"endLine":40}}'
+          pro.value: '{"jsonrpc":"2.0","id":7,"method":"fs/read_text_file","params":{"path":"/Users/alice/project/src/index.ts","startLine":1,"endLine":40}}'
           description: A read request with an absolute path and 1-based inclusive line range
       hasInvalidExample:
         relative-path:
-          value: '{"jsonrpc":"2.0","id":7,"method":"fs/read_text_file","params":{"path":"./src/index.ts"}}'
+          pro.value: '{"jsonrpc":"2.0","id":7,"method":"fs/read_text_file","params":{"path":"./src/index.ts"}}'
           description: Invalid - relative paths are forbidden; the request must use an absolute path
 
     terminals:
@@ -160,11 +161,11 @@ agent-client-protocol:
           rationale: Terminals consume file descriptors and PTY slots; forgetting to release them leaks resources and eventually exhausts the Client's process table
       hasValidExample:
         create-terminal:
-          value: '{"jsonrpc":"2.0","id":8,"method":"terminal/create","params":{"sessionId":"sess-abc-123","command":"pnpm test","cwd":"/Users/alice/project"}}'
+          pro.value: '{"jsonrpc":"2.0","id":8,"method":"terminal/create","params":{"sessionId":"sess-abc-123","command":"pnpm test","cwd":"/Users/alice/project"}}'
           description: A terminal/create request launching a test runner in the project directory and receiving a terminal ID the Agent can use for output and lifecycle calls
       hasInvalidExample:
         terminal-without-capability:
-          value: 'agent issues terminal/create to a client that did not declare the terminal capability'
+          pro.value: 'agent issues terminal/create to a client that did not declare the terminal capability'
           description: Invalid - the client must advertise terminal support before the agent can create a terminal
 
     session-modes:
@@ -175,11 +176,11 @@ agent-client-protocol:
           rationale: Modes are Agent-defined and arbitrary; advertising the supported set during the handshake lets the Client render a picker, reject unsupported modes up front, and surface a clear error path
       hasValidExample:
         set-mode-request:
-          value: '{"jsonrpc":"2.0","id":9,"method":"session/set_mode","params":{"sessionId":"sess-abc-123","mode":"plan"}}'
+          pro.value: '{"jsonrpc":"2.0","id":9,"method":"session/set_mode","params":{"sessionId":"sess-abc-123","mode":"plan"}}'
           description: A session/set_mode request switching the Agent from its current mode into the "plan" mode for the rest of the session or until another set_mode is issued
       hasInvalidExample:
         unknown-mode:
-          value: 'client sets a mode name that the agent never advertised as supported'
+          pro.value: 'client sets a mode name that the agent never advertised as supported'
           description: Invalid - modes are Agent-defined, so the Client must choose from the set the Agent advertised rather than inventing one
 
     extensibility:
@@ -194,9 +195,9 @@ agent-client-protocol:
           rationale: The underscore prefix makes the core-versus-extension boundary visible at the wire level, which helps debugging and prevents accidental collisions with future core method names
       hasValidExample:
         meta-field:
-          value: '{"jsonrpc":"2.0","id":10,"method":"session/prompt","params":{"sessionId":"sess-abc-123","prompt":"Hi","_meta":{"vendor-telemetry-id":"abc-123"}}}'
+          pro.value: '{"jsonrpc":"2.0","id":10,"method":"session/prompt","params":{"sessionId":"sess-abc-123","prompt":"Hi","_meta":{"vendor-telemetry-id":"abc-123"}}}'
           description: A standard session/prompt request carrying a vendor-specific _meta field that unrecognizing peers are required to ignore
       hasInvalidExample:
         error-on-unknown-meta:
-          value: 'client rejects a response because it contains an unrecognized _meta field'
+          pro.value: 'client rejects a response because it contains an unrecognized _meta field'
           description: Invalid - unknown _meta fields must be silently ignored, not treated as a protocol error

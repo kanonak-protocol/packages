@@ -9,6 +9,7 @@ anp:
         - package: protocols
           match: ^
           version: 1.0.0
+          alias: pro
 
 agent-network-protocol:
   type: Protocol
@@ -31,11 +32,11 @@ agent-network-protocol:
           rationale: A DID that cannot be resolved is indistinguishable from noise; the verification method is how remote agents check that discovery payloads are authentic
       hasValidExample:
         did-web:
-          value: 'did:web:agents.example.com:research-assistant'
+          pro.value: 'did:web:agents.example.com:research-assistant'
           description: A did:web identifier that resolves to the agent's DID Document at a well-known path under the declared domain
       hasInvalidExample:
         bare-uuid:
-          value: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+          pro.value: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
           description: Invalid - a bare UUID has no DID method prefix and cannot be resolved or verified
 
     agent-description:
@@ -49,11 +50,11 @@ agent-network-protocol:
           rationale: Without an enumerated service list peers have to probe blindly, which defeats the discovery layer's reason to exist
       hasValidExample:
         description-fragment:
-          value: '{"id":"did:web:agents.example.com:research","services":[{"type":"SearchService","endpoint":"https://agents.example.com/search","protocols":["a2a"]}],"proof":{"type":"Ed25519Signature2020","verificationMethod":"did:web:agents.example.com:research#key-1"}}'
+          pro.value: '{"id":"did:web:agents.example.com:research","services":[{"type":"SearchService","endpoint":"https://agents.example.com/search","protocols":["a2a"]}],"proof":{"type":"Ed25519Signature2020","verificationMethod":"did:web:agents.example.com:research#key-1"}}'
           description: A description fragment listing one service, the transport protocol it speaks, and a cryptographic proof pointing at the signing key in the agent's DID Document
       hasInvalidExample:
         unsigned-description:
-          value: '{"id":"did:web:agents.example.com:research","services":[{"type":"SearchService","endpoint":"https://agents.example.com/search"}]}'
+          pro.value: '{"id":"did:web:agents.example.com:research","services":[{"type":"SearchService","endpoint":"https://agents.example.com/search"}]}'
           description: Invalid - no proof block means nobody can verify this description was actually published by the agent
 
     discovery:
@@ -68,11 +69,11 @@ agent-network-protocol:
           rationale: Network partitions and slow DID methods should not hard-fail discovery; a registry with an explicit TTL keeps availability high without silently stale data
       hasValidExample:
         resolution-chain:
-          value: 'did:web:agents.example.com:research -> DID Document -> https://agents.example.com/.well-known/agent-description.json -> SearchService endpoint'
+          pro.value: 'did:web:agents.example.com:research -> DID Document -> https://agents.example.com/.well-known/agent-description.json -> SearchService endpoint'
           description: A typical discovery chain walking from the agent DID through its DID Document to its description and finally to an individual service endpoint
       hasInvalidExample:
         hardcoded-endpoint:
-          value: 'client code contains const ENDPOINT = "https://agents.example.com/search" with no DID resolution'
+          pro.value: 'client code contains const ENDPOINT = "https://agents.example.com/search" with no DID resolution'
           description: Invalid - bypasses the DID layer and breaks as soon as the agent rotates keys or changes endpoints
 
     cross-network-routing:
@@ -87,11 +88,11 @@ agent-network-protocol:
           rationale: A routing layer that silently rewrites identities turns the discovery network into a blind trust chain, which is the exact problem ANP sets out to solve
       hasValidExample:
         forwarded-message:
-          value: 'relay forwards original signed envelope with added X-ANP-Relay-Hop header'
+          pro.value: 'relay forwards original signed envelope with added X-ANP-Relay-Hop header'
           description: An intermediary adds a hop-tracking header without touching the signed envelope, preserving end-to-end verification
       hasInvalidExample:
         rewritten-sender:
-          value: 'relay replaces sender DID with its own before forwarding'
+          pro.value: 'relay replaces sender DID with its own before forwarding'
           description: Invalid - the downstream receiver now sees the relay as the sender and cannot verify the original author
 
     trust-and-signatures:
@@ -106,9 +107,9 @@ agent-network-protocol:
           rationale: Agents will rotate keys on a routine basis; treating the first cache miss as a hard failure makes the network fragile for healthy lifecycle events
       hasValidExample:
         verification-flow:
-          value: '1. resolve did:web:... 2. extract verificationMethod 3. verify proof block 4. act'
+          pro.value: '1. resolve did:web:... 2. extract verificationMethod 3. verify proof block 4. act'
           description: The canonical verification sequence that binds a payload to a controller before it is used
       hasInvalidExample:
         skip-verification:
-          value: 'accept Agent Description blindly because the transport was HTTPS'
+          pro.value: 'accept Agent Description blindly because the transport was HTTPS'
           description: Invalid - transport-layer security says nothing about who authored the payload; ANP requires payload-level signature verification

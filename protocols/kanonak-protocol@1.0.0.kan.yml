@@ -9,6 +9,7 @@ kanonak-protocol:
         - package: protocols
           match: ^
           version: 1.0.0
+          alias: pro
 
 kanonak-protocol-spec:
   type: Protocol
@@ -27,11 +28,11 @@ kanonak-protocol-spec:
           rationale: Guarantees unambiguous entity references and prevents naming conflicts through publisher namespacing
       hasValidExample:
         core-rdf-class-uri:
-          value: kanonak.org/core-rdf@1.0.0/Class
+          pro.value: kanonak.org/core-rdf@1.0.0/Class
           description: Valid Kanonak URI referencing the Class entity from the core-rdf package
       hasInvalidExample:
         missing-publisher-and-version:
-          value: mypackage/Entity
+          pro.value: mypackage/Entity
           description: Invalid - missing publisher domain and version components
 
     publisher-naming:
@@ -45,14 +46,14 @@ kanonak-protocol-spec:
           rationale: Ensures authenticity and prevents namespace squatting by requiring verifiable domain ownership
       hasValidExample:
         kanonak-org:
-          value: kanonak.org
+          pro.value: kanonak.org
           description: Official Kanonak Protocol publisher using a .org domain
         acme-com:
-          value: acme.com
+          pro.value: acme.com
           description: Company publisher using a .com domain
       hasInvalidExample:
         not-a-domain:
-          value: myproject
+          pro.value: myproject
           description: Invalid - not a domain name. Must use domain-based identifier like myproject.org or myproject.dev
 
     package-naming:
@@ -109,23 +110,23 @@ kanonak-protocol-spec:
             not a single thing.
       hasValidExample:
         plural-category-packages:
-          value: protocols, agent-skills, agents, capabilities, skill-capabilities, agent-capabilities, github-skills, github-agents
+          pro.value: protocols, agent-skills, agents, capabilities, skill-capabilities, agent-capabilities, github-skills, github-agents
           description: Category packages using plural kebab-case names, leaving the singular form free for the classes and instances they host
         singular-instance-package:
-          value: mcp (package) + model-context-protocol (instance)
+          pro.value: mcp (package) + model-context-protocol (instance)
           description: A specific-instance package named after its abbreviation, with a longer descriptive kebab-case instance name to avoid the duplicate-key collision
         core-rdf-package:
-          value: core-rdf
+          pro.value: core-rdf
           description: Core RDF vocabulary using hyphen notation
       hasInvalidExample:
         uppercase-package:
-          value: MyPackage
+          pro.value: MyPackage
           description: Invalid - contains uppercase letters. Must use lowercase only
         singular-category-package:
-          value: protocol (package that defines the Protocol class)
+          pro.value: protocol (package that defines the Protocol class)
           description: Invalid - singular category package shadows the class and forces every consuming instance to work around a name collision
         colliding-instance-name:
-          value: mcp package + mcp instance
+          pro.value: mcp package + mcp instance
           description: Invalid - the package declaration and the instance both parse as the top-level YAML key "mcp", which is a duplicate key error
 
     versioning:
@@ -142,11 +143,11 @@ kanonak-protocol-spec:
           rationale: Allows consumers to safely update within the same major version while preventing unexpected breaking changes
       hasValidExample:
         standard-semver:
-          value: 2.1.3
+          pro.value: 2.1.3
           description: Valid semantic version with major 2, minor 1, patch 3
       hasInvalidExample:
         missing-patch-with-v-prefix:
-          value: v1.0
+          pro.value: v1.0
           description: Invalid - missing patch component and has v prefix. Must be 1.0.0
 
     import-operators:
@@ -174,22 +175,22 @@ kanonak-protocol-spec:
           rationale: Creates unpredictable behavior and can introduce breaking changes without warning or control
       hasValidExample:
         exact-operator-example:
-          value: core-rdf = 1.0.0
+          pro.value: core-rdf = 1.0.0
           description: Locks to exactly version 1.0.0 of core-rdf
         compatible-operator-example:
-          value: core-xsd ~ 1.2.3
+          pro.value: core-xsd ~ 1.2.3
           description: Allows versions 1.2.3 through 1.2.x (patch updates only)
         major-operator-example:
-          value: core-owl ^ 2.0.0
+          pro.value: core-owl ^ 2.0.0
           description: Allows versions 2.0.0 through 2.x.x (minor and patch updates within major version 2)
         one-way-dependency:
-          value: |
+          pro.value: |
             # Package A has no imports (base package)
             # Package B imports A - one-way dependency
           description: One-way dependency chain with no cycles
       hasInvalidExample:
         circular-dependency:
-          value: |
+          pro.value: |
             # Package A imports B, Package B imports A
             # Creates an unresolvable circular dependency
           description: A imports B and B imports A - circular dependency
@@ -205,7 +206,7 @@ kanonak-protocol-spec:
           rationale: Semantic versioning treats 0.x.y as unstable where breaking changes can occur in minor versions. Caret operator for ^0.x.y allows only patches (0.x.z) to prevent unexpected breaking changes during pre-release development.
       hasValidExample:
         tilde-resolution:
-          value: |
+          pro.value: |
             Import:      "core-xsd ~ 1.2.3"
             Available:   1.2.1, 1.2.5, 1.3.0, 2.0.0
             Constraints: MinVersion=1.2.3, MaxVersion=1.2.999
@@ -224,10 +225,10 @@ kanonak-protocol-spec:
           rationale: Directory structure mirrors namespace organization making it easy to locate packages and understand ownership. Publisher directories prevent naming conflicts and enable per-publisher configuration.
       hasValidExample:
         core-rdf-file:
-          value: kanonak.org/core-rdf@1.0.0.kan.yml
+          pro.value: kanonak.org/core-rdf@1.0.0.kan.yml
           description: Correct file naming with publisher directory and version
         company-products-file:
-          value: mycompany.com/products@2.1.3.kan.yml
+          pro.value: mycompany.com/products@2.1.3.kan.yml
           description: Company package with semantic version
 
     yaml-parsing:
@@ -244,14 +245,14 @@ kanonak-protocol-spec:
           rationale: Windows editors may add UTF-8 BOM at file start. Stripping BOM ensures files created on Windows parse correctly on Linux/Mac and vice versa, enabling seamless cross-platform collaboration.
       hasValidExample:
         primitive-types-preserved:
-          value: |
+          pro.value: |
             age: 30        # Parsed as integer (not string "30")
             isActive: true # Parsed as boolean (not string "true")
             name: "Alice"  # Parsed as string
           description: YAML primitive types preserved through parsing
       hasInvalidExample:
         duplicate-key:
-          value: |
+          pro.value: |
             Person:
               name: "Alice"
               name: "Bob"  # ERROR: Duplicate key 'name'
@@ -296,26 +297,26 @@ kanonak-protocol-spec:
           rationale: Prefixed names (rdfs:Class) are RDF/Turtle syntax, not Kanonak YAML syntax. Kanonak uses imports with aliases for namespace qualification. Prefixes in resource names cause parser errors and violate Kanonak conventions.
       hasValidExample:
         pascal-case-classes:
-          value: Person, OrderStatus, SigningKey, BlogPost
+          pro.value: Person, OrderStatus, SigningKey, BlogPost
           description: PascalCase - used for class (type) definitions
         kebab-case-instances:
-          value: romeo-montague, key-2026-03, commercial-use, alice-johnson
+          pro.value: romeo-montague, key-2026-03, commercial-use, alice-johnson
           description: kebab-case - used for instances (data entities), including inline dict-keyed embedded instances
         camel-case-properties:
-          value: subClassOf, hasAddress, signingKeyId, characterName
+          pro.value: subClassOf, hasAddress, signingKeyId, characterName
           description: camelCase - used for property definitions
         embedded-convention-key:
-          value: |
+          pro.value: |
             hasConvention:
               uri-structure:
                 summary: ...
           description: Inline dict-keyed Convention instance uses kebab-case exactly like a top-level instance would
       hasInvalidExample:
         reserved-rdfs-prefix:
-          value: rdfs-colon-Class
+          pro.value: rdfs-colon-Class
           description: Invalid - uses RDF colon prefix syntax (as in rdfs followed by colon followed by Class). Use plain Class with imports, then reference it as rdfs.Class when disambiguation is needed.
         pascal-case-embedded-instance:
-          value: |
+          pro.value: |
             hasConvention:
               UriStructure:
                 summary: ...
@@ -332,7 +333,7 @@ kanonak-protocol-spec:
           rationale: Publisher and version are required to construct the namespace URI. Import entries must be well-formed to enable dependency resolution.
       hasValidExample:
         minimal-package:
-          value: |
+          pro.value: |
             core-rdf:
               type: Package
               publisher: kanonak.org
@@ -340,7 +341,7 @@ kanonak-protocol-spec:
           description: Correct package declaration with type, publisher, and version
       hasInvalidExample:
         no-package-declaration:
-          value: |
+          pro.value: |
             # A document with only entities but no Package declaration
             Person:
               type: Class
@@ -361,7 +362,7 @@ kanonak-protocol-spec:
           rationale: The parent property's range already declares the type of embedded values. Allowing an explicit type on an embedded object creates the possibility of conflicts with the range and undermines the type inference model. Enforcing the rule keeps embedded data faithful to the property that contains it.
       hasValidExample:
         embedded-coupled-address:
-          value: |
+          pro.value: |
             alice:
               type: Person
               hasAddress:
@@ -369,7 +370,7 @@ kanonak-protocol-spec:
                 city: "Springfield"
           description: Address is embedded because it is owned by alice and never referenced elsewhere - becomes an RDF blank node
         named-shared-address:
-          value: |
+          pro.value: |
             acme-headquarters:
               type: Address
               street: "1 Acme Plaza"
@@ -385,7 +386,7 @@ kanonak-protocol-spec:
           description: Headquarters is named because multiple employees reference the same address and the entity has identity beyond any single parent
       hasInvalidExample:
         explicit-type-on-embedded:
-          value: |
+          pro.value: |
             alice:
               type: Person
               hasAddress:
@@ -414,13 +415,13 @@ kanonak-protocol-spec:
           rationale: Generic Property type provides no semantic information about whether the property holds literal values or entity references. Using specific types enables better validation, code generation, and tooling support.
       hasValidExample:
         top-level-with-type:
-          value: |
+          pro.value: |
             romeo-montague:
               type: Character
               characterName: "Romeo"
           description: Top-level entity with explicit type declaration
         datatype-property-with-range:
-          value: |
+          pro.value: |
             name:
               type: DatatypeProperty
               domain: Person
@@ -428,12 +429,12 @@ kanonak-protocol-spec:
           description: Property with specific DatatypeProperty type and declared range
       hasInvalidExample:
         top-level-missing-type:
-          value: |
+          pro.value: |
             romeo-montague:
               characterName: "Romeo"
           description: Invalid - top-level entity has no type property
         property-missing-range:
-          value: |
+          pro.value: |
             name:
               type: DatatypeProperty
               domain: Person
@@ -453,7 +454,7 @@ kanonak-protocol-spec:
           rationale: Ambiguous references make it impossible to determine which entity is intended. Qualified references (pkg.Entity) explicitly specify the source package, preventing confusion and ensuring correct type resolution.
       hasValidExample:
         local-reference:
-          value: |
+          pro.value: |
             verona-city:
               type: City
 
@@ -462,13 +463,13 @@ kanonak-protocol-spec:
               livesIn: verona-city
           description: Reference to a locally defined entity
         qualified-reference:
-          value: |
+          pro.value: |
             myEntity:
               type: pkgA.Resource
           description: Qualified reference disambiguates between packages that both define Resource
       hasInvalidExample:
         broken-reference:
-          value: |
+          pro.value: |
             romeo:
               type: Character
               livesIn: verona-city  # verona-city is not defined or imported
@@ -491,7 +492,7 @@ kanonak-protocol-spec:
           rationale: subPropertyOf establishes inheritance between properties. Referencing a non-property entity (like a Class or instance) is semantically invalid.
       hasValidExample:
         linear-class-hierarchy:
-          value: |
+          pro.value: |
             Person:
               type: Class
             Character:
@@ -500,7 +501,7 @@ kanonak-protocol-spec:
           description: Correct linear class hierarchy with no cycles
       hasInvalidExample:
         circular-class-hierarchy:
-          value: |
+          pro.value: |
             Character:
               type: Class
               subClassOf: Hero
@@ -509,7 +510,7 @@ kanonak-protocol-spec:
               subClassOf: Character
           description: Invalid - Character and Hero reference each other creating a cycle
         sub-class-of-property:
-          value: |
+          pro.value: |
             name:
               type: DatatypeProperty
             Character:
