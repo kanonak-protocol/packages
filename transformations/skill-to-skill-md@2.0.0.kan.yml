@@ -111,7 +111,7 @@ skill-to-skill-md-transformation:
                       - tx.field: docast.key
                         tx.bindValue:
                           tx.kind: tx.string-literal
-                          tx.stringLiteral: description
+                          tx.stringLiteral: skills.description
                       - tx.field: docast.value
                         tx.bindValue:
                           tx.kind: tx.build-ast-node
