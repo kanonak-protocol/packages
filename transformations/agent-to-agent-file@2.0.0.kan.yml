@@ -64,13 +64,14 @@ agent-to-agent-file-transformation:
   tx.formatOverrides:
 
     # --- Markdown: frontmatter keys in legacy order, trailing newline,
-    #     no `instructions` key (the body carries the prose). Keys are
-    #     quoted because bare camel-case strings in YAML would be
-    #     parsed as entity references by the Kanonak parser. ---
+    #     no `instructions` key (the body carries the prose). The keys
+    #     here are bare strings — the rendered frontmatter writes them
+    #     verbatim into the agent-file, where the consuming runtime
+    #     (Claude Code, Codex, etc.) expects unaliased identifiers. ---
     - tx.formatTarget: tx.markdown-with-frontmatter
       tx.metadataKeys:
-        - a.name
-        - a.description
+        - "name"
+        - "description"
         - "model"
         - "color"
         - "maxTurns"
@@ -83,14 +84,14 @@ agent-to-agent-file-transformation:
     #     `color` and `permissionMode` dropped entirely. ---
     - tx.formatTarget: tx.toml
       tx.metadataKeys:
-        - a.name
-        - a.description
-        - a.instructions
+        - "name"
+        - "description"
+        - "instructions"
         - "model"
         - "maxTurns"
         - "tools"
       tx.metadataRenames:
-        - tx.fromKey: a.instructions
+        - tx.fromKey: "instructions"
           tx.toKey: "developer_instructions"
         - tx.fromKey: "maxTurns"
           tx.toKey: "max_turns"
@@ -119,7 +120,7 @@ agent-to-agent-file-transformation:
                       - tx.field: docast.key
                         tx.bindValue:
                           tx.kind: tx.string-literal
-                          tx.stringLiteral: a.name
+                          tx.stringLiteral: name
                       - tx.field: docast.value
                         tx.bindValue:
                           tx.kind: tx.build-ast-node
@@ -141,7 +142,7 @@ agent-to-agent-file-transformation:
                       - tx.field: docast.key
                         tx.bindValue:
                           tx.kind: tx.string-literal
-                          tx.stringLiteral: a.description
+                          tx.stringLiteral: description
                       - tx.field: docast.value
                         tx.bindValue:
                           tx.kind: tx.build-ast-node
@@ -168,7 +169,7 @@ agent-to-agent-file-transformation:
                       - tx.field: docast.key
                         tx.bindValue:
                           tx.kind: tx.string-literal
-                          tx.stringLiteral: a.instructions
+                          tx.stringLiteral: instructions
                       - tx.field: docast.value
                         tx.bindValue:
                           tx.kind: tx.build-ast-node

@@ -80,13 +80,19 @@ skill-to-skill-md-transformation:
                 tx.parts:
 
                   # --- name entry (always present) ---
+                  # The frontmatter key is the bare local name `name`,
+                  # NOT the import-aliased property reference. Frontmatter
+                  # keys are plain string identifiers expected by the
+                  # consuming agent runtime (Claude Code etc.) — they
+                  # are not Kanonak references and must not carry the
+                  # author's local alias prefix.
                   - tx.kind: tx.build-ast-node
                     tx.astClass: docast.StructuredEntry
                     tx.set:
                       - tx.field: docast.key
                         tx.bindValue:
                           tx.kind: tx.string-literal
-                          tx.stringLiteral: skills.name
+                          tx.stringLiteral: name
                       - tx.field: docast.value
                         tx.bindValue:
                           tx.kind: tx.build-ast-node
@@ -111,7 +117,7 @@ skill-to-skill-md-transformation:
                       - tx.field: docast.key
                         tx.bindValue:
                           tx.kind: tx.string-literal
-                          tx.stringLiteral: skills.description
+                          tx.stringLiteral: description
                       - tx.field: docast.value
                         tx.bindValue:
                           tx.kind: tx.build-ast-node
