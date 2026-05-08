@@ -1,7 +1,7 @@
 agent-to-agent-file:
   type: Package
   publisher: kanonak.org
-  version: 2.0.0
+  version: 3.0.0
   imports:
     - publisher: kanonak.org
       packages:
@@ -15,7 +15,7 @@ agent-to-agent-file:
           alias: xsd
         - package: transformations
           match: ^
-          version: 2.0.0
+          version: 3.0.0
           alias: tx
         - package: document-ast
           match: ^
@@ -27,33 +27,27 @@ agent-to-agent-file:
           alias: a
 
 # =============================================================================
-# One Agent instance → one file, in either markdown-with-frontmatter or
-# TOML format, selected by the caller via outputFormat. A single
-# Transformation builds a single AST; FormatOverrides for each of the
-# two target formats decide which metadata keys are emitted, how they
-# are named, and whether a trailing newline is appended.
+# Agent → agent-file transformation (3.0 port).
 #
-# Matches `AgentTransformer.transformAgents` byte-for-byte — including
-# the YAML-safe escaping of `description` in Markdown, the TOML
-# multiline form for `developer_instructions`, the `maxTurns -> max_turns`
-# TOML rename, the comma-space separator for Markdown `tools`, and the
-# TOML array form for `tools`.
+# One Agent instance produces one file in either markdown-with-
+# frontmatter or TOML format, selected by the caller via outputFormat.
+# Output is byte-identical to the legacy 2.0 transformation.
 # =============================================================================
 
 agent-to-agent-file-transformation:
-  type: tx.Transformation
+  type: tx.InstanceTransformation
 
   tx.inputPattern:
     tx.matchesClass: a.Agent
     tx.requires:
-      - "kanonak.org/agents/agentId"
-      - "kanonak.org/agents/description"
-      - "kanonak.org/agents/instructions"
+      - a.agentId
+      - a.description
+      - a.instructions
 
   tx.artifactName:
-    tx.kind: tx.property-read
+    type: tx.PropertyRead
     tx.readSource:
-      tx.kind: tx.var-ref
+      type: tx.VarRef
       tx.varName: input
     tx.readProp: a.agentId
 
@@ -63,11 +57,6 @@ agent-to-agent-file-transformation:
 
   tx.formatOverrides:
 
-    # --- Markdown: frontmatter keys in legacy order, trailing newline,
-    #     no `instructions` key (the body carries the prose). The keys
-    #     here are bare strings — the rendered frontmatter writes them
-    #     verbatim into the agent-file, where the consuming runtime
-    #     (Claude Code, Codex, etc.) expects unaliased identifiers. ---
     - tx.formatTarget: tx.markdown-with-frontmatter
       tx.metadataKeys:
         - "name"
@@ -79,9 +68,6 @@ agent-to-agent-file-transformation:
         - "tools"
       tx.trailingNewline: true
 
-    # --- TOML: flat keys, trailing newline, `instructions` renamed to
-    #     `developer_instructions`, `maxTurns` renamed to `max_turns`,
-    #     `color` and `permissionMode` dropped entirely. ---
     - tx.formatTarget: tx.toml
       tx.metadataKeys:
         - "name"
@@ -98,290 +84,288 @@ agent-to-agent-file-transformation:
       tx.trailingNewline: true
 
   tx.rule:
-    tx.kind: tx.build-ast-node
+    type: tx.BuildAstNode
     tx.astClass: docast.Document
     tx.set:
 
       # --- Document.metadata = StructuredMap with every potential key ---
       - tx.field: docast.metadata
         tx.bindValue:
-          tx.kind: tx.build-ast-node
+          type: tx.BuildAstNode
           tx.astClass: docast.StructuredMap
           tx.set:
             - tx.field: docast.entries
               tx.bindValue:
-                tx.kind: tx.concat
+                type: tx.Concat
                 tx.parts:
 
                   # --- name (= agentId; always present) ---
-                  - tx.kind: tx.build-ast-node
+                  - type: tx.BuildAstNode
                     tx.astClass: docast.StructuredEntry
                     tx.set:
                       - tx.field: docast.key
                         tx.bindValue:
-                          tx.kind: tx.string-literal
+                          type: tx.StringLiteral
                           tx.stringLiteral: name
                       - tx.field: docast.value
                         tx.bindValue:
-                          tx.kind: tx.build-ast-node
+                          type: tx.BuildAstNode
                           tx.astClass: docast.StringScalar
                           tx.set:
                             - tx.field: docast.stringValue
                               tx.bindValue:
-                                tx.kind: tx.property-read
+                                type: tx.PropertyRead
                                 tx.readSource:
-                                  tx.kind: tx.var-ref
+                                  type: tx.VarRef
                                   tx.varName: input
                                 tx.readProp: a.agentId
 
-                  # --- description (always present; YAML-safe scalar
-                  #     in Markdown, default tomlString in TOML) ---
-                  - tx.kind: tx.build-ast-node
+                  # --- description (always present; YAML-safe in MD,
+                  #     default tomlString in TOML) ---
+                  - type: tx.BuildAstNode
                     tx.astClass: docast.StructuredEntry
                     tx.set:
                       - tx.field: docast.key
                         tx.bindValue:
-                          tx.kind: tx.string-literal
+                          type: tx.StringLiteral
                           tx.stringLiteral: description
                       - tx.field: docast.value
                         tx.bindValue:
-                          tx.kind: tx.build-ast-node
+                          type: tx.BuildAstNode
                           tx.astClass: docast.StringScalar
                           tx.set:
                             - tx.field: docast.stringValue
                               tx.bindValue:
-                                tx.kind: tx.property-read
+                                type: tx.PropertyRead
                                 tx.readSource:
-                                  tx.kind: tx.var-ref
+                                  type: tx.VarRef
                                   tx.varName: input
                                 tx.readProp: a.description
                       - tx.field: docast.escapeHint
                         tx.bindValue:
-                          tx.kind: tx.uri-literal
+                          type: tx.UriLiteral
                           tx.refTo: docast.esc-yaml-safe
 
-                  # --- instructions (required; raw multiline content;
-                  #     Markdown ignores this key because its override
-                  #     doesn't list it; TOML renames + multiline) ---
-                  - tx.kind: tx.build-ast-node
+                  # --- instructions (Markdown override drops it; TOML
+                  #     renames + multiline) ---
+                  - type: tx.BuildAstNode
                     tx.astClass: docast.StructuredEntry
                     tx.set:
                       - tx.field: docast.key
                         tx.bindValue:
-                          tx.kind: tx.string-literal
+                          type: tx.StringLiteral
                           tx.stringLiteral: instructions
                       - tx.field: docast.value
                         tx.bindValue:
-                          tx.kind: tx.build-ast-node
+                          type: tx.BuildAstNode
                           tx.astClass: docast.StringScalar
                           tx.set:
                             - tx.field: docast.stringValue
                               tx.bindValue:
-                                tx.kind: tx.property-read
+                                type: tx.PropertyRead
                                 tx.readSource:
-                                  tx.kind: tx.var-ref
+                                  type: tx.VarRef
                                   tx.varName: input
                                 tx.readProp: a.instructions
                       - tx.field: docast.escapeHint
                         tx.bindValue:
-                          tx.kind: tx.uri-literal
+                          type: tx.UriLiteral
                           tx.refTo: docast.esc-toml-multiline
 
                   # --- model (optional) ---
-                  - tx.kind: tx.when
+                  - type: tx.When
                     tx.condition:
-                      tx.kind: tx.is-set
+                      type: tx.IsSet
                       tx.checkExpr:
-                        tx.kind: tx.property-read
+                        type: tx.PropertyRead
                         tx.readSource:
-                          tx.kind: tx.var-ref
+                          type: tx.VarRef
                           tx.varName: input
                         tx.readProp: a.model
                     tx.thenBuild:
-                      tx.kind: tx.build-ast-node
+                      type: tx.BuildAstNode
                       tx.astClass: docast.StructuredEntry
                       tx.set:
                         - tx.field: docast.key
                           tx.bindValue:
-                            tx.kind: tx.string-literal
+                            type: tx.StringLiteral
                             tx.stringLiteral: model
                         - tx.field: docast.value
                           tx.bindValue:
-                            tx.kind: tx.build-ast-node
+                            type: tx.BuildAstNode
                             tx.astClass: docast.StringScalar
                             tx.set:
                               - tx.field: docast.stringValue
                                 tx.bindValue:
-                                  tx.kind: tx.property-read
+                                  type: tx.PropertyRead
                                   tx.readSource:
-                                    tx.kind: tx.var-ref
+                                    type: tx.VarRef
                                     tx.varName: input
                                   tx.readProp: a.model
 
-                  # --- color (optional; Markdown-only — TOML override
-                  #     doesn't include the key so TOML skips it) ---
-                  - tx.kind: tx.when
+                  # --- color (optional; Markdown-only) ---
+                  - type: tx.When
                     tx.condition:
-                      tx.kind: tx.is-set
+                      type: tx.IsSet
                       tx.checkExpr:
-                        tx.kind: tx.property-read
+                        type: tx.PropertyRead
                         tx.readSource:
-                          tx.kind: tx.var-ref
+                          type: tx.VarRef
                           tx.varName: input
                         tx.readProp: a.color
                     tx.thenBuild:
-                      tx.kind: tx.build-ast-node
+                      type: tx.BuildAstNode
                       tx.astClass: docast.StructuredEntry
                       tx.set:
                         - tx.field: docast.key
                           tx.bindValue:
-                            tx.kind: tx.string-literal
+                            type: tx.StringLiteral
                             tx.stringLiteral: color
                         - tx.field: docast.value
                           tx.bindValue:
-                            tx.kind: tx.build-ast-node
+                            type: tx.BuildAstNode
                             tx.astClass: docast.StringScalar
                             tx.set:
                               - tx.field: docast.stringValue
                                 tx.bindValue:
-                                  tx.kind: tx.property-read
+                                  type: tx.PropertyRead
                                   tx.readSource:
-                                    tx.kind: tx.var-ref
+                                    type: tx.VarRef
                                     tx.varName: input
                                   tx.readProp: a.color
 
                   # --- maxTurns (optional integer) ---
-                  - tx.kind: tx.when
+                  - type: tx.When
                     tx.condition:
-                      tx.kind: tx.is-set
+                      type: tx.IsSet
                       tx.checkExpr:
-                        tx.kind: tx.property-read
+                        type: tx.PropertyRead
                         tx.readSource:
-                          tx.kind: tx.var-ref
+                          type: tx.VarRef
                           tx.varName: input
                         tx.readProp: a.maxTurns
                     tx.thenBuild:
-                      tx.kind: tx.build-ast-node
+                      type: tx.BuildAstNode
                       tx.astClass: docast.StructuredEntry
                       tx.set:
                         - tx.field: docast.key
                           tx.bindValue:
-                            tx.kind: tx.string-literal
+                            type: tx.StringLiteral
                             tx.stringLiteral: maxTurns
                         - tx.field: docast.value
                           tx.bindValue:
-                            tx.kind: tx.build-ast-node
+                            type: tx.BuildAstNode
                             tx.astClass: docast.IntegerScalar
                             tx.set:
                               - tx.field: docast.integerValue
                                 tx.bindValue:
-                                  tx.kind: tx.property-read
+                                  type: tx.PropertyRead
                                   tx.readSource:
-                                    tx.kind: tx.var-ref
+                                    type: tx.VarRef
                                     tx.varName: input
                                   tx.readProp: a.maxTurns
 
                   # --- permissionMode (optional; Markdown-only) ---
-                  - tx.kind: tx.when
+                  - type: tx.When
                     tx.condition:
-                      tx.kind: tx.is-set
+                      type: tx.IsSet
                       tx.checkExpr:
-                        tx.kind: tx.property-read
+                        type: tx.PropertyRead
                         tx.readSource:
-                          tx.kind: tx.var-ref
+                          type: tx.VarRef
                           tx.varName: input
                         tx.readProp: a.permissionMode
                     tx.thenBuild:
-                      tx.kind: tx.build-ast-node
+                      type: tx.BuildAstNode
                       tx.astClass: docast.StructuredEntry
                       tx.set:
                         - tx.field: docast.key
                           tx.bindValue:
-                            tx.kind: tx.string-literal
+                            type: tx.StringLiteral
                             tx.stringLiteral: permissionMode
                         - tx.field: docast.value
                           tx.bindValue:
-                            tx.kind: tx.build-ast-node
+                            type: tx.BuildAstNode
                             tx.astClass: docast.StringScalar
                             tx.set:
                               - tx.field: docast.stringValue
                                 tx.bindValue:
-                                  tx.kind: tx.uri-name
+                                  type: tx.UriName
                                   tx.uriNameOf:
-                                    tx.kind: tx.property-read
+                                    type: tx.PropertyRead
                                     tx.readSource:
-                                      tx.kind: tx.var-ref
+                                      type: tx.VarRef
                                       tx.varName: input
                                     tx.readProp: a.permissionMode
 
                   # --- tools (optional; StructuredList of StringScalars
                   #     built from usesTool references) ---
-                  - tx.kind: tx.when
+                  - type: tx.When
                     tx.condition:
-                      tx.kind: tx.is-set
+                      type: tx.IsSet
                       tx.checkExpr:
-                        tx.kind: tx.property-read
+                        type: tx.PropertyRead
                         tx.readSource:
-                          tx.kind: tx.var-ref
+                          type: tx.VarRef
                           tx.varName: input
                         tx.readProp: a.usesTool
                     tx.thenBuild:
-                      tx.kind: tx.build-ast-node
+                      type: tx.BuildAstNode
                       tx.astClass: docast.StructuredEntry
                       tx.set:
                         - tx.field: docast.key
                           tx.bindValue:
-                            tx.kind: tx.string-literal
+                            type: tx.StringLiteral
                             tx.stringLiteral: tools
                         - tx.field: docast.value
                           tx.bindValue:
-                            tx.kind: tx.build-ast-node
+                            type: tx.BuildAstNode
                             tx.astClass: docast.StructuredList
                             tx.set:
                               - tx.field: docast.items
                                 tx.bindValue:
-                                  tx.kind: tx.list-map
-                                  tx.listMapSource:
-                                    tx.kind: tx.property-read
+                                  type: tx.ListMap
+                                  tx.source:
+                                    type: tx.PropertyRead
                                     tx.readSource:
-                                      tx.kind: tx.var-ref
+                                      type: tx.VarRef
                                       tx.varName: input
                                     tx.readProp: a.usesTool
                                   tx.loopVar: t
                                   tx.mapBody:
-                                    tx.kind: tx.build-ast-node
+                                    type: tx.BuildAstNode
                                     tx.astClass: docast.StringScalar
                                     tx.set:
                                       - tx.field: docast.stringValue
                                         tx.bindValue:
-                                          tx.kind: tx.uri-name
+                                          type: tx.UriName
                                           tx.uriNameOf:
-                                            tx.kind: tx.var-ref
+                                            type: tx.VarRef
                                             tx.varName: t
 
       # --- Document.children = [Paragraph(Text(trimEnd(instructions)))]
       #     Markdown-only channel; TOML backend ignores children entirely. ---
       - tx.field: docast.children
         tx.bindValue:
-          tx.kind: tx.concat
+          type: tx.Concat
           tx.parts:
-            - tx.kind: tx.build-ast-node
+            - type: tx.BuildAstNode
               tx.astClass: docast.Paragraph
               tx.set:
                 - tx.field: docast.inlines
                   tx.bindValue:
-                    tx.kind: tx.concat
+                    type: tx.Concat
                     tx.parts:
-                      - tx.kind: tx.build-ast-node
+                      - type: tx.BuildAstNode
                         tx.astClass: docast.Text
                         tx.set:
                           - tx.field: docast.text
                             tx.bindValue:
-                              tx.kind: tx.normalize
+                              type: tx.Normalize
                               tx.normKind: tx.trim-end
                               tx.normSource:
-                                tx.kind: tx.property-read
+                                type: tx.PropertyRead
                                 tx.readSource:
-                                  tx.kind: tx.var-ref
+                                  type: tx.VarRef
                                   tx.varName: input
                                 tx.readProp: a.instructions

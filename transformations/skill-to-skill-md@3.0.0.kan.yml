@@ -1,7 +1,7 @@
 skill-to-skill-md:
   type: Package
   publisher: kanonak.org
-  version: 2.0.0
+  version: 3.0.0
   imports:
     - publisher: kanonak.org
       packages:
@@ -15,7 +15,7 @@ skill-to-skill-md:
           alias: xsd
         - package: transformations
           match: ^
-          version: 2.0.0
+          version: 3.0.0
           alias: tx
         - package: document-ast
           match: ^
@@ -31,27 +31,35 @@ skill-to-skill-md:
           alias: spdx
 
 # =============================================================================
-# The transformation itself: one Skill instance → one SKILL.md artifact.
+# Skill → SKILL.md transformation (3.0 port).
 #
-# Matches the behavior of the legacy `SkillTransformer.transformSkillsToSkillMd`
-# byte-for-byte. Emits `---`-delimited YAML frontmatter with five keys
-# (name, description, license?, compatibility?, allowed-tools?) followed
-# by `## Heading` + paragraph pairs for each Skill.hasSection entry.
+# One Skill instance produces one SKILL.md artifact. Output is byte-
+# identical to the legacy 2.0 transformation: `---`-delimited YAML
+# frontmatter (name, description, license?, compatibility?,
+# allowed-tools?) followed by `## Heading` + paragraph pairs for
+# each Skill.hasSection entry.
+#
+# v3 differences from v2:
+#   - tx.Transformation → tx.InstanceTransformation (explicit cardinality)
+#   - tx.kind: discriminator → type: explicit subclass narrowing
+#   - tx.requires uses property references (not strings)
+#   - tx.AstFieldBinding embeddeds drop their explicit `type:` per
+#     prefer-implicit-embedded-type-rule (the range is AstFieldBinding)
 # =============================================================================
 
 skill-to-skill-md-transformation:
-  type: tx.Transformation
+  type: tx.InstanceTransformation
 
   tx.inputPattern:
     tx.matchesClass: skills.Skill
     tx.requires:
-      - "kanonak.org/agent-skills/name"
-      - "kanonak.org/agent-skills/description"
+      - skills.name
+      - skills.description
 
   tx.artifactName:
-    tx.kind: tx.property-read
+    type: tx.PropertyRead
     tx.readSource:
-      tx.kind: tx.var-ref
+      type: tx.VarRef
       tx.varName: input
     tx.readProp: skills.name
 
@@ -63,274 +71,262 @@ skill-to-skill-md-transformation:
       tx.trailingNewline: false
 
   tx.rule:
-    # BuildAstNode(Document)
-    tx.kind: tx.build-ast-node
+    type: tx.BuildAstNode
     tx.astClass: docast.Document
     tx.set:
 
       # --- Document.metadata = StructuredMap(...) ---
       - tx.field: docast.metadata
         tx.bindValue:
-          tx.kind: tx.build-ast-node
+          type: tx.BuildAstNode
           tx.astClass: docast.StructuredMap
           tx.set:
             - tx.field: docast.entries
               tx.bindValue:
-                tx.kind: tx.concat
+                type: tx.Concat
                 tx.parts:
 
                   # --- name entry (always present) ---
-                  # The frontmatter key is the bare local name `name`,
-                  # NOT the import-aliased property reference. Frontmatter
-                  # keys are plain string identifiers expected by the
-                  # consuming agent runtime (Claude Code etc.) — they
-                  # are not Kanonak references and must not carry the
-                  # author's local alias prefix.
-                  - tx.kind: tx.build-ast-node
+                  - type: tx.BuildAstNode
                     tx.astClass: docast.StructuredEntry
                     tx.set:
                       - tx.field: docast.key
                         tx.bindValue:
-                          tx.kind: tx.string-literal
+                          type: tx.StringLiteral
                           tx.stringLiteral: name
                       - tx.field: docast.value
                         tx.bindValue:
-                          tx.kind: tx.build-ast-node
+                          type: tx.BuildAstNode
                           tx.astClass: docast.StringScalar
                           tx.set:
                             - tx.field: docast.stringValue
                               tx.bindValue:
-                                tx.kind: tx.property-read
+                                type: tx.PropertyRead
                                 tx.readSource:
-                                  tx.kind: tx.var-ref
+                                  type: tx.VarRef
                                   tx.varName: input
                                 tx.readProp: skills.name
                       - tx.field: docast.escapeHint
                         tx.bindValue:
-                          tx.kind: tx.uri-literal
+                          type: tx.UriLiteral
                           tx.refTo: docast.esc-raw
 
                   # --- description entry (always present) ---
-                  - tx.kind: tx.build-ast-node
+                  - type: tx.BuildAstNode
                     tx.astClass: docast.StructuredEntry
                     tx.set:
                       - tx.field: docast.key
                         tx.bindValue:
-                          tx.kind: tx.string-literal
+                          type: tx.StringLiteral
                           tx.stringLiteral: description
                       - tx.field: docast.value
                         tx.bindValue:
-                          tx.kind: tx.build-ast-node
+                          type: tx.BuildAstNode
                           tx.astClass: docast.StringScalar
                           tx.set:
                             - tx.field: docast.stringValue
                               tx.bindValue:
-                                tx.kind: tx.normalize
+                                type: tx.Normalize
                                 tx.normKind: tx.trim-end
                                 tx.normSource:
-                                  tx.kind: tx.property-read
+                                  type: tx.PropertyRead
                                   tx.readSource:
-                                    tx.kind: tx.var-ref
+                                    type: tx.VarRef
                                     tx.varName: input
                                   tx.readProp: skills.description
                       - tx.field: docast.escapeHint
                         tx.bindValue:
-                          tx.kind: tx.uri-literal
+                          type: tx.UriLiteral
                           tx.refTo: docast.esc-raw
 
-                  # --- license entry (optional; traverses through the
-                  #     License reference to read its spdxId, falling
-                  #     back to the reference's local name) ---
-                  - tx.kind: tx.when
+                  # --- license entry (optional; falls back to the
+                  #     reference's local name when no spdxId is set) ---
+                  - type: tx.When
                     tx.condition:
-                      tx.kind: tx.is-set
+                      type: tx.IsSet
                       tx.checkExpr:
-                        tx.kind: tx.property-read
+                        type: tx.PropertyRead
                         tx.readSource:
-                          tx.kind: tx.var-ref
+                          type: tx.VarRef
                           tx.varName: input
                         tx.readProp: skills.license
                     tx.thenBuild:
-                      tx.kind: tx.build-ast-node
+                      type: tx.BuildAstNode
                       tx.astClass: docast.StructuredEntry
                       tx.set:
                         - tx.field: docast.key
                           tx.bindValue:
-                            tx.kind: tx.string-literal
+                            type: tx.StringLiteral
                             tx.stringLiteral: license
                         - tx.field: docast.value
                           tx.bindValue:
-                            tx.kind: tx.build-ast-node
+                            type: tx.BuildAstNode
                             tx.astClass: docast.StringScalar
                             tx.set:
                               - tx.field: docast.stringValue
                                 tx.bindValue:
-                                  tx.kind: tx.fallback
+                                  type: tx.Fallback
                                   tx.primary:
-                                    tx.kind: tx.traverse
+                                    type: tx.Traverse
                                     tx.traverseSource:
-                                      tx.kind: tx.var-ref
+                                      type: tx.VarRef
                                       tx.varName: input
                                     tx.through: skills.license
                                     tx.step:
-                                      tx.kind: tx.property-read
+                                      type: tx.PropertyRead
                                       tx.readSource:
-                                        tx.kind: tx.var-ref
+                                        type: tx.VarRef
                                         tx.varName: input
                                       tx.readProp: spdx.spdxId
                                   tx.alternate:
-                                    tx.kind: tx.uri-name
+                                    type: tx.UriName
                                     tx.uriNameOf:
-                                      tx.kind: tx.property-read
+                                      type: tx.PropertyRead
                                       tx.readSource:
-                                        tx.kind: tx.var-ref
+                                        type: tx.VarRef
                                         tx.varName: input
                                       tx.readProp: skills.license
                         - tx.field: docast.escapeHint
                           tx.bindValue:
-                            tx.kind: tx.uri-literal
+                            type: tx.UriLiteral
                             tx.refTo: docast.esc-raw
 
                   # --- compatibility entry (optional) ---
-                  - tx.kind: tx.when
+                  - type: tx.When
                     tx.condition:
-                      tx.kind: tx.is-set
+                      type: tx.IsSet
                       tx.checkExpr:
-                        tx.kind: tx.property-read
+                        type: tx.PropertyRead
                         tx.readSource:
-                          tx.kind: tx.var-ref
+                          type: tx.VarRef
                           tx.varName: input
                         tx.readProp: skills.compatibility
                     tx.thenBuild:
-                      tx.kind: tx.build-ast-node
+                      type: tx.BuildAstNode
                       tx.astClass: docast.StructuredEntry
                       tx.set:
                         - tx.field: docast.key
                           tx.bindValue:
-                            tx.kind: tx.string-literal
+                            type: tx.StringLiteral
                             tx.stringLiteral: compatibility
                         - tx.field: docast.value
                           tx.bindValue:
-                            tx.kind: tx.build-ast-node
+                            type: tx.BuildAstNode
                             tx.astClass: docast.StringScalar
                             tx.set:
                               - tx.field: docast.stringValue
                                 tx.bindValue:
-                                  tx.kind: tx.normalize
+                                  type: tx.Normalize
                                   tx.normKind: tx.trim-end
                                   tx.normSource:
-                                    tx.kind: tx.property-read
+                                    type: tx.PropertyRead
                                     tx.readSource:
-                                      tx.kind: tx.var-ref
+                                      type: tx.VarRef
                                       tx.varName: input
                                     tx.readProp: skills.compatibility
                         - tx.field: docast.escapeHint
                           tx.bindValue:
-                            tx.kind: tx.uri-literal
+                            type: tx.UriLiteral
                             tx.refTo: docast.esc-raw
 
                   # --- allowed-tools entry (optional; space-joined
                   #     list of Tool entity names) ---
-                  - tx.kind: tx.when
+                  - type: tx.When
                     tx.condition:
-                      tx.kind: tx.is-set
+                      type: tx.IsSet
                       tx.checkExpr:
-                        tx.kind: tx.property-read
+                        type: tx.PropertyRead
                         tx.readSource:
-                          tx.kind: tx.var-ref
+                          type: tx.VarRef
                           tx.varName: input
                         tx.readProp: skills.allowedTools
                     tx.thenBuild:
-                      tx.kind: tx.build-ast-node
+                      type: tx.BuildAstNode
                       tx.astClass: docast.StructuredEntry
                       tx.set:
                         - tx.field: docast.key
                           tx.bindValue:
-                            tx.kind: tx.string-literal
+                            type: tx.StringLiteral
                             tx.stringLiteral: allowed-tools
                         - tx.field: docast.value
                           tx.bindValue:
-                            tx.kind: tx.build-ast-node
+                            type: tx.BuildAstNode
                             tx.astClass: docast.StringScalar
                             tx.set:
                               - tx.field: docast.stringValue
                                 tx.bindValue:
-                                  tx.kind: tx.join
+                                  type: tx.Join
                                   tx.separator: " "
-                                  tx.items:
-                                    tx.kind: tx.list-map
-                                    tx.listMapSource:
-                                      tx.kind: tx.property-read
+                                  tx.source:
+                                    type: tx.ListMap
+                                    tx.source:
+                                      type: tx.PropertyRead
                                       tx.readSource:
-                                        tx.kind: tx.var-ref
+                                        type: tx.VarRef
                                         tx.varName: input
                                       tx.readProp: skills.allowedTools
                                     tx.loopVar: t
                                     tx.mapBody:
-                                      tx.kind: tx.uri-name
+                                      type: tx.UriName
                                       tx.uriNameOf:
-                                        tx.kind: tx.var-ref
+                                        type: tx.VarRef
                                         tx.varName: t
                         - tx.field: docast.escapeHint
                           tx.bindValue:
-                            tx.kind: tx.uri-literal
+                            type: tx.UriLiteral
                             tx.refTo: docast.esc-raw
 
       # --- Document.children = ForEach(hasSection) emitting [Heading, Paragraph] ---
       - tx.field: docast.children
         tx.bindValue:
-          tx.kind: tx.for-each
-          tx.iterate:
-            tx.kind: tx.property-read
+          type: tx.ForEach
+          tx.source:
+            type: tx.PropertyRead
             tx.readSource:
-              tx.kind: tx.var-ref
+              type: tx.VarRef
               tx.varName: input
             tx.readProp: skills.hasSection
           tx.loopVar: section
           tx.emit:
-            tx.kind: tx.concat
+            type: tx.Concat
             tx.parts:
               # Heading(level=2, Text(section.title))
-              - tx.kind: tx.build-ast-node
+              - type: tx.BuildAstNode
                 tx.astClass: docast.Heading
                 tx.set:
                   - tx.field: docast.level
                     tx.bindValue:
-                      tx.kind: tx.integer-literal
+                      type: tx.IntegerLiteral
                       tx.integerLiteral: 2
                   - tx.field: docast.inlines
                     tx.bindValue:
-                      tx.kind: tx.concat
+                      type: tx.Concat
                       tx.parts:
-                        - tx.kind: tx.build-ast-node
+                        - type: tx.BuildAstNode
                           tx.astClass: docast.Text
                           tx.set:
                             - tx.field: docast.text
                               tx.bindValue:
-                                tx.kind: tx.property-read
+                                type: tx.PropertyRead
                                 tx.readSource:
-                                  tx.kind: tx.var-ref
+                                  type: tx.VarRef
                                   tx.varName: section
                                 tx.readProp: skills.title
-              # Section body is MARKDOWN — emitted here as a RawBlock
-              # with mediaType=text-markdown so any future non-Markdown
-              # backend knows how to interpret it. The markdown-with-
-              # frontmatter backend renders the RawBlock verbatim, which
-              # keeps the existing SKILL.md output byte-identical.
-              - tx.kind: tx.build-ast-node
+              # Section body — markdown emitted as a RawBlock
+              - type: tx.BuildAstNode
                 tx.astClass: docast.RawBlock
                 tx.set:
                   - tx.field: docast.mediaType
                     tx.bindValue:
-                      tx.kind: tx.uri-literal
+                      type: tx.UriLiteral
                       tx.refTo: docast.text-markdown
                   - tx.field: docast.rawContent
                     tx.bindValue:
-                      tx.kind: tx.normalize
+                      type: tx.Normalize
                       tx.normKind: tx.trim-end
                       tx.normSource:
-                        tx.kind: tx.property-read
+                        type: tx.PropertyRead
                         tx.readSource:
-                          tx.kind: tx.var-ref
+                          type: tx.VarRef
                           tx.varName: section
                         tx.readProp: skills.body

@@ -2,7 +2,7 @@
 kanonak-protocol:
   type: Package
   publisher: kanonak.org
-  version: 1.0.0
+  version: 1.2.0
   imports:
     - publisher: kanonak.org
       packages:
@@ -356,10 +356,22 @@ kanonak-protocol-spec:
         named-for-identity-rule:
           text: Use named top-level entities for data that needs a stable identity, is referenced from multiple places, or represents a significant concept with an independent lifecycle
           rationale: Named entities receive a globally unique URI (publisher/package@version/name) that enables cross-document references, stable citation, and independent versioning. Any data that tooling or other entities need to point to must be named so that the pointer is well-defined.
+        prefer-implicit-embedded-type-rule:
+          text: An embedded object SHOULD NOT declare an explicit 'type' property when the type would equal the parent property's range - let the range supply the type implicitly
+          rationale: When the embedded type matches what the parent property's range already specifies, the explicit type adds nothing beyond visual noise. Omitting it keeps documents shorter, makes the common case the default, and signals that explicit type declarations on embeddeds carry meaning - they only appear when narrowing the range to a more specific subclass. A reader who sees 'type:' on an embedded immediately knows it's communicating a non-default subtype.
       hasForbiddenRule:
-        embedded-no-type-rule:
-          text: Embedded objects MUST NOT have an explicit 'type' property - the type is inferred from the parent property's range
-          rationale: The parent property's range already declares the type of embedded values. Allowing an explicit type on an embedded object creates the possibility of conflicts with the range and undermines the type inference model. Enforcing the rule keeps embedded data faithful to the property that contains it.
+        embedded-type-must-narrow-range-rule:
+          text: When an embedded object declares an explicit 'type' property, that type MUST be a subclass of (or equal to) the parent property's range
+          rationale: >-
+            A declared type that is not a subclass of the parent's range is a
+            contradiction - the parent property says "this slot holds Conditions"
+            and the declared type says "this is not a Condition." Permitting it
+            would silently break range-based reasoning, type checking, and code
+            generation. Restricting declared types to range subclasses preserves
+            the inference model while still allowing tagged-union /
+            discriminated-union authoring with proper OWL subclass semantics
+            (for example, declaring 'type' as 'OrCondition' on an embedded
+            under a property whose range is 'Condition').
       hasValidExample:
         embedded-coupled-address:
           pro.value: |
@@ -368,7 +380,20 @@ kanonak-protocol-spec:
               hasAddress:
                 street: "123 Main St"
                 city: "Springfield"
-          description: Address is embedded because it is owned by alice and never referenced elsewhere - becomes an RDF blank node
+          description: Address is embedded because it is owned by alice and never referenced elsewhere - becomes an RDF blank node. The embedded inherits its type from the parent property's range, so no 'type:' is needed.
+        embedded-with-narrowing-type:
+          pro.value: |
+            wrapper:
+              type: Wrapper
+              condition:
+                type: OrCondition
+                operands:
+                  - type: ThresholdCondition
+                    observable: temperature
+                    threshold: 90
+                  - type: EventCondition
+                    event: sensor-fault
+          description: The 'condition' property's range is 'Condition'. Each embedded declares a type that is a strict subclass of 'Condition' (OrCondition, ThresholdCondition, EventCondition all subClassOf Condition), which narrows the range to a specific variant. This is the canonical tagged-union authoring form - explicit types appear precisely where the variant matters.
         named-shared-address:
           pro.value: |
             acme-headquarters:
@@ -385,14 +410,27 @@ kanonak-protocol-spec:
               worksAt: acme-headquarters
           description: Headquarters is named because multiple employees reference the same address and the entity has identity beyond any single parent
       hasInvalidExample:
-        explicit-type-on-embedded:
+        non-subclass-embedded-type:
+          pro.value: |
+            wrapper:
+              type: Wrapper
+              condition:
+                type: Person  # FORBIDDEN - Person is not a subclass of Condition
+                name: Alice
+          description: The 'condition' property's range is 'Condition', so the embedded's declared type must be Condition or a subclass thereof. 'Person' is unrelated to the Condition hierarchy, so this is a range violation.
+        redundant-embedded-type:
           pro.value: |
             alice:
               type: Person
               hasAddress:
-                type: Address  # FORBIDDEN on an embedded object
+                type: Address  # DISCOURAGED - Address equals the parent property's range
                 street: "123 Main St"
-          description: Embedded objects cannot declare their own type - it is inferred from the parent property's range
+          description: >-
+            The 'hasAddress' property's range is already 'Address', so
+            declaring 'type' as 'Address' on the embedded is redundant. Not a
+            hard error - the document is still semantically valid - but a
+            reader is left wondering what the type was meant to communicate.
+            Drop the line so the type is inferred implicitly.
 
     type-system:
       summary: Rules governing how entities declare their type and how properties declare their range
@@ -517,3 +555,208 @@ kanonak-protocol-spec:
               type: Class
               subClassOf: name
           description: Invalid - subClassOf must reference a Class, not a Property
+
+    transformation-modeling:
+      summary: How to author Transformation instances that turn Kanonak data into other formats
+      hasRecommendedRule:
+        prefer-set-transformation-for-cross-instance-rule:
+          text: >-
+            Use SetTransformation when the desired output reads from MORE than
+            one input instance, even if you currently have only one input. Use
+            InstanceTransformation only when the output is genuinely
+            independent per input.
+          rationale: >-
+            The cardinality of the input binding is the substantive difference
+            between the two subclasses, and authors who pick InstanceTransformation
+            for a list-like task end up emitting one tiny artifact per input
+            with no aggregate view. SetTransformation aggregates by default and
+            falls back to per-key fan-out via partitionBy when the output
+            cardinality should match a discriminator. Picking the right
+            cardinality up-front avoids needing to rewrite the rule tree later.
+        explicit-sort-for-ordered-iteration-rule:
+          text: >-
+            When iteration order matters (time-series, indexes, anything a
+            reader will scan top-to-bottom), declare InputPattern.sortBy
+            explicitly with one or more SortKey entries.
+          rationale: >-
+            Without sortBy, the runner binds inputs in the SDK's discovery
+            order — deterministic but not semantically meaningful. Authors who
+            depend on implicit order produce artifacts whose sequence shifts
+            when the workspace's filesystem layout changes. Declaring sortBy
+            makes the contract explicit and validatable; the byProperty
+            reference ensures the sort key is a real Property the validator
+            can check.
+        partition-by-for-fan-out-rule:
+          text: >-
+            When a SetTransformation should produce one artifact per distinct
+            value of a property (e.g. one page per author, one chart per
+            region), declare SetTransformation.partitionBy referencing that
+            property.
+          rationale: >-
+            Partitioning at the transformation level is cheaper and clearer
+            than authoring N nearly-identical InstanceTransformations or
+            using PartitionBy expressions to emit M sections inside one
+            artifact. The structural partitionBy keeps each output focused
+            on one group's data while sharing one rule definition.
+        narrow-types-on-expression-embeddeds-rule:
+          text: >-
+            Inside an Expression rule tree, every embedded Expression node
+            SHOULD declare its concrete subclass via type — type tx.Concat,
+            type tx.PropertyRead, type tx.BuildAstNode, etc. Keep AstFieldBinding
+            and other range-matching embeddeds implicit (no type) per the
+            embedding convention's prefer-implicit-embedded-type-rule.
+          rationale: >-
+            The Expression hierarchy is a wide tagged-by-type tree where
+            every node could be one of many concrete subclasses. Declaring
+            the type at each embedded position makes the rule tree
+            self-documenting and lets the validator catch mistakes (a
+            mistyped property name on a wrong subclass becomes a domain
+            violation). For embeddeds whose parent property has a concrete
+            range (AstFieldBinding under BuildAstNode.set, FormatOverride
+            under formatOverrides), explicit type is redundant — the
+            range supplies it.
+      hasForbiddenRule:
+        empty-input-on-instance-transformation-rule:
+          text: >-
+            An InstanceTransformation with zero matching inputs MUST be
+            treated as an authoring error by the runner. If the desired
+            behavior is "emit something even when there are no inputs,"
+            the transformation MUST be a SetTransformation.
+          rationale: >-
+            The two subclasses differ on this exact contract. Emitting zero
+            artifacts from an InstanceTransformation when zero inputs match
+            is what the author asked for (one artifact per input, none
+            present). Emitting one artifact from a SetTransformation when
+            zero inputs match is also what the author asked for (one
+            artifact summarizing the set, even when empty). Conflating the
+            two means a SetTransformation case ("we want an index page
+            even on day zero") accidentally lands as an InstanceTransformation
+            and never produces the index. Pick the subclass that matches
+            the cardinality semantics.
+        magic-string-output-formats-rule:
+          text: >-
+            Transformation.outputs MUST reference named OutputFormat instances
+            (tx.html, tx.markdown-with-frontmatter, tx.json, etc.), not
+            string identifiers.
+          rationale: >-
+            OutputFormat references are validatable — the runner resolves
+            the URI and looks up the registered backend by the format's
+            backendUri. Authoring outputs as plain strings would silently
+            accept typos, drift from the actual backend registry, and
+            require every consumer to maintain its own string-to-backend
+            mapping. The OutputFormat indirection is the contract the
+            runner depends on.
+        non-numeric-aggregation-source-rule:
+          text: >-
+            Sum, Min, Max, and Average MUST receive a list source whose
+            elements resolve to xsd:integer or xsd:decimal values. Source
+            expressions that yield strings, references, or embedded objects
+            are an authoring error.
+          rationale: >-
+            The runner enforces strict numeric typing at evaluation time —
+            non-numeric elements raise an error rather than coerce silently.
+            This catches mistakes where an author intended to sum a numeric
+            property but wrote a property whose range is xsd.string, or
+            forgot to wrap a list of subjects in a list-map that extracts
+            the numeric field. Min/Max/Average on an empty list also error,
+            since the contract is undefined; guard with IsSet when an
+            empty input is possible.
+      hasValidExample:
+        per-instance-transformation:
+          pro.value: |
+            skill-to-skill-md-transformation:
+              type: tx.InstanceTransformation
+              tx.inputPattern:
+                tx.matchesClass: skills.Skill
+                tx.requires:
+                  - skills.name
+                  - skills.description
+              tx.artifactName:
+                type: tx.PropertyRead
+                tx.readSource:
+                  type: tx.VarRef
+                  tx.varName: input
+                tx.readProp: skills.name
+              tx.outputs:
+                - tx.markdown-with-frontmatter
+              tx.rule:
+                type: tx.BuildAstNode
+                tx.astClass: docast.Document
+                # ... rest of the document-construction rule
+          description: >-
+            Per-instance transformation - one Skill input produces one
+            SKILL.md artifact. The rule sees `input` (singular) bound to
+            the matching Skill subject; artifactName carries the per-
+            instance filename stem.
+        aggregate-set-transformation-with-sort:
+          pro.value: |
+            snapshot-index:
+              type: tx.SetTransformation
+              tx.inputPattern:
+                tx.matchesClass: wv.WorldviewSnapshot
+                tx.sortBy:
+                  - tx.byProperty: wv.observedAt
+                    tx.order: tx.descending
+              tx.artifactName:
+                type: tx.StringLiteral
+                tx.stringLiteral: index
+              tx.outputs: [tx.html]
+              tx.rule:
+                type: tx.BuildAstNode
+                tx.astClass: docast.Document
+                # ... rule binds `inputs` (plural) to the sorted set
+          description: >-
+            Set transformation with sort - aggregates every WorldviewSnapshot
+            into a single index page. inputs is bound to the sorted list
+            (newest first); the rule typically wraps it in a ForEach to
+            render one row per snapshot.
+        partitioned-set-transformation:
+          pro.value: |
+            per-thesis-trajectory:
+              type: tx.SetTransformation
+              tx.inputPattern:
+                tx.matchesClass: wv.WorldviewSnapshot
+              tx.partitionBy: wv.thesisName
+              tx.artifactName:
+                type: tx.Concat
+                tx.parts:
+                  - type: tx.StringLiteral
+                    tx.stringLiteral: "thesis-"
+                  - type: tx.VarRef
+                    tx.varName: key
+              tx.outputs: [tx.html]
+              tx.rule:
+                type: tx.BuildAstNode
+                tx.astClass: docast.Document
+                # ... rule sees `inputs` (this partition's snapshots) + `key` (thesis name)
+          description: >-
+            Set transformation with fan-out - one artifact per distinct
+            value of partitionBy. inputs is bound to that partition's
+            members; key is bound to the partition value.
+      hasInvalidExample:
+        instance-transformation-when-set-was-meant:
+          pro.value: |
+            broken-index:
+              type: tx.InstanceTransformation
+              tx.inputPattern:
+                tx.matchesClass: wv.WorldviewSnapshot
+              tx.rule:
+                type: tx.BuildAstNode
+                tx.astClass: docast.Document
+                # ... author wrote a per-input rule but expected one combined index
+          description: >-
+            Wrong subclass - emits one Document per snapshot rather than
+            one combined index. The author wanted aggregation; the type
+            should be tx.SetTransformation with the rule iterating
+            `inputs` rather than reading `input`.
+        magic-string-output:
+          pro.value: |
+            broken-output:
+              type: tx.InstanceTransformation
+              tx.outputs:
+                - markdown-with-frontmatter
+          description: >-
+            Wrong - outputs must be a reference to a named OutputFormat
+            instance, not a plain string. The validator rejects the
+            string form because it cannot verify a backend exists for
+            it.
