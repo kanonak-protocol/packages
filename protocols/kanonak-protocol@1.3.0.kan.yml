@@ -2,7 +2,7 @@
 kanonak-protocol:
   type: Package
   publisher: kanonak.org
-  version: 1.2.0
+  version: 1.3.0
   imports:
     - publisher: kanonak.org
       packages:
@@ -615,6 +615,39 @@ kanonak-protocol-spec:
             range (AstFieldBinding under BuildAstNode.set, FormatOverride
             under formatOverrides), explicit type is redundant — the
             range supplies it.
+        is-set-for-optional-presence-rule:
+          text: >-
+            Use tx.IsSet over a tx.PropertyRead to gate rendering on whether
+            an optional property is populated, regardless of whether the
+            value is a primitive scalar, a reference, an embedded subject,
+            or a non-empty list. IsSet reports presence; it doesn't
+            constrain what kind of value qualifies.
+          rationale: >-
+            The "render this block iff the optional sub-tree is populated"
+            pattern is common when an ObjectProperty is optional and the
+            artifact should adapt to whether authors supplied a value.
+            Restricting IsSet to primitive-only would force authors into
+            workarounds (always-render-with-empty-content, list-length
+            shims) that produce worse output than honest presence checks.
+            The runtime contract: IsSet returns false for undefined/null,
+            empty string, or empty list, and true otherwise.
+        subject-uri-for-cross-input-attribution-rule:
+          text: >-
+            Inside a SetTransformation iteration, use tx.SubjectUri (or
+            tx.UriName for just the local name) to derive per-input deep
+            links, source-package paths, or cross-package indexes from the
+            matched subjects. SubjectUri yields the full
+            publisher/package@version/name string; UriName yields just
+            the local name segment.
+          rationale: >-
+            Aggregate transformations are valuable when each output entry
+            can correlate back to its source input. Without a primitive
+            for subject-URI access from inside the rule tree, authors
+            resort to order-based client-side matching against an external
+            index — fragile beyond the simplest cases and breaks when
+            inputs span multiple publishers or package versions. SubjectUri
+            puts the canonical attribution inside the typed transformation,
+            where it can be validated alongside everything else.
       hasForbiddenRule:
         empty-input-on-instance-transformation-rule:
           text: >-

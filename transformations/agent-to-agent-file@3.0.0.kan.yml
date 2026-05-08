@@ -15,7 +15,7 @@ agent-to-agent-file:
           alias: xsd
         - package: transformations
           match: ^
-          version: 3.0.0
+          version: 3.1.0
           alias: tx
         - package: document-ast
           match: ^

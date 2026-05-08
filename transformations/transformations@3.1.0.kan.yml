@@ -1,5 +1,36 @@
 # =============================================================================
-# transformations @ 3.0.0
+# transformations @ 3.1.0
+#
+# Additive minor bump. Adds one new Expression subclass and clarifies
+# the runtime semantics of two existing ones; no breaking changes.
+#
+# - SubjectUri (new): yields the full canonical URI of a subject as
+#   a string (`publisher/package@version/name`). Closes the gap that
+#   left aggregate transformations unable to derive per-input deep
+#   links / source-package paths from the rule tree
+#   (kanonak-protocol/typescript#8).
+#
+# - UriName (clarified): now extracts the local name segment from
+#   any Expression result that carries one — references, embedded
+#   subjects, and matched subjects bound via VarRef. Previously
+#   only references were handled, which meant SetTransformation
+#   loop variables produced empty strings (issue #8).
+#
+# - IsSet + PropertyRead (clarified): PropertyRead of an
+#   ObjectProperty whose value is an embedded subject now returns
+#   that embedded subject (matching the v2 semantics that authors
+#   relied on). IsSet over such a PropertyRead therefore reports
+#   true when the embedded value is present, which restores the
+#   "render this block iff the optional sub-tree is populated"
+#   pattern (kanonak-protocol/typescript#7).
+#
+# Authors targeting 3.0.0 don't need to migrate — every 3.0.0
+# transformation continues to validate and run unchanged. New
+# authoring should target 3.1.0 to use SubjectUri and to depend on
+# the clarified semantics.
+#
+# =============================================================================
+# transformations @ 3.0.0 (history, unchanged in 3.1.0)
 #
 # Major break from 2.0.0. Three significant remodels:
 #
@@ -61,7 +92,7 @@
 transformations:
   type: Package
   publisher: kanonak.org
-  version: 3.0.0
+  version: 3.1.0
   imports:
     - publisher: kanonak.org
       packages:
@@ -707,13 +738,41 @@ UriName:
   type: rdfs.Class
   subClassOf: Expression
   label: URI Name
-  comment: Yields the local name component of a URI-typed expression result.
+  comment: >-
+    Yields the local name component of a URI-typed expression result.
+    Works on any value that carries a name — a ReferenceKanonak (its
+    target's local name), an EntityUri / KanonakUri (its `name`
+    field), a SubjectKanonak bound via VarRef in a SetTransformation
+    iteration (its `name` field), or an EmbeddedKanonak (its
+    optional dict-key origin name; empty string for positional
+    embeddeds).
 
 uriNameOf:
   type: owl.ObjectProperty
   domain: UriName
   range: Expression
   label: URI Name Of
+
+SubjectUri:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Subject URI
+  comment: >-
+    Yields the full canonical URI of a subject as a string —
+    `publisher/package@version/name`. Authors typically use this
+    inside SetTransformation iteration to derive per-input deep
+    links, source-package paths, audit-trail attribution, or
+    cross-package indexes that need to know where each matched
+    instance came from. Returns undefined when the source
+    expression doesn't yield a SubjectKanonak (or a ReferenceKanonak,
+    which is supported as a convenience and produces the
+    URI-string form of its target).
+
+subjectOf:
+  type: owl.ObjectProperty
+  domain: SubjectUri
+  range: Expression
+  label: Subject Of
 
 UriLiteral:
   type: rdfs.Class
