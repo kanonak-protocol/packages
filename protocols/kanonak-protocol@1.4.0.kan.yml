@@ -2,7 +2,7 @@
 kanonak-protocol:
   type: Package
   publisher: kanonak.org
-  version: 1.3.0
+  version: 1.4.0
   imports:
     - publisher: kanonak.org
       packages:
@@ -648,6 +648,24 @@ kanonak-protocol-spec:
             inputs span multiple publishers or package versions. SubjectUri
             puts the canonical attribution inside the typed transformation,
             where it can be validated alongside everything else.
+        multi-scope-for-cross-package-aggregation-rule:
+          text: >-
+            When a SetTransformation should aggregate matched instances
+            across multiple packages — index pages, sitemaps, federation
+            reports, time-series views over versioned snapshot packages —
+            invoke the runner with one --scope flag per package.
+            kanonak transform run accepts the flag repeatedly; matched
+            subject sets are unioned across all scopes (deduped by URI)
+            before binding to the rule's `inputs`.
+          rationale: >-
+            Single-scope semantics restrict candidates to subjects defined
+            in the scoped package, which blocks the canonical aggregate
+            use case (one artifact summarizing instances spread across
+            many packages). Repeatable --scope keeps the pattern explicit
+            and validatable per-scope without changing the meaning of
+            "scope" itself — each scope still resolves through the
+            workspace + cache + HTTP tiers exactly as a single scope
+            does, and a single --scope invocation behaves unchanged.
       hasForbiddenRule:
         empty-input-on-instance-transformation-rule:
           text: >-
@@ -766,6 +784,25 @@ kanonak-protocol-spec:
             Set transformation with fan-out - one artifact per distinct
             value of partitionBy. inputs is bound to that partition's
             members; key is bound to the partition value.
+        cross-package-aggregation-invocation:
+          pro.value: |
+            # Same SetTransformation as aggregate-set-transformation-with-sort,
+            # invoked across multiple packages. Each --scope is loaded
+            # separately and the matched subject sets are unioned (deduped
+            # by URI) before binding to the rule's `inputs`.
+            #
+            # $ kanonak transform run snapshot-index \
+            #     --scope worldview.genval.ai/example-ai-capex \
+            #     --scope worldview.genval.ai/example-macro \
+            #     --format html \
+            #     --out _site/
+          description: >-
+            Cross-package aggregation - the matched-subject set in
+            `inputs` includes WorldviewSnapshot instances from both
+            scoped packages. Authors typically pair this invocation
+            shape with tx.SubjectUri inside the rule to derive
+            per-input deep links back to each snapshot's source
+            package.
       hasInvalidExample:
         instance-transformation-when-set-was-meant:
           pro.value: |
