@@ -1,0 +1,862 @@
+
+kanonak-protocol:
+  type: Package
+  publisher: kanonak.org
+  version: 1.5.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: protocols
+          match: ^
+          version: 1.0.0
+          alias: pro
+
+kanonak-protocol-spec:
+  type: Protocol
+  label: Kanonak Protocol
+  comment: The Kanonak Protocol - an open protocol for defining, versioning, and sharing semantic ontologies across distributed publishers
+  hasConvention:
+
+    uri-structure:
+      summary: Kanonak URIs uniquely identify entities using the format publisher/package@version/name
+      hasRequiredRule:
+        uri-format-rule:
+          text: Kanonak URIs MUST follow the format publisher/package@version/name where all components are required
+          rationale: Standardized URI format ensures global uniqueness and enables automatic resolution across namespaces and package registries
+        uri-uniqueness-rule:
+          text: Each Kanonak URI MUST uniquely identify exactly one entity across the entire Kanonak ecosystem
+          rationale: Guarantees unambiguous entity references and prevents naming conflicts through publisher namespacing
+      hasValidExample:
+        core-rdf-class-uri:
+          pro.value: kanonak.org/core-rdf@1.0.0/Class
+          description: Valid Kanonak URI referencing the Class entity from the core-rdf package
+      hasInvalidExample:
+        missing-publisher-and-version:
+          pro.value: mypackage/Entity
+          description: Invalid - missing publisher domain and version components
+
+    publisher-naming:
+      summary: Publishers must be domain-based identifiers to establish ownership and enable registry discovery
+      hasRequiredRule:
+        publisher-domain-rule:
+          text: Publisher identifiers MUST be valid domain names containing at least one dot character
+          rationale: Domain-based publishers establish clear organizational ownership, enable automatic registry discovery via .well-known endpoints, and prevent naming conflicts through DNS
+        publisher-ownership-rule:
+          text: Publishers MUST control the domain name used in their publisher identifier
+          rationale: Ensures authenticity and prevents namespace squatting by requiring verifiable domain ownership
+      hasValidExample:
+        kanonak-org:
+          pro.value: kanonak.org
+          description: Official Kanonak Protocol publisher using a .org domain
+        acme-com:
+          pro.value: acme.com
+          description: Company publisher using a .com domain
+      hasInvalidExample:
+        not-a-domain:
+          pro.value: myproject
+          description: Invalid - not a domain name. Must use domain-based identifier like myproject.org or myproject.dev
+
+    package-naming:
+      summary: Package names are lowercase-hyphen identifiers that describe the domain of entities they contain, with plural forms reserved for category packages so the singular form is available for instances inside them
+      hasRequiredRule:
+        package-format-rule:
+          text: Package names MUST start with a lowercase letter and contain only lowercase letters, numbers, and hyphens (no periods)
+          rationale: Lowercase with hyphens ensures compatibility with file systems, URLs, and OCI registries while maintaining readability. Periods are reserved for alias.resource reference syntax.
+      hasRecommendedRule:
+        package-hyphenation-rule:
+          text: Use hyphen notation to create descriptive package names for related ontologies
+          rationale: Hyphen notation enables logical grouping of related packages while avoiding conflicts with alias.resource reference syntax
+        category-package-is-plural-rule:
+          text: >-
+            Packages that define a class or are expected to contain multiple
+            related instances SHOULD use a plural kebab-case noun (protocols,
+            agent-skills, agents, capabilities, github-skills), so the
+            singular form stays available for the instances inside them
+          rationale: >-
+            A category package is a namespace for a family of things; naming
+            it after the family rather than a single member leaves the
+            singular name free to identify one member without a YAML duplicate
+            key collision with the package declaration. This is how the
+            package "protocols" can contain an instance named "mcp" without
+            either the document having a duplicate top-level key or forcing
+            the instance into a non-conforming PascalCase name.
+        instance-package-may-be-singular-rule:
+          text: >-
+            A package that exists specifically to describe one concrete entity
+            MAY use a singular name that matches the entity it describes
+            (e.g., mcp, a2a, kanonak-protocol), provided the singleton instance
+            inside uses a different kebab-case name so the package declaration
+            and the instance do not collide on the same top-level YAML key
+          rationale: >-
+            Instance packages are named after the thing they describe, which
+            makes the obvious instance name collide with the package name.
+            Resolving the collision by giving the instance a longer,
+            descriptive kebab-case name (model-context-protocol,
+            agent-to-agent-protocol, kanonak-protocol-spec) keeps the package
+            name short and recognizable while still following the
+            kebab-case-for-instances rule.
+      hasForbiddenRule:
+        singular-category-package-rule:
+          text: >-
+            Category packages MUST NOT use a singular name that shadows the
+            class or instance they host - for example, a package named
+            "protocol" that defines the Protocol class, or a package named
+            "skill" that holds a single Skill instance
+          rationale: >-
+            A singular category package name forces every consuming instance
+            to either rename itself or fight the YAML duplicate-key error.
+            Pluralizing the package eliminates the conflict at the source and
+            makes it obvious from the name that the package is a namespace,
+            not a single thing.
+      hasValidExample:
+        plural-category-packages:
+          pro.value: protocols, agent-skills, agents, capabilities, skill-capabilities, agent-capabilities, github-skills, github-agents
+          description: Category packages using plural kebab-case names, leaving the singular form free for the classes and instances they host
+        singular-instance-package:
+          pro.value: mcp (package) + model-context-protocol (instance)
+          description: A specific-instance package named after its abbreviation, with a longer descriptive kebab-case instance name to avoid the duplicate-key collision
+        core-rdf-package:
+          pro.value: core-rdf
+          description: Core RDF vocabulary using hyphen notation
+      hasInvalidExample:
+        uppercase-package:
+          pro.value: MyPackage
+          description: Invalid - contains uppercase letters. Must use lowercase only
+        singular-category-package:
+          pro.value: protocol (package that defines the Protocol class)
+          description: Invalid - singular category package shadows the class and forces every consuming instance to work around a name collision
+        colliding-instance-name:
+          pro.value: mcp package + mcp instance
+          description: Invalid - the package declaration and the instance both parse as the top-level YAML key "mcp", which is a duplicate key error
+
+    versioning:
+      summary: Versions follow semantic versioning to communicate compatibility and breaking changes
+      hasRequiredRule:
+        semantic-versioning-rule:
+          text: Versions MUST follow semantic versioning format major.minor.patch where each component is a non-negative integer
+          rationale: Semantic versioning provides a standard way to communicate backward compatibility and breaking changes to package consumers
+        major-version-breaking-rule:
+          text: Increment major version when making backward-incompatible changes to the package
+          rationale: Major version increments signal to consumers that manual migration may be required due to breaking changes
+        minor-version-compatible-rule:
+          text: Increment minor version when adding backward-compatible functionality and patch version for backward-compatible bug fixes
+          rationale: Allows consumers to safely update within the same major version while preventing unexpected breaking changes
+      hasValidExample:
+        standard-semver:
+          pro.value: 2.1.3
+          description: Valid semantic version with major 2, minor 1, patch 3
+      hasInvalidExample:
+        missing-patch-with-v-prefix:
+          pro.value: v1.0
+          description: Invalid - missing patch component and has v prefix. Must be 1.0.0
+
+    import-operators:
+      summary: Import operators, existence, and cycle constraints for package dependencies
+      hasRequiredRule:
+        exact-operator-rule:
+          text: Use exact version operator (=) to lock imports to a specific version for reproducible builds
+          rationale: Exact version matching guarantees reproducible builds and prevents unexpected breaking changes from dependency updates
+        import-existence-rule:
+          text: All declared imports MUST resolve to existing packages in the repository or package cache
+          rationale: Missing imports break transitive resolution and prevent entity lookup. All dependencies must be available either in local workspace or installed package cache.
+        import-cycle-rule:
+          text: Package imports MUST NOT create circular dependency chains between published packages
+          rationale: Circular package dependencies (A imports B, B imports A) create unresolvable import cycles that prevent package managers from building dependency graphs. Kanonak handles cycles gracefully at runtime but published packages cannot have circular dependencies.
+      hasRecommendedRule:
+        compatible-operator-rule:
+          text: Use compatible version operator (~) to allow patch updates within the same minor version
+          rationale: Enables bug fixes and security patches while preventing breaking changes from minor version updates
+        major-operator-rule:
+          text: Use major version operator (^) to allow minor and patch updates within the same major version
+          rationale: Follows semantic versioning conventions where breaking changes only occur in major version increments
+      hasForbiddenRule:
+        any-operator-rule:
+          text: Avoid any version operator (*) in production packages as it allows all future versions including breaking changes
+          rationale: Creates unpredictable behavior and can introduce breaking changes without warning or control
+      hasValidExample:
+        exact-operator-example:
+          pro.value: core-rdf = 1.0.0
+          description: Locks to exactly version 1.0.0 of core-rdf
+        compatible-operator-example:
+          pro.value: core-xsd ~ 1.2.3
+          description: Allows versions 1.2.3 through 1.2.x (patch updates only)
+        major-operator-example:
+          pro.value: core-owl ^ 2.0.0
+          description: Allows versions 2.0.0 through 2.x.x (minor and patch updates within major version 2)
+        one-way-dependency:
+          pro.value: |
+            # Package A has no imports (base package)
+            # Package B imports A - one-way dependency
+          description: One-way dependency chain with no cycles
+      hasInvalidExample:
+        circular-dependency:
+          pro.value: |
+            # Package A imports B, Package B imports A
+            # Creates an unresolvable circular dependency
+          description: A imports B and B imports A - circular dependency
+
+    version-resolution:
+      summary: Version resolution selects the highest compatible version from available packages
+      hasRequiredRule:
+        highest-compatible-rule:
+          text: When resolving an import, Kanonak MUST select the highest version that satisfies the version operator constraints
+          rationale: Automatic version resolution ensures packages get the latest compatible updates while respecting semantic versioning constraints. This enables bug fixes and patches without manual intervention while preventing breaking changes.
+        major-zero-special-case-rule:
+          text: For major version 0 (pre-1.0), the caret operator (^) MUST behave like tilde (~), allowing only patch updates
+          rationale: Semantic versioning treats 0.x.y as unstable where breaking changes can occur in minor versions. Caret operator for ^0.x.y allows only patches (0.x.z) to prevent unexpected breaking changes during pre-release development.
+      hasValidExample:
+        tilde-resolution:
+          pro.value: |
+            Import:      "core-xsd ~ 1.2.3"
+            Available:   1.2.1, 1.2.5, 1.3.0, 2.0.0
+            Constraints: MinVersion=1.2.3, MaxVersion=1.2.999
+            Selected:    1.2.5 (highest in compatible range)
+          description: Version resolution selects 1.2.5 as highest compatible patch version
+
+    file-naming:
+      summary: Kanonak documents follow a standard file naming pattern for discoverability
+      hasRequiredRule:
+        canonical-file-name-rule:
+          text: Kanonak document files MUST be named using the pattern package@version.kan.yml
+          rationale: Standardized file naming enables automatic discovery, prevents conflicts, and makes the namespace structure visible in the file system. The .kan.yml extension distinguishes Kanonak files from other YAML files.
+      hasRecommendedRule:
+        directory-structure-rule:
+          text: Kanonak documents SHOULD be organized in directories matching the publisher name
+          rationale: Directory structure mirrors namespace organization making it easy to locate packages and understand ownership. Publisher directories prevent naming conflicts and enable per-publisher configuration.
+      hasValidExample:
+        core-rdf-file:
+          pro.value: kanonak.org/core-rdf@1.0.0.kan.yml
+          description: Correct file naming with publisher directory and version
+        company-products-file:
+          pro.value: mycompany.com/products@2.1.3.kan.yml
+          description: Company package with semantic version
+
+    yaml-parsing:
+      summary: Kanonak YAML parsing preserves types and detects structural errors
+      hasRequiredRule:
+        type-preservation-rule:
+          text: Kanonak YAML parsers MUST preserve primitive types (integer, boolean, string) from YAML into the Kanonak object model
+          rationale: Type preservation ensures that integer values remain integers, booleans remain booleans, and strings remain strings through the parse-serialize round-trip. This maintains semantic meaning and enables accurate code generation.
+        duplicate-key-detection-rule:
+          text: Kanonak YAML parsers MUST detect and report duplicate keys with line and column information
+          rationale: Duplicate keys in YAML are ambiguous and indicate authoring errors. Early detection with precise location information helps users quickly fix structural problems before semantic validation.
+        utf8-bom-handling-rule:
+          text: Kanonak YAML parsers MUST strip UTF-8 BOM (Byte Order Mark) if present for cross-platform compatibility
+          rationale: Windows editors may add UTF-8 BOM at file start. Stripping BOM ensures files created on Windows parse correctly on Linux/Mac and vice versa, enabling seamless cross-platform collaboration.
+      hasValidExample:
+        primitive-types-preserved:
+          pro.value: |
+            age: 30        # Parsed as integer (not string "30")
+            isActive: true # Parsed as boolean (not string "true")
+            name: "Alice"  # Parsed as string
+          description: YAML primitive types preserved through parsing
+      hasInvalidExample:
+        duplicate-key:
+          pro.value: |
+            Person:
+              name: "Alice"
+              name: "Bob"  # ERROR: Duplicate key 'name'
+          description: Parser detects duplicate keys and reports error with line number
+
+    resource-naming:
+      summary: Distinct casing conventions per entity role make role immediately obvious and align with code generation
+      hasRecommendedRule:
+        resource-casing-rule:
+          text: >-
+            Kanonak uses three naming conventions based on entity role: classes
+            use PascalCase (Person, OrderStatus), instances use kebab-case
+            (romeo-montague, key-2026-03), and properties use camelCase
+            (subClassOf, hasAddress). This casing rule applies to every
+            instance, including inline dict-keyed embedded instances such as
+            the Convention, Rule, and Example entries inside a Protocol.
+          rationale: Distinct casing per role makes it immediately obvious whether an entity is a type definition (PascalCase), a data instance (kebab-case), or a property (camelCase). This improves readability, prevents confusion, and aligns with code generation conventions in target languages. Applying the rule to embedded keys too keeps the rule absolute rather than contextual, so the same entity type always looks the same in YAML no matter how it is authored.
+        embedded-instance-casing-rule:
+          text: >-
+            Inline dict-keyed embedded instances MUST follow the same
+            kebab-case rule as top-level instances. A Convention key inside
+            hasConvention, a Rule key inside hasRequiredRule, an Example key
+            inside hasValidExample, a CapabilityCommand key inside hasCommand,
+            and so on are all instances of their respective classes - they
+            just happen to be authored inline rather than as top-level
+            SubjectKanonaks - and the casing rule applies identically.
+          rationale: >-
+            Embedded instances have the same semantic status as top-level
+            instances - the SDK parses them into EmbeddedKanonak nodes that
+            carry statements just like SubjectKanonaks do. Treating them as a
+            stylistic label rather than an instance muddies the casing rule
+            and leads to inconsistent documents where top-level and embedded
+            instances of the same class look different. Holding the line on
+            kebab-case for all instance keys keeps the authoring surface
+            predictable.
+        resource-charset-rule:
+          text: Resource names SHOULD start with a letter and contain only letters, numbers, hyphens, and underscores
+          rationale: Following naming conventions ensures compatibility with code generation targets and URI construction. Names that violate conventions generate warnings to encourage consistency.
+      hasForbiddenRule:
+        no-reserved-prefix-rule:
+          text: Resource names MUST NOT use reserved RDF/OWL prefixes like 'rdfs:', 'xsd:', 'owl:' - use imports and qualified references instead
+          rationale: Prefixed names (rdfs:Class) are RDF/Turtle syntax, not Kanonak YAML syntax. Kanonak uses imports with aliases for namespace qualification. Prefixes in resource names cause parser errors and violate Kanonak conventions.
+      hasValidExample:
+        pascal-case-classes:
+          pro.value: Person, OrderStatus, SigningKey, BlogPost
+          description: PascalCase - used for class (type) definitions
+        kebab-case-instances:
+          pro.value: romeo-montague, key-2026-03, commercial-use, alice-johnson
+          description: kebab-case - used for instances (data entities), including inline dict-keyed embedded instances
+        camel-case-properties:
+          pro.value: subClassOf, hasAddress, signingKeyId, characterName
+          description: camelCase - used for property definitions
+        embedded-convention-key:
+          pro.value: |
+            hasConvention:
+              uri-structure:
+                summary: ...
+          description: Inline dict-keyed Convention instance uses kebab-case exactly like a top-level instance would
+      hasInvalidExample:
+        reserved-rdfs-prefix:
+          pro.value: rdfs-colon-Class
+          description: Invalid - uses RDF colon prefix syntax (as in rdfs followed by colon followed by Class). Use plain Class with imports, then reference it as rdfs.Class when disambiguation is needed.
+        pascal-case-embedded-instance:
+          pro.value: |
+            hasConvention:
+              UriStructure:
+                summary: ...
+          description: Invalid - embedded Convention instance keys must be kebab-case. Rename to uri-structure.
+
+    package-structure:
+      summary: Every Kanonak document declares exactly one package with required metadata
+      hasRequiredRule:
+        package-required-rule:
+          text: Every Kanonak document MUST contain exactly one Package declaration (a resource with type Package)
+          rationale: The Package declaration provides essential metadata (publisher, version) needed for namespace resolution and dependency management. Without it, the document cannot participate in the Kanonak ecosystem.
+        package-properties-rule:
+          text: Package declarations MUST include 'publisher' and 'version' properties, and import entries MUST have valid publisher, package, match, and version fields
+          rationale: Publisher and version are required to construct the namespace URI. Import entries must be well-formed to enable dependency resolution.
+      hasValidExample:
+        minimal-package:
+          pro.value: |
+            core-rdf:
+              type: Package
+              publisher: kanonak.org
+              version: 1.0.0
+          description: Correct package declaration with type, publisher, and version
+      hasInvalidExample:
+        no-package-declaration:
+          pro.value: |
+            # A document with only entities but no Package declaration
+            Person:
+              type: Class
+          description: Invalid - no top-level entity with type Package
+
+    embedding:
+      summary: When to model data as an embedded object versus a named top-level entity
+      hasRecommendedRule:
+        embedded-for-coupled-rule:
+          text: Use embedded objects for data that is tightly coupled to its parent, has no need for independent identity, and is not referenced from anywhere else
+          rationale: Embedding reduces naming overhead, makes the ownership relationship explicit in the structure, and accurately maps to RDF blank nodes - which represent resources without global identity. Promoting such data to a named top-level entity creates URIs that will never be referenced, cluttering the namespace.
+        named-for-identity-rule:
+          text: Use named top-level entities for data that needs a stable identity, is referenced from multiple places, or represents a significant concept with an independent lifecycle
+          rationale: Named entities receive a globally unique URI (publisher/package@version/name) that enables cross-document references, stable citation, and independent versioning. Any data that tooling or other entities need to point to must be named so that the pointer is well-defined.
+        prefer-implicit-embedded-type-rule:
+          text: An embedded object SHOULD NOT declare an explicit 'type' property when the type would equal the parent property's range - let the range supply the type implicitly
+          rationale: When the embedded type matches what the parent property's range already specifies, the explicit type adds nothing beyond visual noise. Omitting it keeps documents shorter, makes the common case the default, and signals that explicit type declarations on embeddeds carry meaning - they only appear when narrowing the range to a more specific subclass. A reader who sees 'type:' on an embedded immediately knows it's communicating a non-default subtype.
+      hasForbiddenRule:
+        embedded-type-must-narrow-range-rule:
+          text: When an embedded object declares an explicit 'type' property, that type MUST be a subclass of (or equal to) the parent property's range
+          rationale: >-
+            A declared type that is not a subclass of the parent's range is a
+            contradiction - the parent property says "this slot holds Conditions"
+            and the declared type says "this is not a Condition." Permitting it
+            would silently break range-based reasoning, type checking, and code
+            generation. Restricting declared types to range subclasses preserves
+            the inference model while still allowing tagged-union /
+            discriminated-union authoring with proper OWL subclass semantics
+            (for example, declaring 'type' as 'OrCondition' on an embedded
+            under a property whose range is 'Condition').
+      hasValidExample:
+        embedded-coupled-address:
+          pro.value: |
+            alice:
+              type: Person
+              hasAddress:
+                street: "123 Main St"
+                city: "Springfield"
+          description: Address is embedded because it is owned by alice and never referenced elsewhere - becomes an RDF blank node. The embedded inherits its type from the parent property's range, so no 'type:' is needed.
+        embedded-with-narrowing-type:
+          pro.value: |
+            wrapper:
+              type: Wrapper
+              condition:
+                type: OrCondition
+                operands:
+                  - type: ThresholdCondition
+                    observable: temperature
+                    threshold: 90
+                  - type: EventCondition
+                    event: sensor-fault
+          description: The 'condition' property's range is 'Condition'. Each embedded declares a type that is a strict subclass of 'Condition' (OrCondition, ThresholdCondition, EventCondition all subClassOf Condition), which narrows the range to a specific variant. This is the canonical tagged-union authoring form - explicit types appear precisely where the variant matters.
+        named-shared-address:
+          pro.value: |
+            acme-headquarters:
+              type: Address
+              street: "1 Acme Plaza"
+              city: "Metropolis"
+
+            alice:
+              type: Employee
+              worksAt: acme-headquarters
+
+            bob:
+              type: Employee
+              worksAt: acme-headquarters
+          description: Headquarters is named because multiple employees reference the same address and the entity has identity beyond any single parent
+      hasInvalidExample:
+        non-subclass-embedded-type:
+          pro.value: |
+            wrapper:
+              type: Wrapper
+              condition:
+                type: Person  # FORBIDDEN - Person is not a subclass of Condition
+                name: Alice
+          description: The 'condition' property's range is 'Condition', so the embedded's declared type must be Condition or a subclass thereof. 'Person' is unrelated to the Condition hierarchy, so this is a range violation.
+        redundant-embedded-type:
+          pro.value: |
+            alice:
+              type: Person
+              hasAddress:
+                type: Address  # DISCOURAGED - Address equals the parent property's range
+                street: "123 Main St"
+          description: >-
+            The 'hasAddress' property's range is already 'Address', so
+            declaring 'type' as 'Address' on the embedded is redundant. Not a
+            hard error - the document is still semantically valid - but a
+            reader is left wondering what the type was meant to communicate.
+            Drop the line so the type is inferred implicitly.
+
+    type-system:
+      summary: Rules governing how entities declare their type and how properties declare their range
+      hasRequiredRule:
+        subject-type-required-rule:
+          text: Top-level entities MUST have a 'type' property declaring what kind of entity they are
+          rationale: Top-level entities need explicit type declaration to enable type checking, validation, and code generation. Unlike embedded objects, top-level entities have no parent property whose range can supply a type.
+        property-range-required-rule:
+          text: ObjectProperty and DatatypeProperty declarations MUST declare a 'range' specifying the type of values
+          rationale: The range defines what values are valid for a property. Without range, type checking is impossible and the property's purpose is unclear. Range is required for both datatype properties (e.g., string, integer) and object properties (e.g., Person, Address).
+        xsd-import-rule:
+          text: When using XSD datatypes (string, integer, boolean, etc.) as property ranges, the core-xsd package MUST be imported
+          rationale: XSD datatypes are defined in the core-xsd package. Without importing it, the type resolver cannot verify that range references point to valid datatypes.
+        class-definition-rule:
+          text: All classes referenced in 'type' properties MUST be defined in the current namespace or imported packages
+          rationale: Using an undefined class as a type creates entities with unknown structure. The validator ensures every type reference resolves to an actual Class definition.
+      hasRecommendedRule:
+        property-type-specificity-rule:
+          text: Properties SHOULD use specific types (DatatypeProperty or ObjectProperty) instead of generic 'Property'
+          rationale: Generic Property type provides no semantic information about whether the property holds literal values or entity references. Using specific types enables better validation, code generation, and tooling support.
+      hasValidExample:
+        top-level-with-type:
+          pro.value: |
+            romeo-montague:
+              type: Character
+              characterName: "Romeo"
+          description: Top-level entity with explicit type declaration
+        datatype-property-with-range:
+          pro.value: |
+            name:
+              type: DatatypeProperty
+              domain: Person
+              range: string
+          description: Property with specific DatatypeProperty type and declared range
+      hasInvalidExample:
+        top-level-missing-type:
+          pro.value: |
+            romeo-montague:
+              characterName: "Romeo"
+          description: Invalid - top-level entity has no type property
+        property-missing-range:
+          pro.value: |
+            name:
+              type: DatatypeProperty
+              domain: Person
+          description: Invalid - property has no range declaration
+
+    references:
+      summary: Rules for resolving entity references across namespaces, including shadowing and disambiguation
+      hasRequiredRule:
+        resolvable-reference-rule:
+          text: ObjectProperty values MUST reference entities that exist in the current namespace or imports (including transitive imports)
+          rationale: Broken references create semantic gaps where data points to non-existent entities. This prevents typos, missing imports, and data integrity issues. All references must resolve to actual entities.
+        local-shadowing-rule:
+          text: When the same name exists in both the local namespace and an imported namespace, unqualified references MUST resolve to the local definition (local shadowing)
+          rationale: Local shadowing allows intentional overriding, enables namespace-specific customizations, and prevents breaking changes when dependencies add new entities with colliding names.
+        qualified-disambiguation-rule:
+          text: When multiple imported packages define entities with the same name, references MUST use qualified syntax (alias.name) to disambiguate
+          rationale: Ambiguous references make it impossible to determine which entity is intended. Qualified references (pkg.Entity) explicitly specify the source package, preventing confusion and ensuring correct type resolution.
+      hasValidExample:
+        local-reference:
+          pro.value: |
+            verona-city:
+              type: City
+
+            romeo:
+              type: Character
+              livesIn: verona-city
+          description: Reference to a locally defined entity
+        qualified-reference:
+          pro.value: |
+            myEntity:
+              type: pkgA.Resource
+          description: Qualified reference disambiguates between packages that both define Resource
+      hasInvalidExample:
+        broken-reference:
+          pro.value: |
+            romeo:
+              type: Character
+              livesIn: verona-city  # verona-city is not defined or imported
+          description: Invalid - reference to an entity that does not exist
+
+    hierarchy:
+      summary: Class and property hierarchies must be acyclic and reference their own kind
+      hasRequiredRule:
+        class-hierarchy-acyclic-rule:
+          text: Class inheritance (subClassOf) MUST NOT create circular chains
+          rationale: Circular inheritance (A subClassOf B subClassOf A) is logically impossible and breaks reasoning systems. Class hierarchies must form directed acyclic graphs where every class has a finite path to the root Resource class.
+        sub-class-of-class-rule:
+          text: The subClassOf property MUST reference an entity that is itself a Class
+          rationale: subClassOf establishes inheritance between classes. Referencing a non-class entity (like a property or instance) is semantically invalid and breaks type system integrity.
+        property-hierarchy-acyclic-rule:
+          text: Property inheritance (subPropertyOf) MUST NOT create circular chains
+          rationale: Circular property inheritance (A subPropertyOf B subPropertyOf A) is logically impossible. Property hierarchies must form directed acyclic graphs.
+        sub-property-of-property-rule:
+          text: The subPropertyOf property MUST reference an entity that is itself a Property
+          rationale: subPropertyOf establishes inheritance between properties. Referencing a non-property entity (like a Class or instance) is semantically invalid.
+      hasValidExample:
+        linear-class-hierarchy:
+          pro.value: |
+            Person:
+              type: Class
+            Character:
+              type: Class
+              subClassOf: Person
+          description: Correct linear class hierarchy with no cycles
+      hasInvalidExample:
+        circular-class-hierarchy:
+          pro.value: |
+            Character:
+              type: Class
+              subClassOf: Hero
+            Hero:
+              type: Class
+              subClassOf: Character
+          description: Invalid - Character and Hero reference each other creating a cycle
+        sub-class-of-property:
+          pro.value: |
+            name:
+              type: DatatypeProperty
+            Character:
+              type: Class
+              subClassOf: name
+          description: Invalid - subClassOf must reference a Class, not a Property
+
+    transformation-modeling:
+      summary: How to author Transformation instances that turn Kanonak data into other formats
+      hasRecommendedRule:
+        prefer-set-transformation-for-cross-instance-rule:
+          text: >-
+            Use SetTransformation when the desired output reads from MORE than
+            one input instance, even if you currently have only one input. Use
+            InstanceTransformation only when the output is genuinely
+            independent per input.
+          rationale: >-
+            The cardinality of the input binding is the substantive difference
+            between the two subclasses, and authors who pick InstanceTransformation
+            for a list-like task end up emitting one tiny artifact per input
+            with no aggregate view. SetTransformation aggregates by default and
+            falls back to per-key fan-out via partitionBy when the output
+            cardinality should match a discriminator. Picking the right
+            cardinality up-front avoids needing to rewrite the rule tree later.
+        explicit-sort-for-ordered-iteration-rule:
+          text: >-
+            When iteration order matters (time-series, indexes, anything a
+            reader will scan top-to-bottom), declare InputPattern.sortBy
+            explicitly with one or more SortKey entries.
+          rationale: >-
+            Without sortBy, the runner binds inputs in the SDK's discovery
+            order — deterministic but not semantically meaningful. Authors who
+            depend on implicit order produce artifacts whose sequence shifts
+            when the workspace's filesystem layout changes. Declaring sortBy
+            makes the contract explicit and validatable; the byProperty
+            reference ensures the sort key is a real Property the validator
+            can check.
+        partition-by-for-fan-out-rule:
+          text: >-
+            When a SetTransformation should produce one artifact per distinct
+            value of a property (e.g. one page per author, one chart per
+            region), declare SetTransformation.partitionBy referencing that
+            property.
+          rationale: >-
+            Partitioning at the transformation level is cheaper and clearer
+            than authoring N nearly-identical InstanceTransformations or
+            using PartitionBy expressions to emit M sections inside one
+            artifact. The structural partitionBy keeps each output focused
+            on one group's data while sharing one rule definition.
+        narrow-types-on-expression-embeddeds-rule:
+          text: >-
+            Inside an Expression rule tree, every embedded Expression node
+            SHOULD declare its concrete subclass via type — type tx.Concat,
+            type tx.PropertyRead, type tx.BuildAstNode, etc. Keep AstFieldBinding
+            and other range-matching embeddeds implicit (no type) per the
+            embedding convention's prefer-implicit-embedded-type-rule.
+          rationale: >-
+            The Expression hierarchy is a wide tagged-by-type tree where
+            every node could be one of many concrete subclasses. Declaring
+            the type at each embedded position makes the rule tree
+            self-documenting and lets the validator catch mistakes (a
+            mistyped property name on a wrong subclass becomes a domain
+            violation). For embeddeds whose parent property has a concrete
+            range (AstFieldBinding under BuildAstNode.set, FormatOverride
+            under formatOverrides), explicit type is redundant — the
+            range supplies it.
+        is-set-for-optional-presence-rule:
+          text: >-
+            Use tx.IsSet over a tx.PropertyRead to gate rendering on whether
+            an optional property is populated, regardless of whether the
+            value is a primitive scalar, a reference, an embedded subject,
+            or a non-empty list. IsSet reports presence; it doesn't
+            constrain what kind of value qualifies.
+          rationale: >-
+            The "render this block iff the optional sub-tree is populated"
+            pattern is common when an ObjectProperty is optional and the
+            artifact should adapt to whether authors supplied a value.
+            Restricting IsSet to primitive-only would force authors into
+            workarounds (always-render-with-empty-content, list-length
+            shims) that produce worse output than honest presence checks.
+            The runtime contract: IsSet returns false for undefined/null,
+            empty string, or empty list, and true otherwise.
+        subject-uri-for-cross-input-attribution-rule:
+          text: >-
+            Inside a SetTransformation iteration, use tx.SubjectUri (or
+            tx.UriName for just the local name) to derive per-input deep
+            links, source-package paths, or cross-package indexes from the
+            matched subjects. SubjectUri yields the full
+            publisher/package@version/name string; UriName yields just
+            the local name segment.
+          rationale: >-
+            Aggregate transformations are valuable when each output entry
+            can correlate back to its source input. Without a primitive
+            for subject-URI access from inside the rule tree, authors
+            resort to order-based client-side matching against an external
+            index — fragile beyond the simplest cases and breaks when
+            inputs span multiple publishers or package versions. SubjectUri
+            puts the canonical attribution inside the typed transformation,
+            where it can be validated alongside everything else.
+        multi-scope-for-cross-package-aggregation-rule:
+          text: >-
+            When a SetTransformation should aggregate matched instances
+            across multiple packages — index pages, sitemaps, federation
+            reports, time-series views over versioned snapshot packages —
+            invoke the runner with one --scope flag per package.
+            kanonak transform run accepts the flag repeatedly; matched
+            subject sets are unioned across all scopes (deduped by URI)
+            before binding to the rule's `inputs`.
+          rationale: >-
+            Single-scope semantics restrict candidates to subjects defined
+            in the scoped package, which blocks the canonical aggregate
+            use case (one artifact summarizing instances spread across
+            many packages). Repeatable --scope keeps the pattern explicit
+            and validatable per-scope without changing the meaning of
+            "scope" itself — each scope still resolves through the
+            workspace + cache + HTTP tiers exactly as a single scope
+            does, and a single --scope invocation behaves unchanged.
+      hasForbiddenRule:
+        empty-input-on-instance-transformation-rule:
+          text: >-
+            An InstanceTransformation with zero matching inputs MUST be
+            treated as an authoring error by the runner. If the desired
+            behavior is "emit something even when there are no inputs,"
+            the transformation MUST be a SetTransformation.
+          rationale: >-
+            The two subclasses differ on this exact contract. Emitting zero
+            artifacts from an InstanceTransformation when zero inputs match
+            is what the author asked for (one artifact per input, none
+            present). Emitting one artifact from a SetTransformation when
+            zero inputs match is also what the author asked for (one
+            artifact summarizing the set, even when empty). Conflating the
+            two means a SetTransformation case ("we want an index page
+            even on day zero") accidentally lands as an InstanceTransformation
+            and never produces the index. Pick the subclass that matches
+            the cardinality semantics.
+        magic-string-output-formats-rule:
+          text: >-
+            Transformation.outputs MUST reference named OutputFormat instances
+            (tx.html, tx.markdown-with-frontmatter, tx.json, etc.), not
+            string identifiers.
+          rationale: >-
+            OutputFormat references are validatable — the runner resolves
+            the URI and looks up the registered backend by the format's
+            backendUri. Authoring outputs as plain strings would silently
+            accept typos, drift from the actual backend registry, and
+            require every consumer to maintain its own string-to-backend
+            mapping. The OutputFormat indirection is the contract the
+            runner depends on.
+        non-numeric-aggregation-source-rule:
+          text: >-
+            Sum, Min, Max, and Average MUST receive a list source whose
+            elements resolve to xsd:integer or xsd:decimal values. Source
+            expressions that yield strings, references, or embedded objects
+            are an authoring error.
+          rationale: >-
+            The runner enforces strict numeric typing at evaluation time —
+            non-numeric elements raise an error rather than coerce silently.
+            This catches mistakes where an author intended to sum a numeric
+            property but wrote a property whose range is xsd.string, or
+            forgot to wrap a list of subjects in a list-map that extracts
+            the numeric field. Min/Max/Average on an empty list also error,
+            since the contract is undefined; guard with IsSet when an
+            empty input is possible.
+      hasValidExample:
+        per-instance-transformation:
+          pro.value: |
+            skill-to-skill-md-transformation:
+              type: tx.InstanceTransformation
+              tx.inputPattern:
+                tx.matchesClass: skills.Skill
+                tx.requires:
+                  - skills.name
+                  - skills.description
+              tx.artifactName:
+                type: tx.PropertyRead
+                tx.readSource:
+                  type: tx.VarRef
+                  tx.varName: input
+                tx.readProp: skills.name
+              tx.outputs:
+                - tx.markdown-with-frontmatter
+              tx.rule:
+                type: tx.BuildAstNode
+                tx.astClass: docast.Document
+                # ... rest of the document-construction rule
+          description: >-
+            Per-instance transformation - one Skill input produces one
+            SKILL.md artifact. The rule sees `input` (singular) bound to
+            the matching Skill subject; artifactName carries the per-
+            instance filename stem.
+        aggregate-set-transformation-with-sort:
+          pro.value: |
+            snapshot-index:
+              type: tx.SetTransformation
+              tx.inputPattern:
+                tx.matchesClass: wv.WorldviewSnapshot
+                tx.sortBy:
+                  - tx.byProperty: wv.observedAt
+                    tx.order: tx.descending
+              tx.artifactName:
+                type: tx.StringLiteral
+                tx.stringLiteral: index
+              tx.outputs: [tx.html]
+              tx.rule:
+                type: tx.BuildAstNode
+                tx.astClass: docast.Document
+                # ... rule binds `inputs` (plural) to the sorted set
+          description: >-
+            Set transformation with sort - aggregates every WorldviewSnapshot
+            into a single index page. inputs is bound to the sorted list
+            (newest first); the rule typically wraps it in a ForEach to
+            render one row per snapshot.
+        partitioned-set-transformation:
+          pro.value: |
+            per-thesis-trajectory:
+              type: tx.SetTransformation
+              tx.inputPattern:
+                tx.matchesClass: wv.WorldviewSnapshot
+              tx.partitionBy: wv.thesisName
+              tx.artifactName:
+                type: tx.Concat
+                tx.parts:
+                  - type: tx.StringLiteral
+                    tx.stringLiteral: "thesis-"
+                  - type: tx.VarRef
+                    tx.varName: key
+              tx.outputs: [tx.html]
+              tx.rule:
+                type: tx.BuildAstNode
+                tx.astClass: docast.Document
+                # ... rule sees `inputs` (this partition's snapshots) + `key` (thesis name)
+          description: >-
+            Set transformation with fan-out - one artifact per distinct
+            value of partitionBy. inputs is bound to that partition's
+            members; key is bound to the partition value.
+        cross-package-aggregation-invocation:
+          pro.value: |
+            # Same SetTransformation as aggregate-set-transformation-with-sort,
+            # invoked across multiple packages. Each --scope is loaded
+            # separately and the matched subject sets are unioned (deduped
+            # by URI) before binding to the rule's `inputs`.
+            #
+            # $ kanonak transform run snapshot-index \
+            #     --scope worldview.genval.ai/example-ai-capex \
+            #     --scope worldview.genval.ai/example-macro \
+            #     --format html \
+            #     --out _site/
+          description: >-
+            Cross-package aggregation - the matched-subject set in
+            `inputs` includes WorldviewSnapshot instances from both
+            scoped packages. Authors typically pair this invocation
+            shape with tx.SubjectUri inside the rule to derive
+            per-input deep links back to each snapshot's source
+            package.
+        version-bump-as-time-axis-aggregation:
+          pro.value: |
+            # The version-bump-as-time-axis pattern: a publisher
+            # bumps the same package's version each time the
+            # underlying observation changes, so each version is one
+            # immutable point on a timeline. The local name stays
+            # constant ("view"); the version segment carries the
+            # temporal information.
+            #
+            #   worldview.genval.ai/snapshot@1.0.0/view
+            #   worldview.genval.ai/snapshot@1.0.1/view
+            #   worldview.genval.ai/snapshot@1.0.2/view
+            #
+            # Three URIs, three subjects (the version is part of
+            # identity per the URI structure convention). Aggregate
+            # across all versions with one --scope per version:
+            #
+            # $ kanonak transform run snapshot-timeline \
+            #     --scope worldview.genval.ai/snapshot@1.0.0 \
+            #     --scope worldview.genval.ai/snapshot@1.0.1 \
+            #     --scope worldview.genval.ai/snapshot@1.0.2 \
+            #     --format html --out _site/timeline/
+          description: >-
+            Cross-version aggregation - subjects in different
+            versions of the same package with the same local name
+            are different instances. The runner's multi-scope dedup
+            keys on the full URI including version, so the timeline
+            transformation sees one entry per version. tx.SubjectUri
+            inside the rule emits version-qualified URIs for stable
+            deep links.
+      hasInvalidExample:
+        instance-transformation-when-set-was-meant:
+          pro.value: |
+            broken-index:
+              type: tx.InstanceTransformation
+              tx.inputPattern:
+                tx.matchesClass: wv.WorldviewSnapshot
+              tx.rule:
+                type: tx.BuildAstNode
+                tx.astClass: docast.Document
+                # ... author wrote a per-input rule but expected one combined index
+          description: >-
+            Wrong subclass - emits one Document per snapshot rather than
+            one combined index. The author wanted aggregation; the type
+            should be tx.SetTransformation with the rule iterating
+            `inputs` rather than reading `input`.
+        magic-string-output:
+          pro.value: |
+            broken-output:
+              type: tx.InstanceTransformation
+              tx.outputs:
+                - markdown-with-frontmatter
+          description: >-
+            Wrong - outputs must be a reference to a named OutputFormat
+            instance, not a plain string. The validator rejects the
+            string form because it cannot verify a backend exists for
+            it.
