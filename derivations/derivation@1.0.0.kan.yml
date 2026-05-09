@@ -1,0 +1,193 @@
+# =============================================================================
+# derivation @ 1.0.0
+#
+# Vocabulary for binding a class to the transformations that produce
+# its derived artifacts. A "derivation" is the expression of *how* a
+# Kanonak resource (the canonical source of truth) is transformed
+# into a derivative artifact in some target format and variant.
+#
+# Three classes:
+#   - Derivation: a single binding (format + variant + transformation).
+#   - Variant:    a named variant within a format (default, compact,
+#                 summary, card, print, focus, ...). Extensible by
+#                 publishers.
+#   - One property:
+#     - derivations: list of Derivation, declared on rdfs.Class.
+#
+# Discovery is RDFS-subclass-walk:
+#   1. Look at the instance's own derivations (if any) — replace
+#      semantics; instance overrides class entirely.
+#   2. Walk the class hierarchy bottom-up. First (format, variant)
+#      match wins.
+#   3. If we hit rdfs.Resource (the universal root) and find nothing,
+#      no derivation is available for that (format, variant).
+#
+# Class-hierarchy override is MERGE by (format, variant) key — a
+# class overriding `formats.html / variants.default` keeps its
+# parent's other bindings. Per-instance override is REPLACE — the
+# instance's derivations stand alone, no merge with class.
+#
+# `kanonak.org/universal-derivations@1.0.0` augments rdfs.Resource
+# with default derivations + ships the universal transformations,
+# so every Kanonak resource has at least HTML / Markdown / JSON /
+# TypeScript artifacts out of the box without per-publisher action.
+#
+# =============================================================================
+
+derivation:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: transformations
+          match: ^
+          version: 3.3.0
+          alias: tx
+        - package: formats
+          match: ^
+          version: 1.0.0
+          alias: formats
+
+# =============================================================================
+# CLASSES
+# =============================================================================
+
+Variant:
+  type: rdfs.Class
+  label: Variant
+  comment: >-
+    A named variant within a format. The same class may have multiple
+    derivations producing the same format but optimized for different
+    contexts (default for the canonical view, compact for cards,
+    summary for previews, focus for one-thing-at-a-time, etc.).
+    Extensible — publishers may define their own variants.
+
+Derivation:
+  type: rdfs.Class
+  label: Derivation
+  comment: >-
+    A single binding declaring how an instance of a class is derived
+    into an artifact of a specific format and variant via a named
+    transformation. Carried in lists on rdfs.Class.derivations and
+    optionally per-instance.
+
+# =============================================================================
+# PROPERTIES ON Derivation
+# =============================================================================
+
+format:
+  type: owl.ObjectProperty
+  domain: Derivation
+  range: formats.Format
+  label: Format
+  comment: >-
+    The target format produced by this derivation. References a
+    canonical Format instance from `kanonak.org/formats@1.0.0` or a
+    publisher extension thereof.
+
+variant:
+  type: owl.ObjectProperty
+  domain: Derivation
+  range: Variant
+  label: Variant
+  comment: >-
+    The named variant within the format. Defaults to `default` when
+    omitted on a Derivation declaration. A class with one derivation
+    per format need not specify variant on each entry.
+
+transformation:
+  type: owl.ObjectProperty
+  domain: Derivation
+  range: tx.TransformationReference
+  label: Transformation
+  comment: >-
+    Pointer to the published transformation that produces the
+    artifact. Resolves at lookup time via TransformationReference's
+    publisher / package / version / name fields.
+
+# =============================================================================
+# CLASS-LEVEL BINDING
+# =============================================================================
+
+derivations:
+  type: owl.ObjectProperty
+  domain: rdfs.Class
+  range: Derivation
+  label: Derivations
+  comment: >-
+    The list of derivations available for instances of the class.
+    Each entry binds a (format, variant) pair to a transformation.
+    Class-hierarchy override merges by (format, variant) — a
+    subclass overriding `html/default` keeps its parent's other
+    entries. Per-instance override of this property replaces
+    entirely; the instance's derivations are the only ones
+    considered in that case.
+
+# =============================================================================
+# CANONICAL VARIANT INSTANCES
+#
+# Authors targeting these variants reference them as
+# `derivations.default`, `derivations.compact`, etc.
+# Publishers can define their own variants in their own packages.
+# =============================================================================
+
+default:
+  type: Variant
+  label: Default
+  comment: >-
+    The canonical / primary derivation for a format. Used when a
+    consumer requests a format without specifying a variant.
+
+compact:
+  type: Variant
+  label: Compact
+  comment: >-
+    A reduced representation suitable for embedding in lists,
+    cards, or aggregate views. Typically emits less detail than
+    the default variant.
+
+summary:
+  type: Variant
+  label: Summary
+  comment: >-
+    A short-form summary representation. Typically a single
+    paragraph or a few key facts, suitable for previews and
+    snippets.
+
+card:
+  type: Variant
+  label: Card
+  comment: >-
+    A self-contained card representation suitable for grid layouts,
+    feeds, and dashboards. Usually shows an icon / image, a title,
+    and a small amount of metadata.
+
+print:
+  type: Variant
+  label: Print
+  comment: >-
+    A representation optimized for print or PDF output. May
+    expand collapsed sections, drop interactive elements, and
+    apply a print stylesheet.
+
+focus:
+  type: Variant
+  label: Focus
+  comment: >-
+    A single-thing-at-a-time representation, optimized for the
+    case where the resource is the sole subject of the page —
+    typically with chrome de-emphasized.

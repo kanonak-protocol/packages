@@ -1,0 +1,245 @@
+# =============================================================================
+# site @ 1.0.0
+#
+# Vocabulary for *publisher curation*: the layout, navigation, shared
+# assets, static pages, and aggregate views that make up a publisher's
+# canonical site. Distinct from `kanonak.org/derivation@1.0.0` —
+# derivations bind a class to its renderer (ontology semantics);
+# site curation declares which pages a publisher publishes and how
+# they're laid out (publisher opinion).
+#
+# Three core classes:
+#
+#   - StaticPage  — page content not derived from any other resource:
+#                   the about page, a privacy page, a documentation
+#                   landing. Carries a title + body. Universal default
+#                   derivations render it as HTML/MD/JSON; publishers
+#                   typically override the HTML binding to wrap in
+#                   their site layout.
+#
+#   - Asset       — shared content (CSS, JS, SVG, fragments of HTML)
+#                   used by multiple transformations. Carries a
+#                   mediaType + content. Layout transformations
+#                   PropertyRead the content and emit it inline (as
+#                   a RawBlock) or by reference. Lets publishers
+#                   author CSS variables / nav HTML / JS once and
+#                   reference from N transformations instead of
+#                   copy-pasting per page.
+#
+#   - AggregateView — page produced by aggregating across multiple
+#                     resources of one class — a timeline over all
+#                     snapshot versions, an index over all skills, a
+#                     diff page over all releases. Wraps a SetTransformation
+#                     reference + scope discovery rules + output path.
+#                     Replaces the per-aggregate-page workflow steps
+#                     publishers hand-author today.
+#
+# All three are publishable via the `kanonak site build` CLI command,
+# which walks the workspace, finds every StaticPage / AggregateView,
+# and materializes each via the discovery walk + transformation
+# runner.
+#
+# =============================================================================
+
+site:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: transformations
+          match: ^
+          version: 3.4.0
+          alias: tx
+
+# =============================================================================
+# CLASSES
+# =============================================================================
+
+Page:
+  type: rdfs.Class
+  subClassOf: rdfs.Resource
+  label: Page
+  comment: >-
+    Abstract — a publishable page. Carries the output path the site
+    builder writes the materialized artifact to. Concrete subclasses
+    are StaticPage (authored content), ResourcePage (a wrapper that
+    publishes any other resource at a given path), and AggregateView
+    (a page produced by aggregating across multiple resources).
+
+StaticPage:
+  type: rdfs.Class
+  subClassOf: Page
+  label: Static Page
+  comment: >-
+    A page whose content is authored directly rather than derived from
+    other resources. Examples: about, privacy, documentation landing.
+    Carries a title plus a markdown body. Inherits universal HTML /
+    Markdown / JSON derivations from rdfs.Resource by default;
+    publishers typically override the HTML binding to wrap in a
+    site-styled layout transformation.
+
+ResourcePage:
+  type: rdfs.Class
+  subClassOf: Page
+  label: Resource Page
+  comment: >-
+    A page that publishes an existing resource (declared elsewhere)
+    at a specific output path. Use when the resource itself is the
+    page content but its publication path is publisher curation —
+    e.g. publishing each `worldview.WorldviewSnapshot` instance at
+    `/snapshot@<version>/view.html`. The page's content is produced
+    via the polymorphic derivation walk on the referenced resource.
+
+Asset:
+  type: rdfs.Class
+  subClassOf: rdfs.Resource
+  label: Asset
+  comment: >-
+    Shared content — CSS, JS, SVG, an HTML fragment — referenced by
+    multiple transformations so the publisher writes it once and
+    inlines or links it from anywhere. Layout transformations read
+    the `content` property via PropertyRead and emit the value into
+    the output document (typically as a docast.RawBlock with the
+    Asset's mediaType).
+
+AggregateView:
+  type: rdfs.Class
+  subClassOf: Page
+  label: Aggregate View
+  comment: >-
+    A page produced by aggregating across multiple resources of one
+    class — a timeline, an index, a diff page. Wraps a SetTransformation
+    reference + scope discovery rules + output path. Materialized by
+    the `kanonak site build` CLI command (one artifact per AggregateView
+    instance, written to the declared outputPath).
+
+# =============================================================================
+# Page PROPERTIES (shared across StaticPage / ResourcePage / AggregateView)
+# =============================================================================
+
+outputPath:
+  type: owl.DatatypeProperty
+  domain: Page
+  range: xsd.string
+  label: Output Path
+  comment: >-
+    Relative path where the materialized artifact should be written
+    by `kanonak site build`, e.g. `about/index.html` or
+    `snapshot@1.0.4/view.html`. Resolved against the
+    `kanonak site build --out <dir>` base directory. If omitted on
+    a StaticPage / ResourcePage, the CLI falls back to
+    `<page-name>.html`; AggregateView requires it explicitly.
+
+# =============================================================================
+# StaticPage PROPERTIES
+# =============================================================================
+
+title:
+  type: owl.DatatypeProperty
+  domain: StaticPage
+  range: xsd.string
+  label: Title
+  comment: Human-readable page title. Renders as the page heading and HTML <title>.
+
+body:
+  type: owl.DatatypeProperty
+  domain: StaticPage
+  range: xsd.string
+  label: Body
+  comment: >-
+    Page content as Markdown. The default universal HTML rendering
+    emits this verbatim inside a paragraph; publisher layout
+    transformations parse it as Markdown and wrap with chrome.
+
+# =============================================================================
+# ResourcePage PROPERTIES
+# =============================================================================
+
+pageOf:
+  type: owl.ObjectProperty
+  domain: ResourcePage
+  range: rdfs.Resource
+  label: Page Of
+  comment: >-
+    The resource whose materialized artifact should be published at
+    the page's outputPath. The site builder runs the polymorphic
+    derivation walk on this resource (so any class hierarchy
+    overrides + universal defaults apply) and writes the result to
+    outputPath.
+
+# =============================================================================
+# Asset PROPERTIES
+# =============================================================================
+
+mediaType:
+  type: owl.DatatypeProperty
+  domain: Asset
+  range: xsd.string
+  label: Media Type
+  comment: >-
+    IANA media type of the asset content (e.g. text/css, text/javascript,
+    image/svg+xml, text/html). Layout transformations dispatch on this
+    when deciding how to embed the content (a CSS asset becomes
+    `<style>...</style>`, JS becomes `<script>...</script>`, etc.).
+
+content:
+  type: owl.DatatypeProperty
+  domain: Asset
+  range: xsd.string
+  label: Content
+  comment: >-
+    The raw asset content. Authored as a literal string in the
+    Kanonak YAML; layout transformations read it via PropertyRead
+    and emit it into the output document.
+
+# =============================================================================
+# AggregateView PROPERTIES
+# =============================================================================
+
+scopeClass:
+  type: owl.ObjectProperty
+  domain: AggregateView
+  range: rdfs.Class
+  label: Scope Class
+  comment: >-
+    The class whose instances should be aggregated. Equivalent to a
+    SetTransformation's inputPattern.matchesClass — the runner
+    selects every instance of this class (via RDFS subclass walking)
+    across the declared scopeSources.
+
+scopeSources:
+  type: owl.DatatypeProperty
+  domain: AggregateView
+  range: xsd.string
+  label: Scope Sources
+  comment: >-
+    Package URIs whose instances participate in the aggregation.
+    Each entry is a string of the form `publisher/package[@version]`.
+    The literal string `publisher/package@*` matches every loaded
+    version of a package — useful for time-axis aggregations (e.g.
+    `worldview.genval.ai/snapshot@*` for an all-versions index).
+    Authored as a list.
+
+transformation:
+  type: owl.ObjectProperty
+  domain: AggregateView
+  range: tx.TransformationReference
+  label: Transformation
+  comment: >-
+    Reference to the SetTransformation that produces the aggregate
+    artifact. The transformation's inputPattern.matchesClass should
+    match scopeClass (or be an ancestor of it).

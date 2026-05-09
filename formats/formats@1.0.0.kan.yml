@@ -1,0 +1,145 @@
+# =============================================================================
+# formats @ 1.0.0
+#
+# Canonical names for derivation target formats. A `Format` is the
+# *what* a Kanonak resource can be derived into — `html`, `markdown`,
+# `typescript`, etc. Used by `kanonak.org/derivations@1.0.0` so that
+# class → transformation bindings reference formats as named instances
+# rather than magic strings (no `js` vs `javascript` drift, no `csharp`
+# vs `c-sharp` ambiguity).
+#
+# This package is intentionally extensible. Publishers may define their
+# own Format instances (e.g. a `pdf` format, a `mermaid` format, a
+# `csv` format) in their own packages. The vocabulary here is the
+# initial canonical set, not a closed enumeration.
+#
+# Each Format carries:
+#   - mediaType:     IANA media type for HTTP / file-system identification.
+#   - fileExtension: Conventional extension (with leading dot) for
+#                    artifact filenames. Optional — some formats are
+#                    embedded rather than file-based.
+#
+# =============================================================================
+
+formats:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+
+# =============================================================================
+# CLASS
+# =============================================================================
+
+Format:
+  type: rdfs.Class
+  label: Format
+  comment: >-
+    A canonical name for a derivation target format. Instances of
+    Format are referenced by `derivations.Derivation.format` to
+    declare what kind of artifact a transformation produces.
+
+# =============================================================================
+# PROPERTIES
+# =============================================================================
+
+mediaType:
+  type: owl.DatatypeProperty
+  domain: Format
+  range: xsd.string
+  label: Media Type
+  comment: >-
+    IANA media type for this format (e.g. `text/html`, `application/json`).
+    Used by runtimes to set Content-Type headers and by file-system
+    consumers to choose viewers.
+
+fileExtension:
+  type: owl.DatatypeProperty
+  domain: Format
+  range: xsd.string
+  label: File Extension
+  comment: >-
+    Conventional file extension including the leading dot (e.g.
+    `.html`, `.ts`). Optional — some formats are embedded rather than
+    persisted as files.
+
+# =============================================================================
+# CANONICAL INSTANCES
+#
+# Authors targeting these formats reference them as
+# `formats.html`, `formats.markdown`, etc. via the import alias.
+# =============================================================================
+
+html:
+  type: Format
+  label: HTML
+  mediaType: text/html
+  fileExtension: .html
+
+markdown:
+  type: Format
+  label: Markdown
+  mediaType: text/markdown
+  fileExtension: .md
+
+json:
+  type: Format
+  label: JSON
+  mediaType: application/json
+  fileExtension: .json
+
+yaml:
+  type: Format
+  label: YAML
+  mediaType: application/yaml
+  fileExtension: .yaml
+
+xml:
+  type: Format
+  label: XML
+  mediaType: application/xml
+  fileExtension: .xml
+
+svg:
+  type: Format
+  label: SVG
+  mediaType: image/svg+xml
+  fileExtension: .svg
+
+typescript:
+  type: Format
+  label: TypeScript
+  mediaType: text/x-typescript
+  fileExtension: .ts
+
+c-sharp:
+  type: Format
+  label: C#
+  mediaType: text/x-csharp
+  fileExtension: .cs
+
+rust:
+  type: Format
+  label: Rust
+  mediaType: text/x-rust
+  fileExtension: .rs
+
+python:
+  type: Format
+  label: Python
+  mediaType: text/x-python
+  fileExtension: .py
