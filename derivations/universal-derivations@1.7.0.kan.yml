@@ -1,6 +1,28 @@
 # =============================================================================
 # universal-derivations @ 1.7.0
 #
+# Phase C polish (additive on top of 1.7.0's tabular work below):
+#
+#   - Type badges next to the H1. The Heading.inlines now contains
+#     the title Text followed by one docast.Badge per `rdf:type`
+#     value (ForEach over PropertyRead of rdfs.type — engine
+#     auto-wraps single values into singleton lists). Each Badge is
+#     clickable (badgeTarget = the type Reference), labeled with the
+#     type's rdfs.label-or-name, and tooltipped with the type's
+#     rdfs.comment. Mirrors FormView's `.type-tag` chip.
+#   - Hover tooltips throughout. Every ResourceLink emitted by
+#     render-value's Reference branch carries linkTooltip = target's
+#     rdfs.comment; every PropertyEntry (outer + both inner embedded
+#     branches) carries propertyTooltip = predicate's rdfs.comment.
+#     Reader can hover any property name or reference and read the
+#     definition without navigating away.
+#   - `type` joins `label` and `comment` in the property-list filter,
+#     since type is now shown as Badges in the heading row.
+#
+# Requires docast 1.2.0's Badge inline class + linkTooltip /
+# propertyTooltip slots (added in the same commit as this Phase C
+# wave; both files were unpublished drafts).
+#
 # Shape-aware tabular rendering for heterogeneous lists of embeddeds.
 # 1.6.0 used the FIRST item's predicate names as column headers and
 # iterated each row's statements positionally for cells. That worked
@@ -217,7 +239,9 @@ render-value:
       # that resolved cleanly during parse). The backend extracts
       # the canonical URI from either shape. linkLabel is populated
       # with the target's rdfs.label when set, otherwise the
-      # backend falls back to the local name.
+      # backend falls back to the local name. linkTooltip carries
+      # the target's rdfs.comment so a reader can hover a reference
+      # value and read its definition without navigating away.
       type: tx.BuildAstNode
       tx.astClass: docast.ResourceLink
       tx.set:
@@ -234,6 +258,15 @@ render-value:
                 type: tx.VarRef
                 tx.varName: currentValue
             tx.readProp: rdfs.label
+        - tx.field: docast.linkTooltip
+          tx.bindValue:
+            type: tx.PropertyRead
+            tx.readSource:
+              type: tx.ResolveRef
+              tx.resolveSource:
+                type: tx.VarRef
+                tx.varName: currentValue
+            tx.readProp: rdfs.comment
 
     tx.elseBuild:
       type: tx.When
@@ -316,6 +349,17 @@ render-value:
                                                 tx.predicateOf:
                                                   type: tx.VarRef
                                                   tx.varName: subStmt
+                                        - tx.field: docast.propertyTooltip
+                                          tx.bindValue:
+                                            type: tx.PropertyRead
+                                            tx.readSource:
+                                              type: tx.ResolveRef
+                                              tx.resolveSource:
+                                                type: tx.StatementPredicate
+                                                tx.predicateOf:
+                                                  type: tx.VarRef
+                                                  tx.varName: subStmt
+                                            tx.readProp: rdfs.comment
                                         - tx.field: docast.propertyValue
                                           tx.bindValue:
                                             type: tx.Concat
@@ -368,6 +412,17 @@ render-value:
                             tx.predicateOf:
                               type: tx.VarRef
                               tx.varName: subStmt
+                    - tx.field: docast.propertyTooltip
+                      tx.bindValue:
+                        type: tx.PropertyRead
+                        tx.readSource:
+                          type: tx.ResolveRef
+                          tx.resolveSource:
+                            type: tx.StatementPredicate
+                            tx.predicateOf:
+                              type: tx.VarRef
+                              tx.varName: subStmt
+                        tx.readProp: rdfs.comment
                     - tx.field: docast.propertyValue
                       tx.bindValue:
                         type: tx.Concat
@@ -722,6 +777,57 @@ any-resource-renderer:
                                   type: tx.VarRef
                                   tx.varName: input
 
+                      # One Badge per rdf:type value. ForEach handles
+                      # both single-typed (`type: SomeClass`) and
+                      # multi-typed (`type: [Class1, Class2]`) inputs
+                      # — the engine's evaluateList wraps single
+                      # values into singleton lists transparently.
+                      # Badge is targeted at the type's own resource
+                      # page so the user can navigate by clicking the
+                      # chip; tooltip is the type's rdfs.comment so
+                      # the chip is self-documenting on hover.
+                      - type: tx.ForEach
+                        tx.source:
+                          type: tx.PropertyRead
+                          tx.readSource:
+                            type: tx.VarRef
+                            tx.varName: input
+                          tx.readProp: rdfs.type
+                        tx.loopVar: typeRef
+                        tx.emit:
+                          type: tx.BuildAstNode
+                          tx.astClass: docast.Badge
+                          tx.set:
+                            - tx.field: docast.badgeLabel
+                              tx.bindValue:
+                                type: tx.Fallback
+                                tx.primary:
+                                  type: tx.PropertyRead
+                                  tx.readSource:
+                                    type: tx.ResolveRef
+                                    tx.resolveSource:
+                                      type: tx.VarRef
+                                      tx.varName: typeRef
+                                  tx.readProp: rdfs.label
+                                tx.alternate:
+                                  type: tx.UriName
+                                  tx.uriNameOf:
+                                    type: tx.VarRef
+                                    tx.varName: typeRef
+                            - tx.field: docast.badgeTarget
+                              tx.bindValue:
+                                type: tx.VarRef
+                                tx.varName: typeRef
+                            - tx.field: docast.badgeTooltip
+                              tx.bindValue:
+                                type: tx.PropertyRead
+                                tx.readSource:
+                                  type: tx.ResolveRef
+                                  tx.resolveSource:
+                                    type: tx.VarRef
+                                    tx.varName: typeRef
+                                tx.readProp: rdfs.comment
+
             # Description paragraph from rdfs.comment, when set. When
             # the resource has no comment, this When yields undefined
             # which the engine skips when assembling the Concat.
@@ -759,10 +865,11 @@ any-resource-renderer:
                 - tx.field: docast.propertyEntries
                   tx.bindValue:
                     type: tx.ForEach
-                    # Filter out `label` and `comment` — they're
-                    # already shown as the title and description
-                    # paragraph above. Listing them again would be
-                    # noise.
+                    # Filter out `type`, `label`, and `comment` —
+                    # they're already shown in the heading row (type
+                    # as Badges, label as title text, comment as
+                    # description paragraph). Listing them again
+                    # would be noise.
                     tx.source:
                       type: tx.Filter
                       tx.source:
@@ -778,6 +885,8 @@ any-resource-renderer:
                           tx.haystack:
                             type: tx.Concat
                             tx.parts:
+                              - type: tx.StringLiteral
+                                tx.stringLiteral: type
                               - type: tx.StringLiteral
                                 tx.stringLiteral: label
                               - type: tx.StringLiteral
@@ -819,6 +928,22 @@ any-resource-renderer:
                                 tx.predicateOf:
                                   type: tx.VarRef
                                   tx.varName: stmt
+                        # Hover tooltip for the property name —
+                        # populated with the predicate's rdfs.comment
+                        # when set. Reader can hover any property in
+                        # the form to see its definition without
+                        # navigating to the property's own page.
+                        - tx.field: docast.propertyTooltip
+                          tx.bindValue:
+                            type: tx.PropertyRead
+                            tx.readSource:
+                              type: tx.ResolveRef
+                              tx.resolveSource:
+                                type: tx.StatementPredicate
+                                tx.predicateOf:
+                                  type: tx.VarRef
+                                  tx.varName: stmt
+                            tx.readProp: rdfs.comment
                         - tx.field: docast.propertyValue
                           tx.bindValue:
                             type: tx.Concat
@@ -833,6 +958,157 @@ any-resource-renderer:
                                 tx.letBody:
                                   type: tx.CallFragment
                                   tx.fragmentRef: render-value
+
+# =============================================================================
+# UNIVERSAL STYLESHEET TRANSFORMATION
+#
+# Produces the protocol-level baseline CSS as a derivable artifact.
+# Every Kanonak Browser implementation (VS Code today, Chrome plugin
+# / standalone tomorrow) calls findDerivation(rdfs.Resource, formats.
+# stylesheet, default), gets THIS transformation, runs it, and injects
+# the resulting CSS into its rendered page. That's how cross-consumer
+# visual coherence is owned by the protocol rather than by each
+# consumer hard-coding its own styles.
+#
+# The CSS uses a `--kan-*` CSS-variable layer so consumers can theme
+# specific dimensions (link color, badge background) without having
+# to override every selector. VS Code's webview, for example, binds
+# `--kan-link-color: var(--vscode-textLink-foreground)` in its host
+# stylesheet so links pick up the IDE theme automatically; a static-
+# site export uses the variable defaults and gets a sensible neutral
+# look; a publisher who wants snapshot pages to use brand colors
+# overrides at the WorldviewSnapshot class level via its OWN
+# stylesheet derivation; a user who wants a custom global theme
+# publishes a `my-theme` package that augments rdfs.Resource with
+# its own (formats.stylesheet, default) — open-world load-order
+# precedence picks their override over this universal default.
+# =============================================================================
+
+any-resource-stylesheet:
+  type: tx.InstanceTransformation
+
+  tx.inputPattern:
+    tx.matchesClass: rdfs.Resource
+
+  tx.artifactName:
+    type: tx.UriName
+    tx.uriNameOf:
+      type: tx.VarRef
+      tx.varName: input
+
+  tx.outputs:
+    - tx.stylesheet
+
+  tx.rule:
+    type: tx.BuildAstNode
+    tx.astClass: docast.Document
+    tx.set:
+      - tx.field: docast.children
+        tx.bindValue:
+          type: tx.Concat
+          tx.parts:
+            - type: tx.BuildAstNode
+              tx.astClass: docast.RawBlock
+              tx.set:
+                - tx.field: docast.mediaType
+                  tx.bindValue:
+                    type: tx.UriLiteral
+                    tx.refTo: docast.text-css
+                - tx.field: docast.rawContent
+                  tx.bindValue:
+                    type: tx.StringLiteral
+                    tx.stringLiteral: |
+                      :root {
+                        --kan-link-color: #0066cc;
+                        --kan-link-hover-color: #004999;
+                        --kan-badge-bg: #ddebf7;
+                        --kan-badge-fg: #044289;
+                        --kan-text-color: inherit;
+                        --kan-muted-color: #6e7781;
+                        --kan-border-color: #d0d7de;
+                        --kan-table-header-bg: #f6f8fa;
+                      }
+
+                      /* Reference links — every <a class="kan-link">
+                         emitted by HtmlBackend.renderResourceLink. */
+                      .kan-link {
+                        color: var(--kan-link-color);
+                        cursor: pointer;
+                        text-decoration: none;
+                      }
+                      .kan-link:hover {
+                        color: var(--kan-link-hover-color);
+                        text-decoration: underline;
+                      }
+
+                      /* Type / annotation chips — emitted by
+                         HtmlBackend.renderBadge for every docast.Badge
+                         in the AST. Span when untargeted, anchor when
+                         clickable. */
+                      .kan-badge {
+                        display: inline-block;
+                        background: var(--kan-badge-bg);
+                        color: var(--kan-badge-fg);
+                        padding: 2px 8px;
+                        border-radius: 10px;
+                        font-size: 11px;
+                        font-weight: 500;
+                        text-decoration: none;
+                        vertical-align: middle;
+                        margin-left: 6px;
+                      }
+                      a.kan-badge { cursor: pointer; }
+                      a.kan-badge:hover {
+                        filter: brightness(0.95);
+                        text-decoration: none;
+                      }
+
+                      /* PropertyList — definition-list rendering of a
+                         resource's statements. Class is `property-list`
+                         (no kan- prefix; engine uses the same class
+                         since 1.0.0). */
+                      dl.property-list {
+                        margin: 0.5em 0 1em;
+                        padding: 0;
+                      }
+                      dl.property-list dt {
+                        font-weight: 600;
+                        color: var(--kan-text-color);
+                        margin: 0.6em 0 0.1em;
+                      }
+                      dl.property-list dt:first-child {
+                        margin-top: 0;
+                      }
+                      dl.property-list dd {
+                        margin: 0 0 0 1.2em;
+                        color: var(--kan-text-color);
+                      }
+                      /* Nested PropertyLists (embedded resources) sit
+                         inside a <dd>; tighten margins so they don't
+                         drift too far from their parent row. */
+                      dl.property-list dd > dl.property-list {
+                        margin-top: 0.2em;
+                      }
+
+                      /* Table rendering for lists of dict-keyed
+                         embeddeds. */
+                      table.property-table {
+                        border-collapse: collapse;
+                        margin: 0.4em 0;
+                        width: 100%;
+                      }
+                      table.property-table th,
+                      table.property-table td {
+                        border: 1px solid var(--kan-border-color);
+                        padding: 0.3em 0.6em;
+                        text-align: left;
+                        vertical-align: top;
+                        font-size: 13px;
+                      }
+                      table.property-table th {
+                        background: var(--kan-table-header-bg);
+                        font-weight: 600;
+                      }
 
 # =============================================================================
 # UNIVERSAL DERIVATION BINDINGS ON rdfs.Resource
@@ -876,3 +1152,13 @@ rdfs.Resource:
         tx.package: universal-derivations
         tx.version: 1.7.0
         tx.name: any-resource-renderer
+
+    - type: derivation.Derivation
+      derivation.format: formats.stylesheet
+      derivation.variant: derivation.default
+      derivation.transformation:
+        type: tx.TransformationReference
+        tx.publisher: kanonak.org
+        tx.package: universal-derivations
+        tx.version: 1.7.0
+        tx.name: any-resource-stylesheet

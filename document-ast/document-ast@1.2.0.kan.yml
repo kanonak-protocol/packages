@@ -417,6 +417,19 @@ text-html:
     unescaped (trusted passthrough). Non-HTML backends typically
     fall back to escaped-text behavior or drop the block.
 
+text-css:
+  type: MediaType
+  mimeType: "text/css"
+  label: CSS
+  comment: >
+    A stylesheet (Cascading Style Sheets) source. Used by the
+    stylesheet backend to pass CSS through verbatim, and by HTML
+    backends that wrap RawBlock(text/css) in a `<style>` element.
+    The natural shape for the protocol-level baseline stylesheet
+    that universal-derivations binds at `(formats.stylesheet,
+    default)` on rdfs.Resource — the chrome consumers inject so
+    every Kanonak Browser shares the same look out of the box.
+
 application-json:
   type: MediaType
   mimeType: "application/json"
@@ -520,6 +533,77 @@ linkLabel:
     back to a label derived from the target's `rdfs.label`,
     `rdfs.comment`, or local name — whichever is most readable.
 
+linkTooltip:
+  type: owl.DatatypeProperty
+  domain: ResourceLink
+  range: xsd.string
+  label: Link Tooltip
+  comment: >
+    Optional hover-text for the link. HTML backends emit this as the
+    anchor's `title=` attribute; Markdown backends emit it as the
+    optional title slot of the link syntax: `[label](url "tooltip")`.
+    Conventionally populated by transformations with the target's
+    `rdfs.comment` so a reader can skim definitions without leaving
+    the page.
+
+# -----------------------------------------------------------------------------
+# Badge (Inline subclass)
+# -----------------------------------------------------------------------------
+
+Badge:
+  type: rdfs.Class
+  subClassOf: Inline
+  label: Badge
+  comment: >
+    A small styled annotation rendered next to its surrounding inline
+    content — the natural shape for "this resource is of type X" tags
+    next to a heading, status pills, version chips, etc.
+
+    `badgeLabel` is the visible text. `badgeTarget` is optional —
+    when set, the badge is clickable and backends serialize it as a
+    canonical URI link (the same target convention as ResourceLink).
+    `badgeTooltip` populates the hover tooltip (`title=` in HTML,
+    link-title in Markdown).
+
+    The universal renderer emits one Badge per `rdf:type` value next
+    to the resource's H1; publisher transformations can emit Badges
+    for any other annotation a domain wants to surface (status,
+    deprecation marker, version, etc.). HTML backends render Badge
+    as a styled chip; Markdown backends render it as the link form
+    (or the bare label when no target) so the text round-trips
+    cleanly through plaintext readers.
+
+badgeLabel:
+  type: owl.DatatypeProperty
+  domain: Badge
+  range: xsd.string
+  label: Badge Label
+  comment: >
+    Required visible text for the badge. Backends render it inside
+    the chip / link.
+
+badgeTarget:
+  type: owl.ObjectProperty
+  domain: Badge
+  range: rdfs.Resource
+  label: Badge Target
+  comment: >
+    Optional clickable target — the resource the badge links to.
+    Same shape as `ResourceLink.target`: backends serialize this as
+    the target's canonical URI. When absent, the badge is a
+    non-clickable annotation.
+
+badgeTooltip:
+  type: owl.DatatypeProperty
+  domain: Badge
+  range: xsd.string
+  label: Badge Tooltip
+  comment: >
+    Optional hover-text for the badge. HTML backends emit as `title=`
+    on the chip; Markdown backends emit as the link-title slot.
+    Conventionally populated with the target's `rdfs.comment` so the
+    badge's expanded meaning is one hover away.
+
 # -----------------------------------------------------------------------------
 # PropertyList + PropertyEntry (Block subclass)
 # -----------------------------------------------------------------------------
@@ -577,8 +661,20 @@ propertyValue:
     to permit the polymorphic mix; the ontology's intent is
     Inline | Block but a strict OWL union would over-constrain.
 
+propertyTooltip:
+  type: owl.DatatypeProperty
+  domain: PropertyEntry
+  range: xsd.string
+  label: Property Tooltip
+  comment: >
+    Optional hover-text for the property key — displayed on the
+    `<dt>` in HTML backends. Conventionally populated by the
+    universal renderer with the predicate's `rdfs.comment` so a
+    reader can hover any property name and see the definition
+    without leaving the page.
+
 # =============================================================================
-# 1.2.0 additions: Table + TableRow
+# 1.2.0 additions: Table + TableRow, Badge inline, hover tooltips
 #
 # Tabular layout for structured collections — the natural rendering
 # for a list of items with consistent shape (e.g. a list of dict-
@@ -589,6 +685,18 @@ propertyValue:
 # Tables are a Block, so they can appear anywhere a PropertyList /
 # Paragraph / Heading can — most commonly inside a PropertyEntry's
 # propertyValue when the property holds a list of named embeddeds.
+#
+# Badge (Inline) — a small styled annotation rendered next to its
+# surrounding inline content. The natural shape for "this resource
+# is of type X" tags next to a heading. See its class definition
+# above for properties (badgeLabel / badgeTarget / badgeTooltip).
+#
+# Tooltip slots — optional `linkTooltip` on ResourceLink and
+# `propertyTooltip` on PropertyEntry; HTML backends emit `title=`,
+# Markdown backends emit the link-title slot. Conventionally
+# populated by transformations from the target's / predicate's
+# `rdfs.comment` so a reader can hover any link or property name
+# and see its definition without navigating away.
 # =============================================================================
 
 Table:

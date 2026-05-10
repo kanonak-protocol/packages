@@ -90,6 +90,22 @@ html:
   mediaType: text/html
   fileExtension: .html
 
+stylesheet:
+  type: Format
+  label: Stylesheet
+  mediaType: text/css
+  fileExtension: .css
+  comment: >-
+    CSS stylesheet — a separate derivable artifact alongside the
+    structural HTML output. universal-derivations binds a baseline
+    stylesheet derivation at (formats.stylesheet, default) on
+    rdfs.Resource so every Kanonak Browser implementation gets the
+    same look out of the box. Publishers override at any class level
+    for per-class branding; users publish a personal-theme package
+    that augments rdfs.Resource for global theming. See
+    kanonak.org/derivation-conventions for DRY authoring patterns
+    and override cascade guidance.
+
 markdown:
   type: Format
   label: Markdown

@@ -1419,10 +1419,12 @@ kanonak-protocol-spec:
             that vocabulary (e.g.
             kanonak.org/transformations-conventions for the
             transformations vocabulary,
-            kanonak.org/site-conventions for the site vocabulary).
-            The kanonak-protocol package documents only foundational
-            protocol concerns that apply regardless of which
-            vocabulary a document uses.
+            kanonak.org/derivation-conventions for derivation
+            authoring patterns including DRY stylesheet styling and
+            override cascade, kanonak.org/site-conventions for the
+            site vocabulary). The kanonak-protocol package documents
+            only foundational protocol concerns that apply regardless
+            of which vocabulary a document uses.
           rationale: >-
             Vocabulary-specific guidance evolves at the cadence of
             the vocabulary itself. Bundling it with the protocol

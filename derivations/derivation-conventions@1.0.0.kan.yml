@@ -1,0 +1,624 @@
+
+derivation-conventions:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: protocols
+          match: ^
+          version: 1.0.0
+          alias: pro
+
+derivation-conventions-spec:
+  type: Protocol
+  label: Derivation Vocabulary Conventions
+  comment: >-
+    Authoring conventions for the kanonak.org/derivation vocabulary,
+    with specific focus on the styling derivation patterns enabled by
+    formats.stylesheet. Complements the foundational rules in
+    kanonak.org/kanonak-protocol@2.1.0 (derivation-bindings,
+    derivation-override-semantics, universal-default-derivations) by
+    capturing publisher-side authoring guidance: how to keep CSS DRY
+    across multiple types in a publisher's ontology, when to use a
+    separate stylesheet derivation versus inline `<style>` in an
+    HTML derivation, how the override cascade composes with the
+    open-world user-theme story, and the --kan-* variable convention
+    for native theming integration. These conventions evolve at the
+    cadence of the derivation/formats/universal-derivations
+    vocabularies; bumps here track new patterns rather than
+    foundational protocol changes.
+
+  hasConvention:
+
+    # =========================================================================
+    # STYLESHEET-AS-DERIVATION — the mechanism
+    # =========================================================================
+
+    stylesheet-as-derivation:
+      summary: >-
+        CSS stylesheets are first-class derivable artifacts via the
+        formats.stylesheet Format. A class binds a (formats.stylesheet,
+        default) Derivation pointing to a Transformation that returns
+        a docast.Document containing one or more docast.RawBlock nodes
+        with mediaType docast.text-css. The CssBackend concatenates
+        them and emits the .css artifact. Consumers (Kanonak Browser,
+        Chrome plugin, standalone Browser, static-site export) fetch
+        the stylesheet via the same discovery mechanism they use for
+        any other format and inject it into their rendered page.
+      hasRecommendedRule:
+        bind-stylesheet-on-class-rule:
+          text: >-
+            Declare derivation.derivations entries with
+            derivation.format=formats.stylesheet on the class whose
+            instances should pull in that styling. Discovery walks the
+            class hierarchy bottom-up exactly as it does for HTML and
+            Markdown — inheritance is automatic for subclasses, and
+            class-level overrides win over the universal default
+            inherited from rdfs.Resource.
+          rationale: >-
+            Stylesheet bindings reuse the same discovery walk as every
+            other format binding. Authors who learn the (format,
+            variant) → Transformation pattern for HTML get the
+            stylesheet pattern for free. The polymorphism story is
+            what gives publishers per-class branding without
+            coordinating with anyone — a Worldview.WorldviewSnapshot
+            that wants its own visual treatment declares one
+            stylesheet derivation and inherits everything else from
+            the universal baseline.
+        return-rawblock-text-css-rule:
+          text: >-
+            A stylesheet Transformation's tx.rule MUST produce a
+            docast.Document whose docast.children contains at least
+            one docast.RawBlock with docast.mediaType bound to
+            tx.UriLiteral with tx.refTo docast.text-css. The CSS text
+            itself goes in docast.rawContent, typically as a
+            tx.StringLiteral block scalar.
+          rationale: >-
+            CssBackend walks Document.children for RawBlock(text/css)
+            nodes and emits their rawContent verbatim. Any other shape
+            yields an empty stylesheet — the backend is deliberately
+            permissive (returns "") rather than failing, so a
+            misauthored stylesheet derivation degrades gracefully
+            instead of breaking the page. The block-scalar form lets
+            authors keep readable multi-line CSS in their YAML
+            without escaping.
+      hasValidExample:
+        minimal-stylesheet-derivation:
+          pro.value: |
+            cp.Strategy:
+              derivation.derivations:
+                - type: derivation.Derivation
+                  derivation.format: formats.stylesheet
+                  derivation.variant: derivation.default
+                  derivation.transformation:
+                    type: tx.TransformationReference
+                    tx.publisher: portfolio.genval.ai
+                    tx.package: strategy-styling
+                    tx.version: 1.0.0
+                    tx.name: strategy-stylesheet
+
+            strategy-stylesheet:
+              type: tx.InstanceTransformation
+              tx.inputPattern:
+                tx.matchesClass: cp.Strategy
+              tx.outputs:
+                - tx.stylesheet
+              tx.rule:
+                type: tx.BuildAstNode
+                tx.astClass: docast.Document
+                tx.set:
+                  - tx.field: docast.children
+                    tx.bindValue:
+                      type: tx.Concat
+                      tx.parts:
+                        - type: tx.BuildAstNode
+                          tx.astClass: docast.RawBlock
+                          tx.set:
+                            - tx.field: docast.mediaType
+                              tx.bindValue:
+                                type: tx.UriLiteral
+                                tx.refTo: docast.text-css
+                            - tx.field: docast.rawContent
+                              tx.bindValue:
+                                type: tx.StringLiteral
+                                tx.stringLiteral: |
+                                  .strategy { padding: 1rem; }
+          description: >-
+            Smallest viable stylesheet derivation — one binding, one
+            Transformation, one RawBlock. Real publishers add more
+            CSS but the shape is identical.
+
+    # =========================================================================
+    # DRY STYLING PATTERNS — three approaches in increasing order of DRY
+    # =========================================================================
+
+    dry-styling-patterns:
+      summary: >-
+        Three patterns for sharing styling across multiple types in a
+        publisher's ontology, in increasing order of DRY-ness. Pick
+        the pattern that fits your ontology shape — they compose
+        freely. The same patterns apply to ANY derivation format, not
+        just stylesheets; CSS just makes the duplication especially
+        visible because rules tend to be long and visually redundant.
+      hasRecommendedRule:
+        bind-once-on-common-ancestor-rule:
+          text: >-
+            When the types that should share styling already have a
+            common ancestor (or you can introduce one without distorting
+            the ontology), declare ONE stylesheet binding on that
+            ancestor. Class-hierarchy walk delivers it to every
+            subclass; new subclasses added later inherit automatically
+            with zero new bindings. This is the most DRY pattern and
+            should be the default when the ontology supports it.
+          rationale: >-
+            The class-hierarchy walk is the protocol's idiomatic
+            inheritance mechanism — using it for stylesheets keeps the
+            authoring surface aligned with how every other derivation
+            inherits. Introducing a common ancestor for "things that
+            should look the same" also makes the design intent
+            explicit in the ontology itself, so a reader can see at a
+            glance what's grouped visually. Adoption tax is one extra
+            class plus one binding; payoff is automatic styling for
+            every existing AND future subclass.
+        shared-transformation-multiple-bindings-rule:
+          text: >-
+            When the types that should share styling do NOT have a
+            common ancestor (and adding one would distort the ontology),
+            declare a separate stylesheet binding on each class but
+            point them ALL at the same Transformation via
+            TransformationReference. The CSS lives in one
+            Transformation; the bindings repeat but stay trivially
+            short.
+          rationale: >-
+            Forcing a common ancestor where none exists is worse than
+            repeating boilerplate bindings. The bindings are 6 lines
+            each and copy-paste identically; the substantive content
+            (the CSS itself) lives in one place. Adding a new type
+            that should join the group adds one more binding —
+            mechanical, not error-prone. The repetition is also
+            explicit documentation: a reader can see exactly which
+            classes opted into the shared style.
+        composable-css-fragments-rule:
+          text: >-
+            When multiple stylesheet Transformations share a base
+            (brand colors, typography, layout primitives) but each
+            adds class-specific rules, factor the shared part into a
+            tx.ExpressionFragment that returns a
+            docast.RawBlock(text/css), then have each class-specific
+            stylesheet Transformation tx.CallFragment the shared
+            fragment AND append its own RawBlock. CssBackend
+            concatenates all RawBlock(text/css) nodes in document
+            order, so the final artifact is base + class-specific.
+          rationale: >-
+            Some publishers genuinely need "everyone gets the brand
+            baseline; this class gets a fitness-strip layout in
+            addition." Factoring the shared part into a fragment lets
+            each per-class transformation stay focused on its
+            additions while guaranteeing the base stays in lockstep.
+            Fragment composition also cooperates with the
+            class-hierarchy walk — a child class can override its
+            parent's stylesheet binding entirely AND still pull in
+            the same base fragment via CallFragment, getting full
+            control without losing brand consistency.
+      hasValidExample:
+        common-ancestor-pattern:
+          pro.value: |
+            # Pattern 1 — bind once on common ancestor.
+            # cp.Strategy, cp.Regime, cp.Worldview all subClassOf cp.PortfolioEntity.
+            cp.PortfolioEntity:
+              derivation.derivations:
+                - type: derivation.Derivation
+                  derivation.format: formats.stylesheet
+                  derivation.variant: derivation.default
+                  derivation.transformation:
+                    type: tx.TransformationReference
+                    tx.publisher: portfolio.genval.ai
+                    tx.package: portfolio-styling
+                    tx.version: 1.0.0
+                    tx.name: portfolio-stylesheet
+            # Strategy / Regime / Worldview inherit automatically. New types
+            # added under cp.PortfolioEntity also inherit with no further work.
+          description: >-
+            Pattern 1 — bind once on a common ancestor. Most DRY when
+            the ontology supports it.
+        shared-transformation-pattern:
+          pro.value: |
+            # Pattern 2 — multiple class bindings, single Transformation.
+            # Use when no common ancestor exists.
+            cp.Strategy:
+              derivation.derivations:
+                - type: derivation.Derivation
+                  derivation.format: formats.stylesheet
+                  derivation.variant: derivation.default
+                  derivation.transformation:
+                    type: tx.TransformationReference
+                    tx.publisher: portfolio.genval.ai
+                    tx.package: portfolio-styling
+                    tx.version: 1.0.0
+                    tx.name: portfolio-stylesheet      # SAME target
+
+            cp.Regime:
+              derivation.derivations:
+                - type: derivation.Derivation
+                  derivation.format: formats.stylesheet
+                  derivation.variant: derivation.default
+                  derivation.transformation:
+                    type: tx.TransformationReference
+                    tx.publisher: portfolio.genval.ai
+                    tx.package: portfolio-styling
+                    tx.version: 1.0.0
+                    tx.name: portfolio-stylesheet      # SAME target
+          description: >-
+            Pattern 2 — multiple bindings to the same Transformation.
+            CSS source is single; binding boilerplate repeats per
+            class but stays trivially copy-pasteable.
+        composable-fragment-pattern:
+          pro.value: |
+            # Pattern 3 — composable CSS fragments via tx.ExpressionFragment.
+            # Each class's stylesheet Transformation calls the shared fragment
+            # then appends its own additions.
+            shared-brand-css:
+              type: tx.ExpressionFragment
+              tx.body:
+                type: tx.BuildAstNode
+                tx.astClass: docast.RawBlock
+                tx.set:
+                  - tx.field: docast.mediaType
+                    tx.bindValue:
+                      type: tx.UriLiteral
+                      tx.refTo: docast.text-css
+                  - tx.field: docast.rawContent
+                    tx.bindValue:
+                      type: tx.StringLiteral
+                      tx.stringLiteral: |
+                        :root { --brand: #0066cc; --bg: #fafafa; }
+                        body { background: var(--bg); }
+
+            strategy-stylesheet:
+              type: tx.InstanceTransformation
+              tx.outputs:
+                - tx.stylesheet
+              tx.rule:
+                type: tx.BuildAstNode
+                tx.astClass: docast.Document
+                tx.set:
+                  - tx.field: docast.children
+                    tx.bindValue:
+                      type: tx.Concat
+                      tx.parts:
+                        - type: tx.CallFragment
+                          tx.fragmentRef: shared-brand-css     # baseline
+                        - type: tx.BuildAstNode                # class-specific addition
+                          tx.astClass: docast.RawBlock
+                          tx.set:
+                            - tx.field: docast.mediaType
+                              tx.bindValue:
+                                type: tx.UriLiteral
+                                tx.refTo: docast.text-css
+                            - tx.field: docast.rawContent
+                              tx.bindValue:
+                                type: tx.StringLiteral
+                                tx.stringLiteral: |
+                                  .fitness-strip { display: grid; }
+          description: >-
+            Pattern 3 — composable fragments. CssBackend concatenates
+            the baseline RawBlock from the fragment with the
+            class-specific RawBlock that follows.
+
+    # =========================================================================
+    # STYLESHEET vs INLINE — when to separate, when to bake in
+    # =========================================================================
+
+    stylesheet-vs-html-composition:
+      summary: >-
+        A class can override its (formats.html, default) derivation
+        with a self-contained HTML page that bakes its `<style>`
+        block inline, OR override (formats.html, default) with a
+        body-only HTML transformation AND override
+        (formats.stylesheet, default) with a separate stylesheet
+        transformation. Both are valid. The separate-stylesheet form
+        is the protocol-aligned choice; the inline form is reasonable
+        for self-contained one-shot exports.
+      hasRecommendedRule:
+        prefer-separate-stylesheet-rule:
+          text: >-
+            For pages rendered through a Kanonak Browser (VS Code
+            extension today, Chrome plugin / standalone Browser
+            tomorrow), prefer separating the stylesheet into a
+            (formats.stylesheet, default) derivation. The Browser
+            fetches both artifacts via discovery and injects the CSS
+            into its page wrapper. This lets users override the
+            stylesheet via the open-world theme story without
+            touching the HTML transformation, lets multiple HTML
+            derivations (default, summary, card variants) share one
+            stylesheet, and lets other format consumers (PDF, print,
+            email) reuse the same CSS without scraping it out of
+            HTML.
+          rationale: >-
+            Inline `<style>` inside text/html RawBlocks is opaque to
+            every other backend and consumer — a Markdown derivation
+            can't reach it, a stylesheet-rendering tool can't reach
+            it, a user theme override can't supersede it. Separating
+            stylesheet from HTML preserves all the polymorphism the
+            protocol affords. The cost is one extra Transformation
+            declaration; the payoff is participation in the full
+            cross-consumer / cross-format ecosystem.
+        inline-style-only-for-self-contained-export-rule:
+          text: >-
+            Reach for inline `<style>` inside an HTML transformation
+            only when the artifact's primary use case is a
+            self-contained file delivered to a context that can't
+            fetch a sibling stylesheet — e.g. a one-shot static-site
+            export delivered as a single .html file, an email body,
+            or a portable preview. In those cases the
+            self-containedness is the substantive feature, not a
+            shortcut.
+          rationale: >-
+            Self-contained HTML is genuinely useful for portability
+            scenarios where the consumer can't run discovery. Choosing
+            inline-style for those cases is correct; choosing it
+            because "I haven't learned the separate-stylesheet
+            pattern yet" is a missed opportunity. The two reasons
+            look the same in the YAML but differ in intent — make the
+            intent explicit in the transformation's comment so future
+            readers (and AIs) know which case they're in.
+
+    # =========================================================================
+    # CSS VARIABLE LAYER — integration with native consumer theming
+    # =========================================================================
+
+    stylesheet-variable-layer:
+      summary: >-
+        Stylesheet derivations SHOULD expose their tunable visual
+        dimensions as `--kan-*` CSS custom properties bound at
+        `:root`, then reference those variables in the actual rules.
+        Consumers (the VS Code Browser today; Chrome plugin and
+        standalone Browser tomorrow) inject a small variable-only
+        override block AFTER the protocol stylesheet that re-binds
+        the `--kan-*` defaults to native palette tokens (e.g.
+        --vscode-textLink-foreground). This lets the same protocol
+        stylesheet feel native in every consumer without the
+        stylesheet itself knowing about any consumer's theming
+        system.
+      hasRecommendedRule:
+        kan-variable-prefix-rule:
+          text: >-
+            Stylesheet derivations SHOULD prefix their tunable
+            variables with `--kan-` so consumers can identify and
+            re-bind them without colliding with the publisher's
+            internal layout variables. Use semantic names
+            (--kan-link-color, --kan-badge-bg, --kan-text-color),
+            not appearance-specific (--kan-blue) — the consumer's
+            theme might re-bind --kan-link-color to red.
+          rationale: >-
+            The `--kan-` prefix marks variables as "meant to be
+            overridden by the consumer." Internal layout helpers
+            (e.g. --grid-gap, --card-radius) do NOT need the prefix
+            because consumers shouldn't re-bind them. Semantic names
+            survive theme changes that swap palettes entirely; an
+            appearance-named variable would have to be re-named or
+            its meaning would drift.
+        layered-cascade-rule:
+          text: >-
+            Order the stylesheet's `:root` block FIRST so the
+            consumer's `--kan-*` override block (loaded AFTER) wins
+            via natural cascade. Don't use !important on the
+            defaults — that defeats the override path.
+          rationale: >-
+            The cascade IS the override mechanism. Letting it work
+            naturally means a consumer's override block needs to
+            contain only the variable re-bindings, not full
+            selector overrides. Consumers stay simple; the
+            stylesheet stays portable; the layered architecture
+            stays predictable.
+      hasValidExample:
+        variable-layered-stylesheet:
+          pro.value: |
+            # Inside docast.RawBlock(text/css) rawContent:
+            :root {
+              --kan-link-color: #0066cc;          /* consumer-tunable */
+              --kan-link-hover-color: #004999;    /* consumer-tunable */
+              --kan-text-color: inherit;          /* consumer-tunable */
+              --grid-gap: 14px;                   /* internal layout, NOT --kan- */
+            }
+            .kan-link {
+              color: var(--kan-link-color);
+              text-decoration: none;
+            }
+            .kan-link:hover {
+              color: var(--kan-link-hover-color);
+            }
+            .strategy {
+              display: grid;
+              gap: var(--grid-gap);              /* internal — not exposed */
+            }
+          description: >-
+            Tunable colors carry the --kan- prefix so the consumer
+            can re-bind them; internal layout variables don't, since
+            consumers shouldn't reach them.
+
+    # =========================================================================
+    # STYLESHEET OVERRIDE CASCADE — open-world themes + class overrides
+    # =========================================================================
+
+    stylesheet-override-cascade:
+      summary: >-
+        Stylesheet bindings participate in the same override cascade
+        as every other derivation. Class-hierarchy walk gives
+        publisher overrides priority over universal defaults; the
+        open-world parser lets a user (or a third party) publish a
+        theme package that augments rdfs.Resource with a competing
+        (formats.stylesheet, default) binding; load-order or
+        explicit-precedence rules pick a winner without losing
+        information from either side. The same mechanism supports
+        per-publisher branding, per-class custom looks, and
+        per-user global theming — without coordination among any of
+        the parties.
+      hasRecommendedRule:
+        publisher-class-override-rule:
+          text: >-
+            A publisher who wants their classes to look distinct
+            declares (formats.stylesheet, default) on those classes
+            (or their common ancestor). The class-hierarchy walk
+            picks the publisher's binding before reaching
+            rdfs.Resource — no precedence configuration needed,
+            since being closer to the leaf class is precedence
+            enough.
+          rationale: >-
+            Per-publisher visual identity is a normal use case and
+            the protocol handles it via the same walk that handles
+            every other format binding. No "this stylesheet wins"
+            metadata is needed because closeness to the instance's
+            class IS the precedence signal — the same model authors
+            already understand from how they override HTML and
+            Markdown derivations.
+        user-theme-via-rdfs-resource-augmentation-rule:
+          text: >-
+            A user who wants a global theme override across ALL
+            resources publishes a personal package that augments
+            rdfs.Resource with their own (formats.stylesheet,
+            default) binding. The open-world parser merges both the
+            universal-derivations binding AND the user's binding into
+            rdfs.Resource's statement list; discovery picks the
+            user's via load-order precedence (their package loads
+            after universal-derivations) or explicit precedence rules
+            once those land. Publisher class-level overrides STILL
+            win for their own classes — the user's theme only kicks
+            in where no closer override exists.
+          rationale: >-
+            The "personal default theme" use case is what justifies
+            the open-world parser at the foundational level. Users
+            shouldn't have to fork universal-derivations to re-color
+            things — they publish a sibling package that augments
+            the same root class, and the protocol composes the two
+            without either side knowing about the other. The
+            class-hierarchy walk preserves publisher autonomy: a
+            personal theme can't visually overrule a publisher's
+            considered branding for their own classes, only the
+            generic universal default for unbranded resources.
+        instance-override-for-one-off-rule:
+          text: >-
+            An instance that needs unique styling NOT shared with
+            its sibling instances declares
+            (formats.stylesheet, default) on itself directly. Per
+            kanonak-protocol's instance-override-replaces-rule, this
+            replaces ALL class-level bindings for that instance —
+            so the instance must re-declare any other format
+            derivations it wants too.
+          rationale: >-
+            Instance overrides are deliberate "this resource is
+            special" statements, not common practice. Use them when
+            you need a single page to look different from every
+            other instance of the same class — typically only for
+            landmark resources (a homepage, a hero example, a
+            featured snapshot). The replace-not-merge semantic is
+            what makes instance overrides honest: the author has to
+            re-declare HTML and Markdown bindings too if they want
+            them, so nothing fills in silently.
+
+    # =========================================================================
+    # ANTI-PATTERNS
+    # =========================================================================
+
+    stylesheet-anti-patterns:
+      summary: >-
+        Patterns that look reasonable but break protocol coherence
+        or DRY. Documented explicitly so an AI cold-starting a
+        stylesheet can recognize and avoid them.
+      hasForbiddenRule:
+        consumer-specific-variables-in-protocol-stylesheet-rule:
+          text: >-
+            A stylesheet derivation MUST NOT reference
+            consumer-specific CSS variables (e.g.
+            var(--vscode-textLink-foreground)) directly in its
+            rules. The variable-binding adaptation is the
+            consumer's responsibility, applied AFTER the stylesheet
+            via a small override block.
+          rationale: >-
+            Baking a consumer's variable names into the protocol
+            stylesheet couples the stylesheet to that consumer.
+            A Chrome plugin loading the same stylesheet would see
+            unbound variables (which fall back to defaults but
+            silently lose the intended re-themability). Keep the
+            stylesheet portable by referencing only --kan-* (or
+            internal) variables; let the consumer re-bind them.
+        duplicate-css-across-class-stylesheets-rule:
+          text: >-
+            When multiple per-class stylesheet Transformations
+            contain the SAME CSS rules verbatim, refactor into one
+            of the dry-styling-patterns approaches. Repeating
+            rules per-class is technically valid YAML but produces
+            a maintenance trap — a brand color update has to land
+            in N places and any miss creates visible inconsistency.
+          rationale: >-
+            DRY is a maintenance-cost concern, not a correctness
+            concern. The protocol accepts duplicated CSS without
+            complaint, but a publisher who lets it grow will
+            eventually see palette drift, half-updated themes,
+            and conflicting rules across their own pages.
+            Refactoring is mechanical (extract the shared rules
+            into a fragment, point each class's transformation at
+            it) and pays back the first time the brand changes.
+
+    # =========================================================================
+    # COLD-START AUTHORING WORKFLOW
+    # =========================================================================
+
+    stylesheet-authoring-workflow:
+      summary: >-
+        Suggested sequence for an author (or AI assistant) building
+        a stylesheet for a publisher's ontology from scratch.
+        Optimizes for getting visual feedback fast, then
+        progressively factoring toward DRY as the patterns become
+        visible.
+      hasRecommendedRule:
+        start-with-one-class-stylesheet-rule:
+          text: >-
+            Begin by declaring (formats.stylesheet, default) on
+            ONE class with the rules that class needs. Get it
+            rendering in a Browser. Iterate on visual details
+            against real instances of that class.
+          rationale: >-
+            Premature factoring of CSS into shared fragments before
+            seeing the rendered output produces abstractions for
+            patterns that don't yet exist. Get one page looking
+            right first, then notice what other classes want the
+            same.
+        factor-when-second-class-needs-the-style-rule:
+          text: >-
+            When a SECOND class is about to repeat large chunks of
+            the first stylesheet, pause and pick a dry-styling-
+            patterns approach BEFORE copy-pasting. The right
+            pattern is usually obvious by then — common ancestor
+            if it exists, shared transformation otherwise,
+            fragments if the second class shares some but adds
+            specifics.
+          rationale: >-
+            "Rule of three" is too lenient for CSS — by the third
+            duplication the publisher has already missed two
+            opportunities to align. Factor at the second
+            duplication; the dry-styling-patterns options are
+            mechanical to apply and the cost of factoring early
+            is negligible compared to the cost of letting drift
+            accumulate.
+        bind-against-rdfs-resource-only-for-user-themes-rule:
+          text: >-
+            Publishers SHOULD NOT bind (formats.stylesheet,
+            default) on rdfs.Resource — that's the universal
+            default's slot. Bind on YOUR OWN classes (or their
+            ancestors). The open-world rdfs.Resource override is
+            specifically for users publishing personal-theme
+            packages.
+          rationale: >-
+            A publisher binding on rdfs.Resource competes with
+            universal-derivations for the global default — the
+            class-hierarchy walk would pick one or the other for
+            EVERY resource, including resources from other
+            publishers. That's not branding; that's accidentally
+            re-skinning the entire ecosystem. Publishers stay
+            scoped to their own classes; users (with intent to
+            globally theme) bind on rdfs.Resource. The
+            grammatical position of the binding signals the scope
+            of the override.

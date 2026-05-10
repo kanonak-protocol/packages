@@ -762,6 +762,19 @@ svg:
   comment: SVG serialization for vector-graphics output.
   backendUri: kanonak.org/transformations/svg
 
+stylesheet:
+  type: OutputFormat
+  label: Stylesheet
+  comment: >
+    CSS stylesheet output. The backend walks docast.Document.children
+    for the first RawBlock with mediaType=text/css and emits its
+    rawContent verbatim. Used by universal-derivations to ship the
+    protocol-level baseline CSS as a derivable artifact alongside
+    the structural HTML — every Kanonak Browser implementation
+    fetches both and renders them together, guaranteeing cross-
+    consumer visual coherence.
+  backendUri: kanonak.org/transformations/stylesheet
+
 # =============================================================================
 # EXPRESSION HIERARCHY
 #
