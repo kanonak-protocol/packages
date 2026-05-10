@@ -1,0 +1,597 @@
+# =============================================================================
+# universal-derivations @ 1.3.0
+#
+# Extends per-item list rendering (added in 1.2.0) to handle
+# embedded list items — the dict-keyed embedded form that
+# property-bag style ontologies use heavily:
+#
+#   hasFitnessScore:
+#     fit-quiet:
+#       forRegime: reg.quiet-contango
+#       scoreValue: 75
+#     fit-bull:
+#       forRegime: reg.bull-trending
+#       scoreValue: 75
+#
+# 1.2.0 detected list items as IsReference (clickable links) but
+# fell through to Text(UriName) for everything else — so dict-keyed
+# embeddeds (which carry the dict-key as their name and have nested
+# statements) rendered as plain text names like "fit-quiet" with no
+# nested content visible.
+#
+# 1.3.0 adds an embedded-item branch: each embedded list item
+# renders as a single-entry nested PropertyList with the embedded's
+# name (UriName) as the key and a recursive PropertyList of its
+# own statements as the value. The structural depth is capped at
+# the standard ExpressionFragment limit; deeper recursion would
+# require a true recursive fragment idiom.
+#
+# =============================================================================
+# universal-derivations @ 1.2.0 (history, unchanged in 1.3.0)
+#
+# Adds per-item rendering for list-valued properties. The 1.1.0
+# renderer handled single references and single embeddeds well but
+# fell back to the string-coerced StatementValue for lists, so a
+# property like `hasFitnessScore: [foo, bar, baz]` rendered as
+# "foo, bar, baz" instead of producing one clickable link per item.
+#
+# 1.2.0 changes the list branch to ForEach over the items, emit
+# one Paragraph per item with the per-item kind dispatch:
+#   - Reference item → docast.ResourceLink
+#   - Anything else  → docast.Text with the item's display label
+#
+# The visual result is one item per line within the property's row
+# (cleaner than synthesizing comma separators inside the rule
+# tree, which would require a per-iteration index that the engine
+# doesn't expose yet). Each item is addressable.
+#
+# =============================================================================
+# universal-derivations @ 1.1.0 (history, unchanged in 1.2.0)
+#
+# Richer renderer. Builds on the new docast 1.1.0 vocabulary
+# (ResourceLink, PropertyList) and the new tx 3.8.0 value-kind
+# predicates (IsReference / IsEmbedded / StatementObject) to produce
+# output that is (a) navigable — references render as clickable
+# links — and (b) structurally faithful — embedded resources render
+# as nested PropertyLists rather than opaque "[embedded]" markers.
+#
+# The 1.0.0 renderer iterated every statement and emitted one
+# Paragraph per statement with the value coerced to a string. Refs
+# became local names; embeddeds became "[embedded]". That was the
+# floor; this is the next step up.
+#
+# The new renderer:
+#   - Emits a Document with a metadata channel (kind + source URI),
+#     a Heading with the resource's local name, and a PropertyList
+#     of the resource's statements.
+#   - Each PropertyEntry's propertyValue branches on the value's
+#     runtime kind:
+#       * Reference → docast.ResourceLink
+#       * Embedded  → nested docast.PropertyList of the embedded's
+#                     own statements (one level deep)
+#       * Literal   → docast.Text with the stringified value
+#       * List      → falls back to the string-coerced join (the
+#                     1.0.0 behavior); per-element rendering of
+#                     lists deferred to a future bump
+#   - The same docast tree feeds HTML (renders <dl> + <a>),
+#     Markdown (renders **key:** value with [label](kan://…)
+#     links), and JSON (structured serialization).
+#
+# Augments `rdfs.Resource` (the universal Kanonak root class) with
+# default derivation bindings so EVERY Kanonak resource — without any
+# publisher action — has at least HTML, Markdown, and JSON artifacts
+# available out of the box. Publisher classes override per (format,
+# variant) only where they have something domain-specific to say; the
+# rest is inherited via the class-hierarchy discovery walk.
+#
+# This package is the proof point for two structural decisions:
+#
+#   1. The open-world parser change (#13-pre) — this package adds
+#      statements to `rdfs.Resource` (defined in `core-rdf`) without
+#      bumping `core-rdf`. The parser merges by canonical URI.
+#
+#   2. The universal-defaults polymorphism vision — Kanonak Browser
+#      (the VS Code extension today; web/standalone tomorrow) becomes
+#      a real browser by walking the hierarchy from any resource up
+#      to `rdfs.Resource` to find the right derivation transformation.
+#
+# Ships in this version: one universal transformation that produces
+# a docast.Document populated with the resource's name + properties,
+# with bindings for THREE formats (HTML, Markdown-with-frontmatter,
+# JSON). The transformation is intentionally minimal — it iterates
+# every statement on the resource via the new tx 3.4.0 primitives
+# (AllStatements, StatementPredicate, StatementValue) and emits a
+# heading plus one labeled paragraph per statement. Output quality
+# improves naturally as document-ast grows richer Block/Inline
+# vocabulary; this is the floor, not the ceiling.
+#
+# DEFERRED (filed as a follow-up issue): TypeScript / source-code
+# generation. Requires (a) a new TypeScriptBackend implementing
+# IDocumentAstBackend, and (b) a `tx.typescript` OutputFormat
+# instance. The binding vocabulary already supports it (a
+# `formats.typescript` Derivation entry will work the moment the
+# backend lands); only the runtime side is missing.
+#
+# =============================================================================
+
+universal-derivations:
+  type: Package
+  publisher: kanonak.org
+  version: 1.3.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: transformations
+          match: ^
+          version: 3.8.0
+          alias: tx
+        - package: document-ast
+          match: ^
+          version: 1.1.0
+          alias: docast
+        - package: formats
+          match: ^
+          version: 1.0.0
+          alias: formats
+        - package: derivation
+          match: ^
+          version: 1.0.0
+          alias: derivation
+
+# =============================================================================
+# UNIVERSAL TRANSFORMATION
+#
+# Produces a docast.Document for any resource. Used by all three
+# format bindings on rdfs.Resource — the same docast tree gets
+# serialized differently per backend (HTML structure, Markdown
+# narrative, JSON dump).
+# =============================================================================
+
+any-resource-renderer:
+  type: tx.InstanceTransformation
+
+  tx.inputPattern:
+    # Match every Kanonak resource. RDFS class-hierarchy reasoning
+    # makes this match all subjects whose declared type chains up
+    # to rdfs.Resource (i.e. effectively all SubjectKanonaks).
+    tx.matchesClass: rdfs.Resource
+
+  tx.artifactName:
+    # Use the resource's local name as the artifact filename. The
+    # backend appends the format extension (.html, .md, .json).
+    type: tx.UriName
+    tx.uriNameOf:
+      type: tx.VarRef
+      tx.varName: input
+
+  tx.outputs:
+    - tx.html
+    - tx.markdown-with-frontmatter
+    - tx.json
+
+  tx.rule:
+    type: tx.BuildAstNode
+    tx.astClass: docast.Document
+    tx.set:
+
+      # ------------------------------------------------------------
+      # Frontmatter / structured metadata channel — read by the
+      # markdown-with-frontmatter backend. The HTML and JSON
+      # backends ignore it (HTML reads children only; JSON dumps
+      # the whole tree, so the metadata appears there too).
+      #
+      # Two entries: kind (the resource's local name) and source
+      # (its full canonical URI). Sufficient to identify the
+      # resource in the rendered artifact.
+      # ------------------------------------------------------------
+      - tx.field: docast.metadata
+        tx.bindValue:
+          type: tx.BuildAstNode
+          tx.astClass: docast.StructuredMap
+          tx.set:
+            - tx.field: docast.entries
+              tx.bindValue:
+                type: tx.Concat
+                tx.parts:
+                  - type: tx.BuildAstNode
+                    tx.astClass: docast.StructuredEntry
+                    tx.set:
+                      - tx.field: docast.key
+                        tx.bindValue:
+                          type: tx.StringLiteral
+                          tx.stringLiteral: name
+                      - tx.field: docast.value
+                        tx.bindValue:
+                          type: tx.BuildAstNode
+                          tx.astClass: docast.StringScalar
+                          tx.set:
+                            - tx.field: docast.stringValue
+                              tx.bindValue:
+                                type: tx.UriName
+                                tx.uriNameOf:
+                                  type: tx.VarRef
+                                  tx.varName: input
+
+                  - type: tx.BuildAstNode
+                    tx.astClass: docast.StructuredEntry
+                    tx.set:
+                      - tx.field: docast.key
+                        tx.bindValue:
+                          type: tx.StringLiteral
+                          tx.stringLiteral: source
+                      - tx.field: docast.value
+                        tx.bindValue:
+                          type: tx.BuildAstNode
+                          tx.astClass: docast.StringScalar
+                          tx.set:
+                            - tx.field: docast.stringValue
+                              tx.bindValue:
+                                type: tx.SubjectUri
+                                tx.subjectOf:
+                                  type: tx.VarRef
+                                  tx.varName: input
+
+      # ------------------------------------------------------------
+      # Narrative children channel — read by HTML and Markdown.
+      # Heading at level 1 with the resource's local name, then a
+      # PropertyList of every statement on the resource. Each
+      # entry's value branches on the runtime kind of the value:
+      # references render as ResourceLinks, embeddeds recurse one
+      # level deep into a nested PropertyList, scalars and lists
+      # fall back to text.
+      # ------------------------------------------------------------
+      - tx.field: docast.children
+        tx.bindValue:
+          type: tx.Concat
+          tx.parts:
+
+            # H1 = resource local name.
+            - type: tx.BuildAstNode
+              tx.astClass: docast.Heading
+              tx.set:
+                - tx.field: docast.level
+                  tx.bindValue:
+                    type: tx.IntegerLiteral
+                    tx.integerLiteral: 1
+                - tx.field: docast.inlines
+                  tx.bindValue:
+                    type: tx.Concat
+                    tx.parts:
+                      - type: tx.BuildAstNode
+                        tx.astClass: docast.Text
+                        tx.set:
+                          - tx.field: docast.text
+                            tx.bindValue:
+                              type: tx.UriName
+                              tx.uriNameOf:
+                                type: tx.VarRef
+                                tx.varName: input
+
+            # PropertyList of the resource's statements.
+            - type: tx.BuildAstNode
+              tx.astClass: docast.PropertyList
+              tx.set:
+                - tx.field: docast.propertyEntries
+                  tx.bindValue:
+                    type: tx.ForEach
+                    tx.source:
+                      type: tx.AllStatements
+                      tx.statementsOf:
+                        type: tx.VarRef
+                        tx.varName: input
+                    tx.loopVar: stmt
+                    tx.emit:
+                      type: tx.BuildAstNode
+                      tx.astClass: docast.PropertyEntry
+                      tx.set:
+
+                        # propertyKey = the predicate's local name.
+                        - tx.field: docast.propertyKey
+                          tx.bindValue:
+                            type: tx.UriName
+                            tx.uriNameOf:
+                              type: tx.StatementPredicate
+                              tx.predicateOf:
+                                type: tx.VarRef
+                                tx.varName: stmt
+
+                        # propertyValue = a list (Concat) of one
+                        # node — a ResourceLink for refs, a nested
+                        # PropertyList for embeddeds, a Text
+                        # otherwise. List values fall back to the
+                        # string-coerced StatementValue (deferred
+                        # to a future bump for per-element
+                        # rendering).
+                        - tx.field: docast.propertyValue
+                          tx.bindValue:
+                            type: tx.Concat
+                            tx.parts:
+                              - type: tx.When
+                                tx.condition:
+                                  type: tx.IsReference
+                                  tx.kindCheck:
+                                    type: tx.StatementObject
+                                    tx.statementSource:
+                                      type: tx.VarRef
+                                      tx.varName: stmt
+                                tx.thenBuild:
+                                  type: tx.BuildAstNode
+                                  tx.astClass: docast.ResourceLink
+                                  tx.set:
+                                    - tx.field: docast.target
+                                      tx.bindValue:
+                                        type: tx.StatementObject
+                                        tx.statementSource:
+                                          type: tx.VarRef
+                                          tx.varName: stmt
+                                tx.elseBuild:
+                                  type: tx.When
+                                  tx.condition:
+                                    type: tx.IsEmbedded
+                                    tx.kindCheck:
+                                      type: tx.StatementObject
+                                      tx.statementSource:
+                                        type: tx.VarRef
+                                        tx.varName: stmt
+                                  tx.thenBuild:
+                                    # Nested PropertyList — one level deep.
+                                    # Recursive descent into deeper
+                                    # embeddeds is deferred (would require
+                                    # a recursive ExpressionFragment).
+                                    type: tx.BuildAstNode
+                                    tx.astClass: docast.PropertyList
+                                    tx.set:
+                                      - tx.field: docast.propertyEntries
+                                        tx.bindValue:
+                                          type: tx.ForEach
+                                          tx.source:
+                                            type: tx.AllStatements
+                                            tx.statementsOf:
+                                              type: tx.StatementObject
+                                              tx.statementSource:
+                                                type: tx.VarRef
+                                                tx.varName: stmt
+                                          tx.loopVar: subStmt
+                                          tx.emit:
+                                            type: tx.BuildAstNode
+                                            tx.astClass: docast.PropertyEntry
+                                            tx.set:
+                                              - tx.field: docast.propertyKey
+                                                tx.bindValue:
+                                                  type: tx.UriName
+                                                  tx.uriNameOf:
+                                                    type: tx.StatementPredicate
+                                                    tx.predicateOf:
+                                                      type: tx.VarRef
+                                                      tx.varName: subStmt
+                                              - tx.field: docast.propertyValue
+                                                tx.bindValue:
+                                                  type: tx.Concat
+                                                  tx.parts:
+                                                    - type: tx.BuildAstNode
+                                                      tx.astClass: docast.Text
+                                                      tx.set:
+                                                        - tx.field: docast.text
+                                                          tx.bindValue:
+                                                            type: tx.StatementValue
+                                                            tx.valueOf:
+                                                              type: tx.VarRef
+                                                              tx.varName: subStmt
+                                  tx.elseBuild:
+                                    type: tx.When
+                                    tx.condition:
+                                      type: tx.IsList
+                                      tx.kindCheck:
+                                        type: tx.StatementObject
+                                        tx.statementSource:
+                                          type: tx.VarRef
+                                          tx.varName: stmt
+                                    tx.thenBuild:
+                                      # List value: emit one Paragraph per
+                                      # item with per-item kind dispatch.
+                                      # Reference items become ResourceLinks;
+                                      # everything else uses DisplayLabel as
+                                      # the displayed text. Each item gets
+                                      # its own block so it remains
+                                      # individually addressable.
+                                      type: tx.ForEach
+                                      tx.source:
+                                        type: tx.StatementObject
+                                        tx.statementSource:
+                                          type: tx.VarRef
+                                          tx.varName: stmt
+                                      tx.loopVar: item
+                                      tx.emit:
+                                        # Per-item dispatch: branch on item's
+                                        # runtime kind to produce the right
+                                        # block type. Embeddeds become a
+                                        # nested PropertyList with the
+                                        # embedded's name as the key (the
+                                        # dict-key origin from YAML) and a
+                                        # recursive PropertyList of its
+                                        # statements as the value. References
+                                        # become a Paragraph with a
+                                        # ResourceLink. Anything else falls
+                                        # back to a Paragraph with the
+                                        # item's UriName as Text.
+                                        type: tx.When
+                                        tx.condition:
+                                          type: tx.IsEmbedded
+                                          tx.kindCheck:
+                                            type: tx.VarRef
+                                            tx.varName: item
+                                        tx.thenBuild:
+                                          # Embedded item — emit a single-
+                                          # entry PropertyList directly
+                                          # (PropertyList is a Block; the
+                                          # outer propertyValue accepts
+                                          # mixed Block/Inline content).
+                                          type: tx.BuildAstNode
+                                          tx.astClass: docast.PropertyList
+                                          tx.set:
+                                            - tx.field: docast.propertyEntries
+                                              tx.bindValue:
+                                                # propertyEntries is a list
+                                                # field; wrap the single
+                                                # PropertyEntry in Concat so
+                                                # the engine assigns a
+                                                # one-element array, not the
+                                                # raw object.
+                                                type: tx.Concat
+                                                tx.parts:
+                                                  - type: tx.BuildAstNode
+                                                    tx.astClass: docast.PropertyEntry
+                                                    tx.set:
+                                                      - tx.field: docast.propertyKey
+                                                        tx.bindValue:
+                                                          type: tx.UriName
+                                                          tx.uriNameOf:
+                                                            type: tx.VarRef
+                                                            tx.varName: item
+                                                      - tx.field: docast.propertyValue
+                                                        tx.bindValue:
+                                                          type: tx.Concat
+                                                          tx.parts:
+                                                            - type: tx.BuildAstNode
+                                                              tx.astClass: docast.PropertyList
+                                                              tx.set:
+                                                                - tx.field: docast.propertyEntries
+                                                                  tx.bindValue:
+                                                                    type: tx.ForEach
+                                                                    tx.source:
+                                                                      type: tx.AllStatements
+                                                                      tx.statementsOf:
+                                                                        type: tx.VarRef
+                                                                        tx.varName: item
+                                                                    tx.loopVar: subStmt
+                                                                    tx.emit:
+                                                                      type: tx.BuildAstNode
+                                                                      tx.astClass: docast.PropertyEntry
+                                                                      tx.set:
+                                                                        - tx.field: docast.propertyKey
+                                                                          tx.bindValue:
+                                                                            type: tx.UriName
+                                                                            tx.uriNameOf:
+                                                                              type: tx.StatementPredicate
+                                                                              tx.predicateOf:
+                                                                                type: tx.VarRef
+                                                                                tx.varName: subStmt
+                                                                        - tx.field: docast.propertyValue
+                                                                          tx.bindValue:
+                                                                            type: tx.Concat
+                                                                            tx.parts:
+                                                                              - type: tx.BuildAstNode
+                                                                                tx.astClass: docast.Text
+                                                                                tx.set:
+                                                                                  - tx.field: docast.text
+                                                                                    tx.bindValue:
+                                                                                      type: tx.StatementValue
+                                                                                      tx.valueOf:
+                                                                                        type: tx.VarRef
+                                                                                        tx.varName: subStmt
+                                        tx.elseBuild:
+                                          # Non-embedded item — Paragraph
+                                          # wrapping a ResourceLink (for
+                                          # references) or a Text fallback
+                                          # (for literals/other).
+                                          type: tx.BuildAstNode
+                                          tx.astClass: docast.Paragraph
+                                          tx.set:
+                                            - tx.field: docast.inlines
+                                              tx.bindValue:
+                                                type: tx.Concat
+                                                tx.parts:
+                                                  - type: tx.When
+                                                    tx.condition:
+                                                      type: tx.IsReference
+                                                      tx.kindCheck:
+                                                        type: tx.VarRef
+                                                        tx.varName: item
+                                                    tx.thenBuild:
+                                                      type: tx.BuildAstNode
+                                                      tx.astClass: docast.ResourceLink
+                                                      tx.set:
+                                                        - tx.field: docast.target
+                                                          tx.bindValue:
+                                                            type: tx.VarRef
+                                                            tx.varName: item
+                                                    tx.elseBuild:
+                                                      type: tx.BuildAstNode
+                                                      tx.astClass: docast.Text
+                                                      tx.set:
+                                                        - tx.field: docast.text
+                                                          tx.bindValue:
+                                                            type: tx.UriName
+                                                            tx.uriNameOf:
+                                                              type: tx.VarRef
+                                                              tx.varName: item
+                                    tx.elseBuild:
+                                      # Default: stringified value as Text.
+                                      type: tx.BuildAstNode
+                                      tx.astClass: docast.Text
+                                      tx.set:
+                                        - tx.field: docast.text
+                                          tx.bindValue:
+                                            type: tx.StatementValue
+                                            tx.valueOf:
+                                              type: tx.VarRef
+                                              tx.varName: stmt
+
+# =============================================================================
+# UNIVERSAL DERIVATION BINDINGS ON rdfs.Resource
+#
+# Open-world augmentation: this package adds `derivations` statements
+# to `rdfs.Resource`, which is defined in `kanonak.org/core-rdf@1.0.0`.
+# The parser (post-#13-pre) merges these into the same canonical
+# subject as core-rdf's original declaration. Discovery walks the
+# class hierarchy bottom-up and finds these defaults at the root.
+#
+# Three bindings — all point at the same `any-resource-renderer`
+# transformation; the runner picks the right output format at run
+# time based on which binding the consumer asked for.
+# =============================================================================
+
+rdfs.Resource:
+  derivation.derivations:
+
+    - type: derivation.Derivation
+      derivation.format: formats.html
+      derivation.variant: derivation.default
+      derivation.transformation:
+        type: tx.TransformationReference
+        tx.publisher: kanonak.org
+        tx.package: universal-derivations
+        tx.version: 1.3.0
+        tx.name: any-resource-renderer
+
+    - type: derivation.Derivation
+      derivation.format: formats.markdown
+      derivation.variant: derivation.default
+      derivation.transformation:
+        type: tx.TransformationReference
+        tx.publisher: kanonak.org
+        tx.package: universal-derivations
+        tx.version: 1.3.0
+        tx.name: any-resource-renderer
+
+    - type: derivation.Derivation
+      derivation.format: formats.json
+      derivation.variant: derivation.default
+      derivation.transformation:
+        type: tx.TransformationReference
+        tx.publisher: kanonak.org
+        tx.package: universal-derivations
+        tx.version: 1.3.0
+        tx.name: any-resource-renderer
