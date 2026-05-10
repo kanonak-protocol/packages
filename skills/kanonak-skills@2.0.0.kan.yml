@@ -1,0 +1,244 @@
+kanonak-skills:
+  type: Package
+  publisher: kanonak.org
+  version: 2.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: agent-skills
+          match: ^
+          version: 1.0.0
+          alias: skills
+        - package: core-spdx
+          match: ^
+          version: 1.0.0
+          alias: spdx
+
+kanonak-protocol-skill:
+  type: skills.Skill
+  skills.name: kanonak-protocol
+  description: >-
+    Bootstrap an AI agent to work effectively with the Kanonak
+    Protocol. Teaches the agent how to install the kanonak CLI,
+    install the latest kanonak.org/kanonak-protocol package, and
+    read the protocol's own self-documenting packages — rather than
+    duplicating their content here. The protocol IS its own
+    curriculum: every Convention, rule, and worked example lives in
+    the installed packages; this skill teaches how to fetch and
+    read them so the agent's understanding stays current as the
+    protocol evolves. Use when working with .kan.yml files,
+    invoking the kanonak CLI, writing Kanonak ontologies,
+    reviewing existing Kanonak packages, or bootstrapping a new
+    Kanonak publisher.
+  license: spdx.Apache-2-0
+  compatibility: >-
+    Requires npm (for installing the CLI) and network access to
+    npmjs.com plus the publisher domains of any Kanonak packages
+    being read or installed.
+  allowedTools:
+    - skills.read
+    - skills.glob
+    - skills.bash
+  hasSection:
+
+    - title: Orientation
+      body: |
+        Kanonak Protocol is an open protocol for defining,
+        versioning, and sharing semantic ontologies across
+        distributed publishers. Every class, property, and instance
+        has a stable URI of the form `publisher/package@version/name`,
+        and packages are fetched over HTTP from each publisher's own
+        domain.
+
+        This skill is deliberately thin. The protocol's actual
+        authority lives in the kanonak.org/kanonak-protocol package
+        itself, which is published as a normal Kanonak document and
+        can be installed and read like any other package. Rather
+        than duplicate the protocol's conventions in this skill
+        (which would freeze a snapshot that drifts every time the
+        protocol bumps), the skill teaches the agent how to fetch
+        and read the live source of truth.
+
+        Canonical reference: https://kanonak.org.
+
+    - title: Step 1 — install or update the kanonak CLI
+      body: |
+        Install the CLI globally via npm:
+
+        ```
+        npm install -g @kanonak-protocol/cli
+        ```
+
+        Update to the latest version when needed:
+
+        ```
+        npm update -g @kanonak-protocol/cli
+        ```
+
+        Verify the install and discover the current command surface:
+
+        ```
+        kanonak --help
+        ```
+
+        The `--help` output is authoritative for CLI commands; do
+        not rely on prose memorized from this skill if it disagrees
+        with `--help`.
+
+    - title: Step 2 — install the foundational protocol package
+      body: |
+        Install the protocol package into the local cache:
+
+        ```
+        kanonak install kanonak.org/kanonak-protocol
+        ```
+
+        This downloads the latest version of kanonak-protocol (and
+        its transitive dependencies) into `~/.kanonak/packages/`.
+        Find the installed file:
+
+        ```
+        ls ~/.kanonak/packages/kanonak.org/kanonak-protocol@*.kan.yml
+        ```
+
+        Open it. The package's `hasConvention` block is the
+        curriculum — each Convention covers one foundational
+        concern with required, recommended, and forbidden rules
+        plus worked valid and invalid examples. The current 2.0.0
+        line organizes these into six logical groups (Identity,
+        Dependency Resolution, Document Foundation, Data Modeling,
+        Modeling Discipline, Derivations), with a final
+        `protocol-evolution` Convention capturing design
+        rationale.
+
+    - title: Step 3 — install vocabulary-specific conventions as needed
+      body: |
+        Beyond the foundational protocol, individual vocabularies
+        ship sibling `*-conventions` packages that document their
+        idioms (when to use one primitive over another, how
+        composition works, etc.). Install them as needed:
+
+        ```
+        kanonak install kanonak.org/transformations-conventions
+        kanonak install kanonak.org/site-conventions
+        ```
+
+        These packages follow the same shape as kanonak-protocol —
+        a Protocol resource with a `hasConvention` block. Read the
+        installed file to learn the vocabulary's idioms.
+
+        New vocabularies you encounter may follow the same pattern.
+        If a publisher ships `kanonak.org/foo@x.y.z`, look for a
+        sibling `kanonak.org/foo-conventions` package and install
+        it for authoring guidance.
+
+    - title: The validation feedback loop
+      body: |
+        Authoring is iterative — write a .kan.yml file, validate,
+        read the error, fix, repeat:
+
+        ```
+        kanonak validate path/to/your-file.kan.yml
+        ```
+
+        Validator errors reference specific Convention rules from
+        the installed protocol package. When an error cites a rule
+        name, find the rule in the installed kanonak-protocol file
+        and read its `text` and `rationale` directly. This is the
+        primary discovery loop: the validator points at rules, the
+        rules live in installed packages, the agent reads the
+        rules where they live.
+
+        For workspace-wide validation (every .kan.yml under the
+        current directory):
+
+        ```
+        kanonak validate .
+        ```
+
+    - title: Inspecting any Kanonak resource
+      body: |
+        To understand any package referenced by URI, install it and
+        open the file:
+
+        ```
+        kanonak install <publisher>/<package>
+        cat ~/.kanonak/packages/<publisher>/<package>@*.kan.yml
+        ```
+
+        To see what a document depends on:
+
+        ```
+        kanonak deps path/to/file.kan.yml
+        ```
+
+        Every Kanonak package is a self-describing document. The
+        types of resources inside (classes, properties, instances,
+        Conventions, Rules, Examples) are themselves declared in
+        upstream packages; following the imports chain leads back
+        to the foundational core-rdf, core-owl, core-xsd vocabularies.
+
+    - title: Capabilities — extending the CLI
+      body: |
+        The kanonak CLI supports dynamically-loaded capability
+        subcommands distributed as Kanonak packages. To install a
+        capability:
+
+        ```
+        kanonak capability add <publisher>/<package>
+        ```
+
+        After install, the capability's verbs become first-class
+        `kanonak <verb> ...` commands. To learn what's available
+        on the current machine:
+
+        ```
+        kanonak capability list
+        kanonak --help
+        ```
+
+        The capabilities ontology lives at
+        `kanonak.org/capabilities@1.0.0`; install and read it for
+        the full vocabulary (Capability, CapabilityCommand,
+        DeploymentTarget, Action, etc.).
+
+    - title: Publishing your own packages
+      body: |
+        The publishing workflow is itself documented in the
+        foundational protocol package and the capabilities
+        ontology. To learn it:
+
+        ```
+        kanonak install kanonak.org/kanonak-protocol
+        kanonak install kanonak.org/capabilities
+        ```
+
+        Then read the installed files for the file-naming,
+        versioning, and import-resolution Conventions plus the
+        PackageManager / DeploymentTarget vocabulary. The
+        kanonak.org publisher itself is hosted via a static
+        workflow (GitHub Pages mirror); the source is at
+        `https://github.com/kanonak-protocol/kanonak.org` and is
+        a working template for new publishers.
+
+    - title: Why this skill is short
+      body: |
+        Earlier versions of this skill tried to teach the protocol
+        by reproducing its conventions, naming rules, common error
+        explanations, and CLI command tables inline. That approach
+        froze a snapshot that drifted every time the protocol
+        evolved, and it duplicated knowledge the protocol's own
+        packages already carry — content that the validator,
+        reasoner, browser, and any other Kanonak tool already
+        has access to via the SDK.
+
+        2.0.0 takes the position that the protocol is its own
+        teacher. The skill teaches the agent how to install the
+        protocol package and read its self-documenting Conventions
+        directly. When the protocol evolves, the agent discovers
+        the change by re-reading the installed package, not by
+        waiting for this skill to be re-authored.
+
+        This is the same discipline the protocol's own
+        documentation-in-the-graph Convention recommends: prefer
+        the live source over a duplicated snapshot.
