@@ -1,0 +1,191 @@
+kanonak-sdk-skills:
+  type: Package
+  publisher: kanonak.org
+  version: 2.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: agent-skills
+          match: ^
+          version: 1.1.0
+          alias: skills
+        - package: core-spdx
+          match: ^
+          version: 1.0.0
+          alias: spdx
+
+kanonak-sdk:
+  type: skills.Skill
+  skills.name: kanonak-sdk
+  description: >-
+    Bootstrap an AI agent to use the @kanonak-protocol/sdk
+    TypeScript package. Teaches how to install the SDK, pick the
+    right entry point (Node vs browser), and run the minimal
+    parse-repo-graph pipeline. Points at the SDK's published
+    TypeScript type declarations, its open-source repository, and
+    the foundational kanonak.org/kanonak-protocol package for any
+    deeper semantic question — rather than duplicating that
+    content here. Use when building tools that read, traverse, or
+    visualize Kanonak documents.
+  license: spdx.Apache-2-0
+  compatibility: >-
+    Requires npm (Node 18+) for the Node entry point or modern
+    evergreen browsers for the browser entry point. Network access
+    to npmjs.com (for SDK install) and to publisher domains (for
+    HTTP-backed repositories at runtime).
+  allowedTools:
+    - skills.read
+    - skills.glob
+    - skills.bash
+  hasSection:
+
+    - title: Orientation
+      body: |
+        @kanonak-protocol/sdk is the canonical TypeScript consumer
+        of the Kanonak Protocol. It parses .kan.yml documents,
+        resolves imports across pluggable repository
+        implementations, exposes a typed object model
+        (SubjectKanonak / EmbeddedKanonak / ReferenceKanonak /
+        IStatement family) for traversal, and ships a GraphBuilder
+        that produces visualization-ready node/edge data.
+
+        This skill is deliberately thin. The SDK's own type
+        declarations (.d.ts files shipped in the npm package) are
+        the source of truth for the API surface; the SDK's
+        repository on GitHub is the source of truth for design
+        rationale, worked examples, and test fixtures; the
+        foundational kanonak.org/kanonak-protocol package is the
+        source of truth for the concepts (URIs, statements,
+        embedding, references, open-world merging, derivations)
+        the SDK exposes as TypeScript types. Rather than duplicate
+        any of these here, this skill teaches the agent how to
+        find them.
+
+    - title: Step 1 — install the SDK
+      body: |
+        ```
+        npm install @kanonak-protocol/sdk
+        ```
+
+        The published bundle is minified — do not attempt to read
+        the compiled JavaScript. Read the .d.ts files for types
+        and the GitHub source for implementations and rationale.
+
+    - title: Step 2 — pick the right entry point
+      body: |
+        The package exposes two entry points; choose by
+        environment:
+
+        ```ts
+        // Node / server-side / CLI tools
+        import { ... } from '@kanonak-protocol/sdk';
+
+        // Browser / web app
+        import { ... } from '@kanonak-protocol/sdk/browser';
+        ```
+
+        The browser entry point excludes filesystem-dependent
+        repositories. To discover what each entry point exports,
+        list the installed package layout and read whatever
+        index.d.ts (or equivalent) is shipped:
+
+        ```
+        ls node_modules/@kanonak-protocol/sdk
+        find node_modules/@kanonak-protocol/sdk -name "*.d.ts"
+        ```
+
+        The .d.ts files are authoritative for export names and
+        their type signatures.
+
+    - title: Minimum working example
+      body: |
+        The minimal pipeline that parses a document, registers it
+        in a repository, and builds a visualization-ready graph:
+
+        ```ts
+        import {
+          KanonakParser,
+          GraphBuilder,
+          InMemoryKanonakDocumentRepository,
+        } from '@kanonak-protocol/sdk';
+
+        const parser = new KanonakParser();
+        const repo = new InMemoryKanonakDocumentRepository(parser);
+        const doc = parser.parse(yamlText);
+        const ns = doc.metadata.namespace_!;
+        const v = ns.version;
+        await repo.saveDocumentAsync(
+          doc,
+          `${ns.publisher}/${ns.package_}@${v.major}.${v.minor}.${v.patch}`,
+        );
+
+        const graph = await GraphBuilder.buildFromRepository(repo);
+        // graph.nodes / graph.edges feed cytoscape, vis-network,
+        // d3-force, etc.
+        ```
+
+        Every refinement (HTTP fallback for imports, cached
+        fetches, composite repositories, library-specific wiring,
+        error handling) is a layer on top of these primitives.
+        The patterns are documented in the SDK's repository and in
+        its tests — read them directly there rather than learning
+        them from a frozen snapshot in this skill.
+
+    - title: Where to learn more
+      body: |
+        For specific questions, go to the source of truth:
+
+        - **Type signatures, exported names, parameter and return
+          types.** Read the .d.ts files shipped with the npm
+          package. The Node entry point's types live under
+          @kanonak-protocol/sdk; the browser entry point's types
+          live under @kanonak-protocol/sdk/browser. These files
+          are authoritative for the API surface.
+
+        - **Design rationale, worked examples, repository
+          composition patterns, error catalogues, framework
+          integration recipes.** Read the SDK's repository at
+          https://github.com/kanonak-protocol/typescript (the
+          `sdk/` subdirectory). The `sdk/test/` directory is
+          especially valuable — every documented behavior has a
+          test that exercises it end-to-end against real
+          fixtures.
+
+        - **The protocol concepts the SDK exposes** (URI
+          structure, the statement / embedding / reference object
+          model, open-world augmentation, derivation discovery).
+          Install and read the foundational protocol package:
+
+          ```
+          kanonak install kanonak.org/kanonak-protocol
+          cat ~/.kanonak/packages/kanonak.org/kanonak-protocol@*.kan.yml
+          ```
+
+          The SDK's TypeScript types are typed mirrors of these
+          protocol concepts. Reading the protocol Conventions
+          first makes the SDK's shape obvious — you'll recognize
+          KanonakUri as the URI structure rule made executable,
+          ReferenceStatement / StringStatement / ListStatement /
+          EmbeddedStatement as the statement-by-kind taxonomy,
+          and so on.
+
+    - title: Why this skill is short
+      body: |
+        Earlier versions of this skill reproduced the SDK's API
+        documentation, framework integration recipes, error
+        catalogues, and visualization library wirings inline.
+        That approach froze a snapshot that drifted as the SDK
+        evolved and competed with the published .d.ts files and
+        the source repository as authority on the API.
+
+        2.0.0 takes the position that the SDK's published types,
+        its open-source repository, and the foundational protocol
+        package are the live sources of truth. The skill teaches
+        the agent how to find them; the agent reads them where
+        they live; updates to the SDK propagate naturally
+        without requiring a skill rewrite.
+
+        This is the same discipline the kanonak.org/kanonak-protocol
+        package's documentation-in-the-graph Convention
+        recommends: prefer the live source over a duplicated
+        snapshot.
