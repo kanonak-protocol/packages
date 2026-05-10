@@ -1,0 +1,86 @@
+
+site-conventions:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: protocols
+          match: ^
+          version: 1.0.0
+          alias: pro
+
+site-conventions-spec:
+  type: Protocol
+  label: Site Vocabulary Conventions
+  comment: >-
+    Authoring conventions for the kanonak.org/site vocabulary.
+    Complements the foundational rules in
+    kanonak.org/kanonak-protocol@2.0.0 by capturing site-specific
+    guidance for declarative publisher curation: when to author
+    StaticPage vs. Asset vs. AggregateView, and how the curation
+    layer composes with universal default derivations and
+    publisher-specific class-level derivations.
+  hasConvention:
+
+    site-curation:
+      summary: >-
+        Publisher-curated content (StaticPage, Asset, AggregateView)
+        is authored as Kanonak resources and materialized via
+        kanonak site build. StaticPage holds about-page-style
+        content; Asset holds shared CSS / JS / nav HTML referenced
+        by layout transformations; AggregateView wraps a
+        SetTransformation + scope so cross-resource pages
+        (timelines, indexes, changes) are declarative instead of
+        CI-script logic.
+      hasRecommendedRule:
+        static-page-for-non-derived-content-rule:
+          text: >-
+            Pages that are NOT derived from another resource (about
+            pages, privacy notices, documentation landings,
+            glossaries) SHOULD be authored as site.StaticPage
+            instances rather than embedded in CI heredocs or
+            hand-written HTML files. The page's content lives in
+            the Kanonak graph; the publisher's HTML layout
+            transformation renders it.
+          rationale: >-
+            The about-page-as-heredoc pattern was the canonical
+            symptom of "this content has nowhere to live in the
+            ontology." StaticPage gives it a home; universal
+            defaults render it for free; publisher overrides give
+            it the site-styled chrome. The content stops being
+            divorced from the rest of the publisher's data graph.
+        shared-assets-via-asset-class-rule:
+          text: >-
+            CSS / JS / shared HTML fragments used by multiple
+            layout transformations SHOULD be authored as
+            site.Asset instances (mediaType + content) and pulled
+            into transformations via tx.PropertyRead against
+            site.content (typically wrapped in tx.ResolveRef +
+            tx.UriLiteral). Replaces copy-paste of style/script
+            blocks across N transformations.
+          rationale: >-
+            Per-transformation duplication of style/script blocks
+            was the worst class of drift in the worldview pain
+            points (theme variables had to be edited in 5 places
+            for one CSS variable change). Centralizing assets as
+            Kanonak resources lets one author edit propagate
+            everywhere without coordination.
+        aggregate-view-for-cross-resource-pages-rule:
+          text: >-
+            Pages that aggregate over multiple resources of the
+            same class (timelines, indexes, changes pages,
+            registries) SHOULD be authored as site.AggregateView
+            instances — scopeClass + scopeSources + transformation
+            + outputPath. kanonak site build materializes them;
+            consumers stop authoring per-aggregate workflow
+            steps.
+          rationale: >-
+            The "scope enumeration in CI shell" anti-pattern was
+            the second-worst pain point in worldview's workflow.
+            Each aggregate page required an explicit bash loop to
+            list packages and pass them as --scope arguments.
+            AggregateView captures the same intent declaratively;
+            the pkg@* wildcard handles the time-axis case (every
+            version of a snapshot package).
