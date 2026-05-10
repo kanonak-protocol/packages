@@ -1,0 +1,2386 @@
+# =============================================================================
+# transformations @ 3.10.0
+#
+# Additive minor bump. Adds tx.GetStatementByName — a dynamic
+# statement-lookup primitive that resolves a (subject, predicate-
+# name) pair at runtime. Existing tx.PropertyRead requires a STATIC
+# predicate URI (compiled at load time), so it can't be used when
+# the predicate to look up comes from an iteration variable.
+#
+# Critical for shape-aware tabular rendering: the universal renderer's
+# table emission needs to compute the union of predicate names across
+# heterogeneous list items (the column headers), then for each
+# (row, column) pair look up that row's statement matching the
+# column's predicate name. The lookup predicate is loop-bound, so
+# PropertyRead can't express it.
+#
+# One new class:
+#   - GetStatementByName — given inSubject (a SubjectKanonak or
+#     EmbeddedKanonak) and byName (a string predicate local name),
+#     returns the first statement whose predicate's local name
+#     matches, or undefined when no match. Brittle by design —
+#     matches by local name only, so two predicates from different
+#     packages with the same local name collide. The renderer's use
+#     case (looking up a statement WITHIN one item by a column name
+#     discovered FROM that same item's siblings) is unaffected.
+#
+# Two new properties:
+#   - inSubject (ObjectProperty, Expression)
+#   - byName (ObjectProperty, Expression)
+#
+# Authors targeting 3.0.0 – 3.9.0 don't need to migrate.
+#
+# =============================================================================
+# transformations @ 3.9.0 (history, unchanged in 3.10.0)
+#
+# Additive minor bump. Adds tx.Let — a local-binding primitive that
+# binds a name to a value in scope and evaluates a body in that
+# scope. Critical for recursive-fragment rendering patterns where a
+# fragment that calls itself on nested values needs each call site
+# to bind the value being rendered to a known name in scope before
+# invoking the fragment.
+#
+# Prior workaround: wrap a single value in a one-item list and
+# ForEach over it just to use loopVar as a binding mechanism. Works
+# but couples binding to iteration. tx.Let separates the concepts.
+#
+# One new class:
+#   - Let — binds `letName` to the result of evaluating `letValue`,
+#     then evaluates `letBody` in the extended scope. Returns the
+#     body's result. The binding shadows any outer variable of the
+#     same name for the body's duration.
+#
+# Three new properties:
+#   - letName (DatatypeProperty, xsd.string): the variable name to
+#     bind. Required.
+#   - letValue (ObjectProperty, Expression): the expression whose
+#     evaluated result becomes the variable's value. Required.
+#   - letBody (ObjectProperty, Expression): the expression evaluated
+#     in the new scope. Returned as Let's result. Required.
+#
+# Authors targeting 3.0.0 – 3.8.0 don't need to migrate.
+#
+# =============================================================================
+# transformations @ 3.8.0 (history, unchanged in 3.9.0)
+#
+# Additive minor bump. Adds value-kind discrimination — the
+# missing piece that lets a transformation branch on whether a
+# value is a reference, an embedded resource, or a list, rather
+# than coercing every value to a string for display. Closes the
+# gap the universal-derivations renderer hit when refactoring to
+# emit clickable resource links and recurse into embedded
+# resources: `tx.StatementValue` strings everything (refs become
+# local names, embeddeds become "[embedded]"), losing the structural
+# information any rich renderer needs.
+#
+# Four new classes:
+#
+# Value-kind predicates (kindCheck takes any Expression):
+#   - IsReference — true iff value is a ReferenceKanonak.
+#   - IsEmbedded — true iff value is an EmbeddedKanonak.
+#   - IsList — true iff value is a list.
+#
+# Raw value extraction:
+#   - StatementObject — returns the raw value of a statement
+#     (ReferenceKanonak / EmbeddedKanonak / list / scalar) without
+#     the string coercion that StatementValue applies. Lets
+#     renderers compose `When IsReference → ResourceLink`,
+#     `When IsEmbedded → recurse`, etc.
+#
+# Driven by the universal-derivations rewrite for clickable refs +
+# nested embeddeds in the Kanonak Browser. Generalizes to any
+# rendering or analysis transformation that needs to reason
+# structurally about statement values rather than just stringing
+# them.
+#
+# Authors targeting 3.0.0 – 3.7.0 don't need to migrate — every
+# earlier transformation continues to validate and run unchanged.
+# `tx.StatementValue` keeps its string-coercion behavior; new code
+# uses `tx.StatementObject` when raw values are needed.
+#
+# =============================================================================
+# transformations @ 3.7.0 (history, unchanged in 3.8.0)
+#
+# Adds equality, comparison, boolean
+# composition, list membership, and small numeric utilities —
+# the foundational primitives for any comparison-based rendering
+# (diff views, conditional CSS classes, threshold checks, set-
+# difference filtering). Closes the structural gap that
+# `transformations@3.6.0`'s windowed iteration surfaced: with
+# `tx.PairwiseMap` shipped, authors could iterate consecutive
+# pairs but couldn't COMPARE them inside the body, because the
+# only boolean-producing primitives were `tx.IsSet` and
+# `tx.BooleanLiteral`.
+#
+# Eleven new classes:
+#
+# Equality + comparison (BinaryComparison family):
+#   - Equals — value/URI equality, cross-kind returns false.
+#   - GreaterThan / LessThan / GreaterThanOrEqual / LessThanOrEqual
+#     — numeric ordering, cross-kind returns false.
+#
+# Boolean composition:
+#   - Not — strict boolean negation.
+#   - And / Or — short-circuiting list of operands. Empty And is
+#     vacuously true; empty Or is vacuously false (mathematical
+#     convention).
+#
+# List membership:
+#   - Contains — needle-in-haystack; uses Equals semantics on each
+#     haystack element. Convenience over the Equals + Filter +
+#     Count composition that authors otherwise reach for in any
+#     diff/lookup workflow.
+#
+# Numeric utilities:
+#   - Abs / Negate — unary numeric ops. Abs unblocks the magnitude-
+#     vs-threshold pattern (e.g. `abs(delta) >= 0.005`) without
+#     forcing the `Multiply(x, x) >= threshold * threshold` workaround.
+#
+# Driven by kanonak-protocol/typescript#15 — worldview's `/changes/`
+# migration was blocked at exactly the comparison step (theses
+# in `curr` not in `prev`, status transitions, delta-direction CSS
+# classes, magnitude thresholds). Generalizes to every comparison
+# / diff / threshold / lookup workflow across the ecosystem.
+#
+# Authors targeting 3.0.0 – 3.6.0 don't need to migrate — every
+# earlier transformation continues to validate and run unchanged.
+#
+# =============================================================================
+# transformations @ 3.6.0 (history, unchanged in 3.7.0)
+#
+# Additive minor bump. Adds context-aware iterator primitives — the
+# load-bearing one is `WindowedMap` / `PairwiseMap` which gives
+# transformation bodies access to neighboring elements of a sorted
+# sequence (closes a structural gap that previously forced inline-JS
+# workarounds for any "render a result for each consecutive pair /
+# window of items" pattern: changelogs, audit-trail diffs, time-
+# series deltas, schedule gap rendering).
+#
+# - WindowedMap (new): given a sorted source and `windowSize: k`,
+#   binds a list of k consecutive elements at each step. Sliding
+#   window of stride 1. Body indexes into the window via
+#   `tx.ListItemAt`. For a source of length n, emits n - k + 1
+#   results in source order. If n < k, no emissions (empty result,
+#   not an error — matches `tx.ForEach` over an empty source).
+#
+# - PairwiseMap (new): ergonomic shortcut for the common
+#   `windowSize: 2` case with named first / second binders. Equivalent
+#   to a `WindowedMap windowSize: 2` but cleaner authoring — no
+#   index gymnastics for the dominant pairwise-diff shape. For a
+#   source of length n, emits n - 1 results.
+#
+# - Scan (new): different shape from windowing — propagates a
+#   running accumulator across iterations. Required for cumulative
+#   aggregations (running sum, cumulative confidence shift, running
+#   max, etc.) that windowed maps can't express. The body sees the
+#   accumulator + the current element; the body's result is both
+#   emitted and threaded as the next iteration's accumulator.
+#
+# - ListItemAt (new): list indexing primitive. Returns the element
+#   at the (0-based) index, or undefined if out of bounds. Required
+#   to make `WindowedMap` actually usable — the body indexes into
+#   the windowVar list to access window[0], window[1], etc.
+#
+# Driven by kanonak-protocol/typescript#14 — worldview's `/changes/`
+# page. Generalizes to every analytical Kanonak publisher with time-
+# series or ordered-sequence content.
+#
+# Deferred to follow-ups (acknowledged in #14):
+#   - tx.windowMode: tumbling / anchored — only sliding-by-1 in 3.6.0
+#   - tx.WithIndex (bind index alongside element)
+#   - tx.Zip (combine two parallel sequences element-wise)
+#
+# Authors targeting 3.0.0 – 3.5.0 don't need to migrate — every
+# earlier transformation continues to validate and run unchanged.
+#
+# =============================================================================
+# transformations @ 3.5.0 (history, unchanged in 3.6.0)
+#
+# Additive minor bump. Two pieces:
+#
+# 1. FormatOverride.omitWrapper (new). Lets a transformation tell a
+#    backend to suppress its default chrome — e.g. the HTML backend's
+#    `<!DOCTYPE html>...<style>...</style>...</html>` shell and the
+#    `<dl class="metadata">` block. Used by transformations that
+#    build the complete output document themselves and don't want the
+#    CLI's opinionated default wrapper interfering. Backends that
+#    have no chrome (JSON, plain Markdown) ignore the flag.
+#
+# 2. Expression primitives for content shaping (new):
+#    - DateFormat — reformat ISO datetime strings into human-readable
+#      forms without inline JS in the output.
+#    - Add / Subtract / Multiply / Divide — arithmetic over numeric
+#      values, removes the need for inline JS to compute SVG arc
+#      coordinates, sized text positions, evidence counts, etc.
+#    - Reverse — reverse a list (was a documented gap in
+#      worldview-style timeline rendering).
+#
+# Authors targeting 3.0.0 – 3.4.0 don't need to migrate — every
+# earlier transformation continues to validate and run unchanged.
+#
+# =============================================================================
+# transformations @ 3.4.0 (history, unchanged in 3.5.0)
+#
+# Additive minor bump. Adds three Expression subclasses for
+# polymorphic resource iteration — the primitives that let a
+# transformation walk ANY Kanonak resource without hard-coding
+# its specific properties. These are the foundation of the
+# universal default derivations on rdfs.Resource (see
+# `kanonak.org/universal-derivations@1.0.0`).
+#
+# - AllStatements (new): given a Subject, yields the list of every
+#   statement on that subject. Used to iterate properties without
+#   knowing them in advance.
+# - StatementPredicate (new): given a Statement (typically the
+#   loop variable inside a ForEach over AllStatements), yields the
+#   predicate as a ReferenceKanonak — usable by UriName,
+#   DisplayLabel, etc., to render the property's name.
+# - StatementValue (new): given a Statement, yields a string
+#   representation of the object regardless of statement subtype.
+#   Engine dispatches on subtype: literal-typed values render as
+#   their lexical form; references render as their local name;
+#   embedded resources render as a brief placeholder; lists
+#   comma-join their members. Sufficient for first-pass
+#   universal rendering; consumers that need richer dispatch
+#   (e.g. follow-references-as-links) compose this with the
+#   existing reference-handling primitives.
+#
+# Why this matters: prior to 3.4.0, every transformation had to
+# know its input class's properties up front (PropertyRead reads
+# ONE named property). Universal "render any resource"
+# transformations need to enumerate without specifying — these
+# three primitives fill exactly that gap.
+#
+# Authors targeting 3.0.0–3.3.0 don't need to migrate — every
+# earlier transformation continues to validate and run unchanged.
+#
+# =============================================================================
+# transformations @ 3.3.0 (history, unchanged in 3.4.0)
+#
+# Additive minor bump. Adds one new class — TransformationReference —
+# used by other vocabulary packages to point at a transformation
+# without inlining or duplicating its declaration.
+#
+# - TransformationReference (new): a lightweight 4-tuple
+#   (publisher + package + version + name) that references a
+#   published Transformation by its canonical URI. Imported by
+#   `kanonak.org/derivations@1.0.0` to bind a class to the
+#   transformation that produces its derived artifact for a given
+#   format and variant.
+#
+# Why this lives here, not in `derivations`: it is a transformation
+# concept (it points at a Transformation). Putting it in this package
+# keeps the derivation vocabulary thin and lets future
+# transformation-pointing vocabularies (e.g. site/aggregate views,
+# pipelines) reuse the same shape without depending on derivations.
+#
+# Authors targeting 3.0.0 / 3.1.0 / 3.2.0 don't need to migrate —
+# every earlier transformation continues to validate and run unchanged.
+# Implementations that consume `derivations`-style declarations
+# should import this version to read TransformationReference triples.
+#
+# =============================================================================
+# transformations @ 3.2.0 (history, unchanged in 3.3.0)
+#
+# Additive minor bump. Adds three Expression subclasses for URI
+# decomposition; no breaking changes.
+#
+# - UriPublisher (new): yields the publisher segment of a URI.
+# - UriPackage (new): yields the package segment.
+# - UriVersion (new): yields the version segment as `M.m.p`.
+#
+# Companions to UriName (returns the local-name segment) and
+# SubjectUri (returns the full URI). Together the four cover every
+# segment of the canonical Kanonak URI shape, so authors can
+# decompose subject references inline without round-tripping
+# through string parsing or duplicating identity into ad-hoc
+# instance properties (kanonak-protocol/typescript#11).
+#
+# Each accepts a SubjectKanonak, ReferenceKanonak, or EntityUri
+# source, mirroring the post-#8 UriName surface. UriVersion
+# returns the empty string when the source is a versionless
+# reference (EntityUri or unversioned KanonakUri).
+#
+# =============================================================================
+# transformations @ 3.1.0 (history, unchanged in 3.2.0)
+#
+# Additive minor bump. Adds one new Expression subclass and clarifies
+# the runtime semantics of two existing ones; no breaking changes.
+#
+# - SubjectUri (new): yields the full canonical URI of a subject as
+#   a string (`publisher/package@version/name`). Closes the gap that
+#   left aggregate transformations unable to derive per-input deep
+#   links / source-package paths from the rule tree
+#   (kanonak-protocol/typescript#8).
+#
+# - UriName (clarified): now extracts the local name segment from
+#   any Expression result that carries one — references, embedded
+#   subjects, and matched subjects bound via VarRef. Previously
+#   only references were handled, which meant SetTransformation
+#   loop variables produced empty strings (issue #8).
+#
+# - IsSet + PropertyRead (clarified): PropertyRead of an
+#   ObjectProperty whose value is an embedded subject now returns
+#   that embedded subject (matching the v2 semantics that authors
+#   relied on). IsSet over such a PropertyRead therefore reports
+#   true when the embedded value is present, which restores the
+#   "render this block iff the optional sub-tree is populated"
+#   pattern (kanonak-protocol/typescript#7).
+#
+# Authors targeting 3.0.0 don't need to migrate — every 3.0.0
+# transformation continues to validate and run unchanged. New
+# authoring should target 3.1.0 to use SubjectUri and to depend on
+# the clarified semantics.
+#
+# =============================================================================
+# transformations @ 3.0.0 (history, unchanged in 3.1.0)
+#
+# Major break from 2.0.0. Three significant remodels:
+#
+# 1. INPUT CARDINALITY. The 2.0.0 model assumed 1 input → 1 artifact. 3.0.0
+#    splits Transformation into two concrete subclasses:
+#      - InstanceTransformation: 1 input → 1 artifact (the 2.0.0 behavior)
+#      - SetTransformation: N inputs → 1 artifact, OR (with partitionBy)
+#                           N inputs → M artifacts (one per partition).
+#    Set-theoretically: SetTransformation operates on a set; partitionBy
+#    splits it into disjoint subsets and emits one artifact per subset.
+#
+# 2. EXPRESSION CLASS HIERARCHY. 2.0.0 collapsed every expression node into
+#    a single tagged-union `Expression` class with a `kind` discriminator,
+#    because the embedded-type validator forbade explicit type: on
+#    embeddeds. The kanonak-protocol@1.1.0 protocol relaxed that rule, so
+#    3.0.0 reverts Expression to a proper OWL class hierarchy:
+#      Expression
+#        ├─ leaf nodes (literals, var-refs, …)
+#        ├─ structural nodes (BuildAstNode, When, Concat, …)
+#        └─ ListSourcedExpression  (abstract; declares `source`)
+#             ├─ Join
+#             ├─ ListAggregate     (abstract; Count/Sum/Min/Max)
+#             └─ IteratingExpression (abstract; adds `loopVar`)
+#                  ├─ ForEach, ListMap, Filter, PartitionBy, DistinctBy
+#    Authors now narrow types explicitly (e.g. `type: tx.ForEach`) inside
+#    embedded rule trees — the relaxed validator accepts this and produces
+#    real domain/range constraints per subclass instead of the soft shape
+#    contract carried by `kind`.
+#
+# 3. SET-THEORETIC PRIMITIVES. Adds a small set of aggregation and shaping
+#    expressions grounded in canonical set operations:
+#      - cardinality      → Count
+#      - reduce           → Sum, Min, Max
+#      - subset selection → Filter
+#      - partition        → PartitionBy
+#      - distinct         → DistinctBy
+#    These are the primitives needed for index pages and per-key fan-out.
+#    Arithmetic (add/subtract/multiply/divide), set algebra
+#    (union/intersection/difference), and joins are deferred — when the
+#    use cases driving them concretize, they get their own minor bump.
+#
+# Other notable changes from 2.0.0:
+#   * `requires:` on InputPattern is now `range: rdfs.Property` (was string).
+#     Property references are validatable; magic strings are not.
+#   * SortKey added as the input-pattern-level ordering primitive.
+#   * DecimalLiteral added so authors can express non-integer numeric
+#     literals without rounding-trick workarounds.
+#   * The ExpressionKind class and its named instances are removed —
+#     they were the discriminator vocabulary for the tagged-union shape.
+#   * ExpressionFragment + CallFragment retained (reusable fragments are
+#     still useful), but ExpressionFragment is no longer subClassOf
+#     Expression — it's a holder for an Expression body, addressed by URI.
+#
+# 2.0.0 remains immutable on disk; old code keeps working against it. The
+# next SDK major imports 3.0.0 only and does not attempt to read 2.0.0
+# transformations. No backwards-compatibility shim.
+# =============================================================================
+
+transformations:
+  type: Package
+  publisher: kanonak.org
+  version: 3.10.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: document-ast
+          match: ^
+          version: 1.0.0
+          alias: docast
+
+# =============================================================================
+# TRANSFORMATION HIERARCHY
+# =============================================================================
+
+Transformation:
+  type: rdfs.Class
+  label: Transformation
+  comment: >-
+    Abstract description of how to derive output Artifacts from input
+    instances. Not directly instantiable — authors instantiate one of
+    the two concrete subclasses (InstanceTransformation or
+    SetTransformation), which differ in the cardinality of the input
+    binding their `rule` and `artifactName` see.
+
+InstanceTransformation:
+  type: rdfs.Class
+  subClassOf: Transformation
+  label: Instance Transformation
+  comment: >-
+    Per-instance transformation. The runner finds every input matching
+    the InputPattern, then evaluates `rule` and `artifactName` once per
+    match with `input` (singular) bound to the current instance.
+    Cardinality is N matches → N artifacts (per declared output format).
+    This is the canonical XSLT-style match-and-build shape.
+
+SetTransformation:
+  type: rdfs.Class
+  subClassOf: Transformation
+  label: Set Transformation
+  comment: >-
+    Aggregate transformation operating on the matched SET of inputs.
+    Without `partitionBy`, the runner evaluates `rule` and `artifactName`
+    once with `inputs` (plural) bound to the entire matched set,
+    producing 1 artifact (per output format). With `partitionBy`, the
+    runner splits the matched set into disjoint subsets keyed by the
+    partition property, evaluates `rule` and `artifactName` once per
+    subset with `inputs` bound to that subset's members and `key` bound
+    to the partition value, producing M artifacts (one per distinct
+    partition key).
+
+    Empty match set is not an error — the rule still evaluates with
+    `inputs` bound to an empty list, and one Artifact is emitted. This
+    differs from InstanceTransformation, where zero matches means zero
+    artifacts.
+
+# -----------------------------------------------------------------------------
+# Properties shared across the Transformation hierarchy
+# -----------------------------------------------------------------------------
+
+inputPattern:
+  type: owl.ObjectProperty
+  domain: Transformation
+  range: InputPattern
+  label: Input Pattern
+  comment: Selector that picks which input subjects this Transformation operates on.
+
+artifactName:
+  type: owl.ObjectProperty
+  domain: Transformation
+  range: Expression
+  label: Artifact Name
+  comment: >-
+    Expression that yields the Artifact's filename stem (no directory,
+    no extension). Evaluated in the same environment as `rule` —
+    `input` for InstanceTransformation, `inputs` (and `key` when
+    partitioned) for SetTransformation.
+
+rule:
+  type: owl.ObjectProperty
+  domain: Transformation
+  range: Expression
+  label: Rule
+  comment: >-
+    Expression that yields a docast.Document. The runner hands the
+    Document to the format-specific backend, which serializes it to
+    bytes for the target output format.
+
+outputs:
+  type: owl.ObjectProperty
+  domain: Transformation
+  range: OutputFormat
+  label: Outputs
+  comment: >-
+    The set of OutputFormats this transformation can render. The runner
+    rejects requests to render in a format outside this set.
+
+formatOverrides:
+  type: owl.ObjectProperty
+  domain: Transformation
+  range: FormatOverride
+  label: Format Overrides
+  comment: >-
+    Per-format adjustments (metadata key filtering, key renames,
+    trailing-newline policy) applied by the backend during serialization.
+
+# -----------------------------------------------------------------------------
+# SetTransformation-only properties
+# -----------------------------------------------------------------------------
+
+partitionBy:
+  type: owl.ObjectProperty
+  domain: SetTransformation
+  range: rdfs.Property
+  label: Partition By
+  comment: >-
+    Optional. Reference to a Property used to partition the matched
+    input set for fan-out. When set, the runner reads this property
+    off each matching input, groups inputs sharing the same value,
+    evaluates `rule` and `artifactName` once per group, and emits
+    one Artifact per group. Inside the rule, `key` is bound to the
+    partition value and `inputs` is bound to that partition's members.
+
+    Inputs that lack the partition property are dropped from the
+    fan-out (no group is created for them). Authors who need a
+    catch-all bucket for "missing partition value" should partition
+    on a derived property that supplies the bucket name.
+
+# =============================================================================
+# INPUT PATTERN
+# =============================================================================
+
+InputPattern:
+  type: rdfs.Class
+  label: Input Pattern
+  comment: >-
+    Subject selector. Picks instances of `matchesClass` that pass every
+    `requires` predicate, and (for SetTransformation) optionally orders
+    them by a list of SortKeys before binding `inputs`.
+
+matchesClass:
+  type: owl.ObjectProperty
+  domain: InputPattern
+  range: rdfs.Class
+  label: Matches Class
+  comment: >-
+    The Class whose instances are eligible. The runner uses
+    subclass-aware matching (RDFS rdfs9 semantics), so instances of any
+    subclass of `matchesClass` qualify.
+
+requires:
+  type: owl.ObjectProperty
+  domain: InputPattern
+  range: rdfs.Property
+  label: Requires
+  comment: >-
+    Properties that must each resolve to a non-empty value on a matching
+    instance. Subjects missing any required property are silently
+    skipped — they do not match. References to actual Property entities
+    rather than string names; the validator catches typos and wrong-type
+    targets. Multi-valued: list every required property in any order.
+
+sortBy:
+  type: owl.ObjectProperty
+  domain: InputPattern
+  range: SortKey
+  label: Sort By
+  comment: >-
+    Ordered list of sort criteria. The first SortKey is the primary
+    sort; subsequent SortKeys break ties. No default sort — when sortBy
+    is absent the runner binds inputs in the SDK's discovery order,
+    which is deterministic but not semantically meaningful. SetTransformations
+    that need predictable iteration (e.g. time-series) MUST declare sortBy.
+
+# =============================================================================
+# SORT
+# =============================================================================
+
+SortKey:
+  type: rdfs.Class
+  label: Sort Key
+  comment: >-
+    A single sort criterion: the property to read off each input plus
+    the sort direction. Properties whose value is a list or a reference
+    are not sortable — the loader errors. When the property is absent
+    on some instances, those instances sort last for ascending order
+    and first for descending order; this is fixed convention rather
+    than configurable, since making it configurable invites four
+    different "missing-value" policies for no real benefit.
+
+byProperty:
+  type: owl.ObjectProperty
+  domain: SortKey
+  range: rdfs.Property
+  label: By Property
+  comment: Reference to the Property whose value is read off each input as the sort key.
+
+order:
+  type: owl.ObjectProperty
+  domain: SortKey
+  range: SortOrder
+  label: Order
+  comment: Sort direction — references one of the named SortOrder instances.
+
+SortOrder:
+  type: rdfs.Class
+  label: Sort Order
+  comment: >-
+    Discriminator vocabulary for sort direction. Two named instances —
+    ascending and descending — exhaust the set; subclasses are not
+    expected.
+
+ascending:
+  type: SortOrder
+  label: Ascending
+  comment: Sort smallest-to-largest (or earliest-to-latest for date-typed properties).
+
+descending:
+  type: SortOrder
+  label: Descending
+  comment: Sort largest-to-smallest (or latest-to-earliest for date-typed properties).
+
+# =============================================================================
+# OUTPUT FORMAT
+# =============================================================================
+
+OutputFormat:
+  type: rdfs.Class
+  label: Output Format
+  comment: >-
+    A target serialization format. Each named instance carries a
+    `backendUri` that the runner uses as a registry key to find the
+    IDocumentAstBackend that knows how to serialize a docast.Document
+    to that format's bytes.
+
+backendUri:
+  type: owl.DatatypeProperty
+  domain: OutputFormat
+  range: xsd.string
+  label: Backend URI
+  comment: >-
+    Stable string identifier the runner uses to look up the backend
+    implementation. NOT a Kanonak URI — backends are TS code, not
+    ontology entities.
+
+FormatOverride:
+  type: rdfs.Class
+  label: Format Override
+  comment: >-
+    Per-output-format adjustments applied during serialization.
+    Backends that accept overrides read these from the transformation
+    at render time; backends that ignore them are unaffected.
+
+formatTarget:
+  type: owl.ObjectProperty
+  domain: FormatOverride
+  range: OutputFormat
+  label: Format Target
+  comment: The OutputFormat this override applies to.
+
+metadataKeys:
+  type: owl.DatatypeProperty
+  domain: FormatOverride
+  range: xsd.string
+  label: Metadata Keys
+  comment: >-
+    Optional include-list of metadata entry keys to emit, in order.
+    Keys outside this list are skipped. Multi-valued; if absent, the
+    backend emits all metadata entries in their AST order.
+
+metadataRenames:
+  type: owl.ObjectProperty
+  domain: FormatOverride
+  range: RenameEntry
+  label: Metadata Renames
+  comment: AST-key → emitted-key renames. Multi-valued.
+
+trailingNewline:
+  type: owl.DatatypeProperty
+  domain: FormatOverride
+  range: xsd.boolean
+  label: Trailing Newline
+  comment: Whether to append a final newline to the serialized output.
+
+omitWrapper:
+  type: owl.DatatypeProperty
+  domain: FormatOverride
+  range: xsd.boolean
+  label: Omit Wrapper
+  comment: >-
+    When true, the backend suppresses its default chrome — e.g. the
+    HTML backend's `<!DOCTYPE html>...<style>...</style>...</html>`
+    shell and the `<dl class="metadata">` block — and emits only the
+    rendered children. Use when the transformation builds the entire
+    HTML document itself (e.g. publisher layout transformations that
+    inline their own CSS / nav / chrome). Backends that have no
+    chrome (JSON, plain Markdown) ignore this flag.
+
+RenameEntry:
+  type: rdfs.Class
+  label: Rename Entry
+  comment: A single AST-key → emitted-key rename pair.
+
+fromKey:
+  type: owl.DatatypeProperty
+  domain: RenameEntry
+  range: xsd.string
+  label: From Key
+  comment: The original key as it appears in the AST.
+
+toKey:
+  type: owl.DatatypeProperty
+  domain: RenameEntry
+  range: xsd.string
+  label: To Key
+  comment: The key to emit in serialized output.
+
+# -----------------------------------------------------------------------------
+# Named OutputFormat instances
+# -----------------------------------------------------------------------------
+
+markdown-with-frontmatter:
+  type: OutputFormat
+  label: Markdown (with frontmatter)
+  comment: Markdown body preceded by a YAML or TOML frontmatter block.
+  backendUri: kanonak.org/transformations/markdown-with-frontmatter
+
+plain-markdown:
+  type: OutputFormat
+  label: Plain Markdown
+  comment: Markdown body only — no frontmatter, no metadata block.
+  backendUri: kanonak.org/transformations/plain-markdown
+
+toml:
+  type: OutputFormat
+  label: TOML
+  comment: TOML serialization.
+  backendUri: kanonak.org/transformations/toml
+
+json:
+  type: OutputFormat
+  label: JSON
+  comment: JSON serialization.
+  backendUri: kanonak.org/transformations/json
+
+html:
+  type: OutputFormat
+  label: HTML
+  comment: HTML serialization. Backend wraps RawBlock content directly.
+  backendUri: kanonak.org/transformations/html
+
+svg:
+  type: OutputFormat
+  label: SVG
+  comment: SVG serialization for vector-graphics output.
+  backendUri: kanonak.org/transformations/svg
+
+# =============================================================================
+# EXPRESSION HIERARCHY
+#
+# `Expression` is a real OWL class hierarchy in 3.0.0. Each subclass
+# declares only the properties relevant to its semantics; the validator
+# enforces domain/range per subclass. Authors narrow the type explicitly
+# in embedded position (e.g. `type: tx.ForEach`); the relaxed
+# embedded-type validator (kanonak-protocol@1.1.0) accepts this when the
+# narrowed type is a subclass of the parent property's range.
+#
+# Tree of subclasses (abstract classes in italics in the doc — there's
+# no italics in YAML, so use the comments to identify):
+#
+#   Expression                          (abstract)
+#   ├── BuildAstNode
+#   ├── When
+#   ├── Concat
+#   ├── StringLiteral / IntegerLiteral / DecimalLiteral / BooleanLiteral
+#   ├── VarRef
+#   ├── PropertyRead / Traverse
+#   ├── Fallback
+#   ├── UriName / UriLiteral / DisplayLabel / ResolveRef
+#   ├── Normalize / IsSet
+#   ├── CallFragment
+#   └── ListSourcedExpression          (abstract; declares `source`)
+#       ├── Join
+#       ├── ListAggregate              (abstract; cardinality / reduce)
+#       │   ├── Count
+#       │   ├── Sum
+#       │   ├── Min
+#       │   └── Max
+#       └── IteratingExpression        (abstract; adds `loopVar`)
+#           ├── ForEach
+#           ├── ListMap
+#           ├── Filter
+#           ├── PartitionBy
+#           └── DistinctBy
+# =============================================================================
+
+Expression:
+  type: rdfs.Class
+  label: Expression
+  comment: >-
+    Abstract base for every expression node in a transformation's `rule`
+    or `artifactName` tree. Concrete subclasses below add the properties
+    relevant to their semantics; the runner dispatches on RDF type.
+
+# -----------------------------------------------------------------------------
+# Document construction
+# -----------------------------------------------------------------------------
+
+BuildAstNode:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Build AST Node
+  comment: >-
+    Constructs a docast AST node of the declared `astClass` and binds
+    fields via the `set` list. The result is an AST node ready for
+    backend serialization (top of the rule tree typically builds a
+    docast.Document).
+
+astClass:
+  type: owl.ObjectProperty
+  domain: BuildAstNode
+  range: rdfs.Class
+  label: AST Class
+  comment: The docast Class to instantiate (Document, Heading, RawBlock, etc.).
+
+set:
+  type: owl.ObjectProperty
+  domain: BuildAstNode
+  range: AstFieldBinding
+  label: Set
+  comment: Field-by-field bindings that populate the constructed AST node.
+
+AstFieldBinding:
+  type: rdfs.Class
+  label: AST Field Binding
+  comment: A single field-bind pair used inside BuildAstNode.set.
+
+field:
+  type: owl.ObjectProperty
+  domain: AstFieldBinding
+  range: rdfs.Property
+  label: Field
+  comment: The docast Property being bound.
+
+bindValue:
+  type: owl.ObjectProperty
+  domain: AstFieldBinding
+  range: Expression
+  label: Bind Value
+  comment: Expression whose result becomes the field's value.
+
+# -----------------------------------------------------------------------------
+# Conditional + composition
+# -----------------------------------------------------------------------------
+
+When:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: When
+  comment: >-
+    Conditional. Evaluates `condition`; if true, evaluates and returns
+    `thenBuild`; else evaluates and returns `elseBuild` (or undefined
+    if elseBuild is omitted).
+
+condition:
+  type: owl.ObjectProperty
+  domain: When
+  range: Expression
+  label: Condition
+
+thenBuild:
+  type: owl.ObjectProperty
+  domain: When
+  range: Expression
+  label: Then Build
+
+elseBuild:
+  type: owl.ObjectProperty
+  domain: When
+  range: Expression
+  label: Else Build
+
+Concat:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Concat
+  comment: Concatenates the string results of `parts`, in order, with no separator.
+
+parts:
+  type: owl.ObjectProperty
+  domain: Concat
+  range: Expression
+  label: Parts
+
+Fallback:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Fallback
+  comment: >-
+    Evaluates `primary`; if the result is undefined or empty, evaluates
+    and returns `alternate`. Useful for "use the rdfs:label, otherwise
+    fall back to the local name."
+
+primary:
+  type: owl.ObjectProperty
+  domain: Fallback
+  range: Expression
+  label: Primary
+
+alternate:
+  type: owl.ObjectProperty
+  domain: Fallback
+  range: Expression
+  label: Alternate
+
+# -----------------------------------------------------------------------------
+# Literals
+# -----------------------------------------------------------------------------
+
+StringLiteral:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: String Literal
+  comment: A constant string value.
+
+stringLiteral:
+  type: owl.DatatypeProperty
+  domain: StringLiteral
+  range: xsd.string
+  label: String Literal Value
+
+IntegerLiteral:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Integer Literal
+  comment: A constant integer value.
+
+integerLiteral:
+  type: owl.DatatypeProperty
+  domain: IntegerLiteral
+  range: xsd.integer
+  label: Integer Literal Value
+
+DecimalLiteral:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Decimal Literal
+  comment: >-
+    A constant decimal (non-integer-restricted) numeric value. Distinct
+    from IntegerLiteral so authors can express fractions and currency
+    amounts without rounding-trick workarounds.
+
+decimalLiteral:
+  type: owl.DatatypeProperty
+  domain: DecimalLiteral
+  range: xsd.decimal
+  label: Decimal Literal Value
+
+BooleanLiteral:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Boolean Literal
+  comment: A constant boolean value (true or false).
+
+booleanLiteral:
+  type: owl.DatatypeProperty
+  domain: BooleanLiteral
+  range: xsd.boolean
+  label: Boolean Literal Value
+
+# -----------------------------------------------------------------------------
+# Environment + property access
+# -----------------------------------------------------------------------------
+
+VarRef:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Var Ref
+  comment: >-
+    Looks up a name in the current evaluation environment. Standard
+    bindings the runner provides:
+      input   — InstanceTransformation, the current instance.
+      inputs  — SetTransformation, the matched set (or partition).
+      key     — SetTransformation with partitionBy, the partition value.
+    Custom bindings introduced by IteratingExpression subclasses
+    (ForEach, ListMap, Filter, etc.) shadow these for the body
+    expression's lifetime.
+
+varName:
+  type: owl.DatatypeProperty
+  domain: VarRef
+  range: xsd.string
+  label: Var Name
+
+PropertyRead:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Property Read
+  comment: >-
+    Reads the value of `readProp` off the subject yielded by
+    `readSource`. For a multi-valued property, returns the value list.
+
+readSource:
+  type: owl.ObjectProperty
+  domain: PropertyRead
+  range: Expression
+  label: Read Source
+
+readProp:
+  type: owl.ObjectProperty
+  domain: PropertyRead
+  range: rdfs.Property
+  label: Read Property
+
+Traverse:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Traverse
+  comment: >-
+    Two-step traversal. Evaluates `traverseSource` to get a starting
+    subject; reads `through` to get one or more intermediate subjects;
+    evaluates `step` once per intermediate with the intermediate bound
+    as `input`. Returns the concatenated step results.
+
+traverseSource:
+  type: owl.ObjectProperty
+  domain: Traverse
+  range: Expression
+  label: Traverse Source
+
+through:
+  type: owl.ObjectProperty
+  domain: Traverse
+  range: rdfs.Property
+  label: Through
+
+step:
+  type: owl.ObjectProperty
+  domain: Traverse
+  range: Expression
+  label: Step
+
+# -----------------------------------------------------------------------------
+# URI + label helpers
+# -----------------------------------------------------------------------------
+
+UriName:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: URI Name
+  comment: >-
+    Yields the local name component of a URI-typed expression result.
+    Works on any value that carries a name — a ReferenceKanonak (its
+    target's local name), an EntityUri / KanonakUri (its `name`
+    field), a SubjectKanonak bound via VarRef in a SetTransformation
+    iteration (its `name` field), or an EmbeddedKanonak (its
+    optional dict-key origin name; empty string for positional
+    embeddeds).
+
+uriNameOf:
+  type: owl.ObjectProperty
+  domain: UriName
+  range: Expression
+  label: URI Name Of
+
+SubjectUri:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Subject URI
+  comment: >-
+    Yields the full canonical URI of a subject as a string —
+    `publisher/package@version/name`. Authors typically use this
+    inside SetTransformation iteration to derive per-input deep
+    links, source-package paths, audit-trail attribution, or
+    cross-package indexes that need to know where each matched
+    instance came from. Returns undefined when the source
+    expression doesn't yield a SubjectKanonak (or a ReferenceKanonak,
+    which is supported as a convenience and produces the
+    URI-string form of its target).
+
+subjectOf:
+  type: owl.ObjectProperty
+  domain: SubjectUri
+  range: Expression
+  label: Subject Of
+
+UriPublisher:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: URI Publisher
+  comment: >-
+    Yields the publisher segment of a URI-typed expression result.
+    Accepts the same kinds of sources as UriName / UriVersion /
+    UriPackage — SubjectKanonak (via its namespace), ReferenceKanonak
+    (via its target's KanonakUri.publisher), or an EntityUri.
+    Returns undefined for unrecognised sources.
+
+uriPublisherOf:
+  type: owl.ObjectProperty
+  domain: UriPublisher
+  range: Expression
+  label: URI Publisher Of
+
+UriPackage:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: URI Package
+  comment: >-
+    Yields the package segment of a URI-typed expression result.
+    Same source-shape contract as UriPublisher / UriVersion.
+
+uriPackageOf:
+  type: owl.ObjectProperty
+  domain: UriPackage
+  range: Expression
+  label: URI Package Of
+
+UriVersion:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: URI Version
+  comment: >-
+    Yields the version segment of a URI-typed expression result as
+    a `M.m.p` string. Returns the empty string when the source is
+    versionless (an EntityUri or a ReferenceKanonak whose subject
+    has no version), undefined for unrecognised source shapes.
+
+uriVersionOf:
+  type: owl.ObjectProperty
+  domain: UriVersion
+  range: Expression
+  label: URI Version Of
+
+UriLiteral:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: URI Literal
+  comment: A constant URI reference to a named entity.
+
+refTo:
+  type: owl.ObjectProperty
+  domain: UriLiteral
+  range: rdfs.Resource
+  label: Ref To
+
+DisplayLabel:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Display Label
+  comment: >-
+    Resolves a presentation label for `labelTarget` by reading
+    `labelSource` off it. Falls back to the entity's local name when
+    the source property is absent.
+
+labelTarget:
+  type: owl.ObjectProperty
+  domain: DisplayLabel
+  range: rdfs.Resource
+  label: Label Target
+
+labelSource:
+  type: owl.ObjectProperty
+  domain: DisplayLabel
+  range: rdfs.Property
+  label: Label Source
+
+ResolveRef:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Resolve Ref
+  comment: >-
+    Dereferences a reference-yielding expression to the target subject.
+    Returns undefined when the reference doesn't resolve.
+
+resolveSource:
+  type: owl.ObjectProperty
+  domain: ResolveRef
+  range: Expression
+  label: Resolve Source
+
+# -----------------------------------------------------------------------------
+# String shaping + presence test
+# -----------------------------------------------------------------------------
+
+Normalize:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Normalize
+  comment: Applies a named normalization (`normKind`) to a string-yielding source.
+
+normSource:
+  type: owl.ObjectProperty
+  domain: Normalize
+  range: Expression
+  label: Norm Source
+
+normKind:
+  type: owl.ObjectProperty
+  domain: Normalize
+  range: NormalizeKind
+  label: Norm Kind
+
+NormalizeKind:
+  type: rdfs.Class
+  label: Normalize Kind
+  comment: Discriminator vocabulary for the Normalize expression.
+
+trim-end:
+  type: NormalizeKind
+  label: Trim End
+  comment: Strip trailing whitespace and newlines.
+
+IsSet:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Is Set
+  comment: >-
+    Boolean predicate. Evaluates `checkExpr`; returns true when the
+    result is non-undefined and non-empty (non-empty string, non-empty
+    list). Used as the condition of a When node.
+
+checkExpr:
+  type: owl.ObjectProperty
+  domain: IsSet
+  range: Expression
+  label: Check Expr
+
+# -----------------------------------------------------------------------------
+# Reusable fragments
+# -----------------------------------------------------------------------------
+
+ExpressionFragment:
+  type: rdfs.Class
+  label: Expression Fragment
+  comment: >-
+    A named, reusable Expression body. Authored as a top-level subject;
+    invoked via a CallFragment node that references it by URI. Cycles
+    in fragment calls are caught by the loader (16-deep recursion cap).
+    Note that ExpressionFragment is NOT subClassOf Expression — it's a
+    HOLDER for an Expression body, addressed by URI rather than nested
+    inline.
+
+body:
+  type: owl.ObjectProperty
+  domain: ExpressionFragment
+  range: Expression
+  label: Body
+  comment: The Expression body invoked when this fragment is called.
+
+CallFragment:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Call Fragment
+  comment: Invokes a named ExpressionFragment by URI reference.
+
+fragmentRef:
+  type: owl.ObjectProperty
+  domain: CallFragment
+  range: ExpressionFragment
+  label: Fragment Ref
+
+# =============================================================================
+# LIST-SOURCED EXPRESSIONS
+#
+# Every expression in this branch consumes a list-yielding source.
+# The shared `source` property captures that consumption; further
+# refinements (per-element body, partition key, etc.) are added by
+# subclasses.
+# =============================================================================
+
+ListSourcedExpression:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: List-Sourced Expression
+  comment: >-
+    Abstract intermediate. Captures the "expression that consumes a
+    list-yielding source" pattern. Not directly instantiable — authors
+    instantiate one of the concrete subclasses below.
+
+source:
+  type: owl.ObjectProperty
+  domain: ListSourcedExpression
+  range: Expression
+  label: Source
+  comment: >-
+    Expression that yields the list this list-sourced expression
+    operates on. Typically a VarRef to `inputs`, a PropertyRead that
+    returns a list-valued property, or another list-sourced expression
+    (e.g. a Filter feeding a Count).
+
+# -----------------------------------------------------------------------------
+# Join — concatenate a list of strings
+# -----------------------------------------------------------------------------
+
+Join:
+  type: rdfs.Class
+  subClassOf: ListSourcedExpression
+  label: Join
+  comment: >-
+    Concatenates the string elements of `source` with `separator`
+    between adjacent pairs. Distinct from Concat (which takes
+    individually authored parts) — Join takes a list-yielding expression.
+
+separator:
+  type: owl.DatatypeProperty
+  domain: Join
+  range: xsd.string
+  label: Separator
+
+# -----------------------------------------------------------------------------
+# ListAggregate — set-to-scalar reductions
+# -----------------------------------------------------------------------------
+
+ListAggregate:
+  type: rdfs.Class
+  subClassOf: ListSourcedExpression
+  label: List Aggregate
+  comment: >-
+    Abstract intermediate. Reductions that take a list and yield a
+    scalar (cardinality, sum, min, max). Subclasses add no extra
+    properties — the difference is in the runner's reducer, not in
+    authoring shape.
+
+Count:
+  type: rdfs.Class
+  subClassOf: ListAggregate
+  label: Count
+  comment: >-
+    Returns the cardinality of `source` as an integer. Source elements
+    are not inspected — every list element counts, regardless of type.
+
+Sum:
+  type: rdfs.Class
+  subClassOf: ListAggregate
+  label: Sum
+  comment: >-
+    Returns the numeric sum of `source` elements. Elements must be
+    numeric (xsd:integer or xsd:decimal); non-numeric elements raise a
+    runtime error. Empty source sums to 0.
+
+Min:
+  type: rdfs.Class
+  subClassOf: ListAggregate
+  label: Min
+  comment: >-
+    Returns the smallest numeric element of `source`. Elements must be
+    numeric. Empty source raises a runtime error (the minimum of the
+    empty set is undefined; callers should guard with IsSet).
+
+Max:
+  type: rdfs.Class
+  subClassOf: ListAggregate
+  label: Max
+  comment: >-
+    Returns the largest numeric element of `source`. Same numeric and
+    empty-source contract as Min.
+
+Average:
+  type: rdfs.Class
+  subClassOf: ListAggregate
+  label: Average
+  comment: >-
+    Returns the arithmetic mean of `source` elements as an xsd:decimal.
+    Result is always decimal — even when source elements are integer,
+    average of [1, 2] yields 1.5, not 1 — so authors don't have to
+    work around integer truncation. Elements must be numeric. Empty
+    source raises a runtime error, same contract as Min/Max (the mean
+    of the empty set is undefined; callers guard with IsSet).
+
+# -----------------------------------------------------------------------------
+# IteratingExpression — per-element operations
+# -----------------------------------------------------------------------------
+
+IteratingExpression:
+  type: rdfs.Class
+  subClassOf: ListSourcedExpression
+  label: Iterating Expression
+  comment: >-
+    Abstract intermediate for expressions that bind each element of
+    `source` to a loop variable and evaluate a per-element body. The
+    body's shape and the way the runner combines results vary per
+    subclass — concat into a string for ForEach, collect into a list
+    for ListMap, predicate-filter for Filter, group for PartitionBy,
+    dedupe for DistinctBy.
+
+loopVar:
+  type: owl.DatatypeProperty
+  domain: IteratingExpression
+  range: xsd.string
+  label: Loop Var
+  comment: >-
+    Name under which each element of `source` is bound while the body
+    expression evaluates. Local to the iterating expression — does
+    not leak into surrounding scope.
+
+ForEach:
+  type: rdfs.Class
+  subClassOf: IteratingExpression
+  label: For Each
+  comment: >-
+    Iterates `source`, evaluates `emit` per element with `loopVar`
+    bound, and concatenates the string results. Use for stringification
+    where order matters and the result is one big string.
+
+emit:
+  type: owl.ObjectProperty
+  domain: ForEach
+  range: Expression
+  label: Emit
+  comment: Per-element body. Must yield a string.
+
+ListMap:
+  type: rdfs.Class
+  subClassOf: IteratingExpression
+  label: List Map
+  comment: >-
+    Iterates `source`, evaluates `mapBody` per element with `loopVar`
+    bound, and collects the results into a new list (preserving order).
+    Use when the result feeds another list-sourced expression.
+
+mapBody:
+  type: owl.ObjectProperty
+  domain: ListMap
+  range: Expression
+  label: Map Body
+
+Filter:
+  type: rdfs.Class
+  subClassOf: IteratingExpression
+  label: Filter
+  comment: >-
+    Iterates `source`, evaluates `predicate` per element with `loopVar`
+    bound, and returns the subset of elements for which the predicate
+    yields a truthy value. Use to narrow a set before aggregating.
+
+predicate:
+  type: owl.ObjectProperty
+  domain: Filter
+  range: Expression
+  label: Predicate
+  comment: Per-element predicate. Must yield a boolean.
+
+PartitionBy:
+  type: rdfs.Class
+  subClassOf: IteratingExpression
+  label: Partition By
+  comment: >-
+    Iterates `source`, evaluates `partitionKey` per element with
+    `loopVar` bound, and groups elements by their key value. Returns a
+    list of Partition embeddeds, each with a `key` and `members`.
+    Authors typically iterate the result with a ForEach to render
+    per-group sub-structure.
+
+    NOTE: This is the EXPRESSION-level partition (groups inside a
+    rule). The transformation-level fan-out partition is the
+    SetTransformation.partitionBy property — same operation, different
+    scale. Pick the right one for your use: partition inside a single
+    artifact (this) vs. partition into separate artifacts (the
+    SetTransformation property).
+
+partitionKey:
+  type: owl.ObjectProperty
+  domain: PartitionBy
+  range: Expression
+  label: Partition Key
+  comment: Per-element key expression. Elements with equal key values land in the same partition.
+
+Partition:
+  type: rdfs.Class
+  label: Partition
+  comment: >-
+    A single group produced by a PartitionBy expression. Holds the
+    partition key value and the list of source elements that share it.
+    Authors read `key` and `members` off Partition embeddeds when
+    iterating the PartitionBy result.
+
+key:
+  type: owl.ObjectProperty
+  domain: Partition
+  range: rdfs.Resource
+  label: Key
+
+members:
+  type: owl.ObjectProperty
+  domain: Partition
+  range: rdfs.Resource
+  label: Members
+
+DistinctBy:
+  type: rdfs.Class
+  subClassOf: IteratingExpression
+  label: Distinct By
+  comment: >-
+    Iterates `source`, evaluates `distinctKey` per element with
+    `loopVar` bound, and keeps the FIRST element seen for each
+    distinct key value. Returns the deduplicated list in original order.
+    Use when source has redundant entries (e.g. the same thesis
+    appearing across multiple snapshots) and you only need each one
+    once.
+
+distinctKey:
+  type: owl.ObjectProperty
+  domain: DistinctBy
+  range: Expression
+  label: Distinct Key
+  comment: Per-element key expression. Elements with equal key values are deduplicated.
+
+# =============================================================================
+# TRANSFORMATION REFERENCE (added in 3.3.0)
+# =============================================================================
+
+TransformationReference:
+  type: rdfs.Class
+  label: Transformation Reference
+  comment: >-
+    A 4-tuple identifying a published Transformation by its canonical
+    URI: publisher + package + version + name. Used by other
+    vocabulary packages (e.g. derivations) to point at a transformation
+    without inlining or re-declaring it. The tuple resolves to a
+    SubjectKanonak whose type is Transformation (concretely:
+    InstanceTransformation or SetTransformation) when looked up
+    against a repository.
+
+    All four fields are required. Versionless references would defeat
+    the point of the cross-package binding — if you don't pin a
+    version, an upstream republish silently changes consumer behavior.
+    Authors who want range-based version selection should encode that
+    at a higher level (e.g. a publisher's site curation), not in the
+    pointed-at reference.
+
+publisher:
+  type: owl.DatatypeProperty
+  domain: TransformationReference
+  range: xsd.string
+  label: Publisher
+  comment: Publisher segment of the referenced transformation's URI (e.g. `kanonak.org`).
+
+package:
+  type: owl.DatatypeProperty
+  domain: TransformationReference
+  range: xsd.string
+  label: Package
+  comment: Package name segment (e.g. `universal-derivations`).
+
+version:
+  type: owl.DatatypeProperty
+  domain: TransformationReference
+  range: xsd.string
+  label: Version
+  comment: >-
+    Pinned semantic version, formatted `M.m.p` (e.g. `1.0.0`). Required —
+    versionless references are intentionally not supported here.
+
+name:
+  type: owl.DatatypeProperty
+  domain: TransformationReference
+  range: xsd.string
+  label: Name
+  comment: Local name of the referenced transformation within its package.
+
+# =============================================================================
+# RESOURCE ITERATION PRIMITIVES (added in 3.4.0)
+#
+# These three Expression subclasses let a transformation walk ANY
+# Kanonak resource's statements without knowing the property names
+# in advance. They unblock universal default derivations (rendering
+# every Kanonak resource as HTML / Markdown / JSON / source code
+# without per-class authoring).
+# =============================================================================
+
+AllStatements:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: All Statements
+  comment: >-
+    Yields the list of every statement on a subject. Source
+    typically resolves to a SubjectKanonak (e.g. a VarRef to
+    `input` inside an InstanceTransformation rule, or a ResolveRef
+    output). The returned list contains IStatement objects that
+    can be iterated with ForEach and inspected with
+    StatementPredicate / StatementValue.
+
+statementsOf:
+  type: owl.ObjectProperty
+  domain: AllStatements
+  range: Expression
+  label: Statements Of
+  comment: >-
+    Expression yielding the subject whose statements to enumerate.
+    Must resolve to a Kanonak with a `statement[]` collection
+    (Subject or Embedded). Otherwise the result is an empty list.
+
+StatementPredicate:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Statement Predicate
+  comment: >-
+    Yields the predicate of a statement as a ReferenceKanonak.
+    Typically composed with UriName or DisplayLabel inside a
+    ForEach loop over AllStatements to render the property name
+    for each statement.
+
+predicateOf:
+  type: owl.ObjectProperty
+  domain: StatementPredicate
+  range: Expression
+  label: Predicate Of
+  comment: >-
+    Expression yielding the statement whose predicate to extract.
+    Typically a VarRef to the loop variable of an iteration over
+    AllStatements.
+
+StatementValue:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Statement Value
+  comment: >-
+    Yields a string representation of the statement's object,
+    dispatching on the statement subtype:
+      - StringStatement / NumberStatement / BooleanStatement →
+        the literal's lexical form.
+      - ReferenceStatement → the referenced subject's local name
+        (use a Concat / explicit primitive composition for richer
+        rendering like full URIs or hyperlinks).
+      - EmbeddedStatement → a brief placeholder string indicating
+        an embedded resource is present.
+      - ListStatement → comma-joined renderings of the members.
+    Sufficient for first-pass universal rendering. Consumers that
+    need richer per-subtype dispatch should compose lower-level
+    primitives instead.
+
+valueOf:
+  type: owl.ObjectProperty
+  domain: StatementValue
+  range: Expression
+  label: Value Of
+  comment: >-
+    Expression yielding the statement whose object value to render.
+    Typically a VarRef to the loop variable of an iteration over
+    AllStatements.
+
+# =============================================================================
+# CONTENT-SHAPING PRIMITIVES (added in 3.5.0)
+#
+# Date formatting + arithmetic + list reverse — fills the gaps that
+# previously forced inline JS into rendered HTML for things like ISO
+# datetime reformat, SVG arc-disc coordinate computation, and
+# evidence-list reversal. With these in the engine, transformations
+# can do the work declaratively and the artifacts can be JS-free.
+# =============================================================================
+
+DateFormat:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Date Format
+  comment: >-
+    Reformat an ISO 8601 datetime string into a named human-readable
+    form. Source must yield a string parseable by JS Date (ISO 8601
+    is the safe lingua franca). Returns the empty string when the
+    source is empty or unparseable, so authors can wrap the result
+    in a Fallback to substitute a placeholder for missing dates.
+
+dateSource:
+  type: owl.ObjectProperty
+  domain: DateFormat
+  range: Expression
+  label: Date Source
+  comment: Expression yielding the ISO 8601 datetime string to reformat.
+
+dateFormat:
+  type: owl.DatatypeProperty
+  domain: DateFormat
+  range: xsd.string
+  label: Date Format
+  comment: >-
+    Named output format. Supported values:
+      - `iso-date`     → 2024-01-15
+      - `iso-datetime` → 2024-01-15T08:30:00Z
+      - `short-date`   → Jan 15
+      - `long-date`    → January 15, 2024
+      - `year`         → 2024
+      - `month-year`   → January 2024
+
+# -----------------------------------------------------------------------------
+# Arithmetic
+# -----------------------------------------------------------------------------
+
+BinaryArithmetic:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Binary Arithmetic
+  comment: >-
+    Abstract intermediate. Any binary numeric operation with `arithLeft`
+    + `arithRight` operands. Not directly instantiable — authors
+    instantiate one of Add / Subtract / Multiply / Divide.
+
+arithLeft:
+  type: owl.ObjectProperty
+  domain: BinaryArithmetic
+  range: Expression
+  label: Arith Left
+  comment: Left operand expression. Must yield a number at runtime.
+
+arithRight:
+  type: owl.ObjectProperty
+  domain: BinaryArithmetic
+  range: Expression
+  label: Arith Right
+  comment: Right operand expression. Must yield a number at runtime.
+
+Add:
+  type: rdfs.Class
+  subClassOf: BinaryArithmetic
+  label: Add
+  comment: Returns left + right.
+
+Subtract:
+  type: rdfs.Class
+  subClassOf: BinaryArithmetic
+  label: Subtract
+  comment: Returns left - right.
+
+Multiply:
+  type: rdfs.Class
+  subClassOf: BinaryArithmetic
+  label: Multiply
+  comment: Returns left * right.
+
+Divide:
+  type: rdfs.Class
+  subClassOf: BinaryArithmetic
+  label: Divide
+  comment: >-
+    Returns left / right. Divide-by-zero raises a runtime error —
+    guard with a When if the right operand can be zero.
+
+# -----------------------------------------------------------------------------
+# Reverse
+# -----------------------------------------------------------------------------
+
+Reverse:
+  type: rdfs.Class
+  subClassOf: ListSourcedExpression
+  label: Reverse
+  comment: >-
+    Returns the source list with its elements reversed. Useful for
+    rendering newest-first orderings, latest-snapshot-on-top
+    indexes, etc., when the source is in chronological order.
+
+# =============================================================================
+# CONTEXT-AWARE ITERATION (added in 3.6.0)
+#
+# The iterator family before 3.6.0 (ForEach, ListMap, Filter,
+# PartitionBy, DistinctBy, Reverse, the aggregates) all see one
+# element at a time — there's no way to access neighboring elements
+# from inside the body. That gap blocks any analytical view that
+# needs cross-element context: pairwise diffs, running aggregations,
+# state-change detection, sliding statistics, gap rendering between
+# consecutive events.
+#
+# These primitives close the gap. WindowedMap is the general
+# windowing case; PairwiseMap is sugar for the dominant
+# pairwise-diff shape; Scan covers running aggregations (a
+# different shape — the body sees an accumulator + the current
+# element, not a window of elements). ListItemAt is the small
+# helper that makes WindowedMap usable (the body indexes into
+# the windowVar list).
+# =============================================================================
+
+WindowedMap:
+  type: rdfs.Class
+  subClassOf: ListSourcedExpression
+  label: Windowed Map
+  comment: >-
+    Sliding-window iterator. For a sorted source `[s_0, s_1, …, s_{n-1}]`
+    of length n and `windowSize: k`, evaluates `windowBody` once for
+    each `i ∈ [0, n-k]` with `windowVar` bound to the list `[s_i,
+    s_{i+1}, …, s_{i+k-1}]`. Stride is always 1 — every consecutive
+    window is visited.
+
+    If n < k, no emissions (silent empty result; matches the
+    over-empty-source behavior of every other iterator). The body
+    accesses individual window positions via `tx.ListItemAt`.
+
+    Use `tx.PairwiseMap` instead for the common windowSize-2 case —
+    cleaner authoring with named first/second binders.
+
+windowSize:
+  type: owl.DatatypeProperty
+  domain: WindowedMap
+  range: xsd.integer
+  label: Window Size
+  comment: >-
+    Number of consecutive elements visible at each iteration.
+    Required; must be a positive integer >= 1. Authors typically
+    use 2 (pairwise) or 3 (running-3 windows for smoothing /
+    rolling averages).
+
+windowVar:
+  type: owl.DatatypeProperty
+  domain: WindowedMap
+  range: xsd.string
+  label: Window Var
+  comment: >-
+    Name of the variable bound to each window inside `windowBody`.
+    The bound value is a list of exactly `windowSize` elements from
+    the source, in source order. Required.
+
+windowBody:
+  type: owl.ObjectProperty
+  domain: WindowedMap
+  range: Expression
+  label: Window Body
+  comment: >-
+    Per-window body. Evaluated once per window position with
+    `windowVar` bound to the current window list. Use
+    `tx.ListItemAt` to access individual positions.
+
+    (Distinct from `tx.ForEach.emit` because OWL property URIs are
+    unique within a package; `windowBody` is the WindowedMap-
+    specific body property.)
+
+PairwiseMap:
+  type: rdfs.Class
+  subClassOf: ListSourcedExpression
+  label: Pairwise Map
+  comment: >-
+    Ergonomic shortcut for the dominant `WindowedMap windowSize: 2`
+    case. For a source `[s_0, s_1, …, s_{n-1}]`, evaluates `pairBody`
+    once per consecutive pair with `firstVar` bound to s_i and
+    `secondVar` bound to s_{i+1}. Emits n - 1 results in source
+    order. Source of length 0 or 1 emits nothing (silent empty,
+    matches WindowedMap).
+
+    The canonical use case is rendering pairwise diffs between
+    consecutive items in a sorted sequence — changelogs, audit-
+    trail diffs, time-series deltas, schedule gap rendering,
+    state-transition rendering. Body composes with the existing
+    iterator family (Filter, Concat, etc.) for set-difference and
+    other comparative computations.
+
+firstVar:
+  type: owl.DatatypeProperty
+  domain: PairwiseMap
+  range: xsd.string
+  label: First Var
+  comment: >-
+    Name of the variable bound to the first (earlier) element of
+    each consecutive pair inside `pairBody`. Required.
+
+secondVar:
+  type: owl.DatatypeProperty
+  domain: PairwiseMap
+  range: xsd.string
+  label: Second Var
+  comment: >-
+    Name of the variable bound to the second (later) element of
+    each consecutive pair inside `pairBody`. Required.
+
+pairBody:
+  type: owl.ObjectProperty
+  domain: PairwiseMap
+  range: Expression
+  label: Pair Body
+  comment: >-
+    Per-pair body. Evaluated once per consecutive pair with both
+    `firstVar` and `secondVar` in scope. The result is collected
+    in source order. Required.
+
+    (Distinct from `tx.ForEach.emit` because OWL property URIs are
+    unique within a package; `pairBody` is the PairwiseMap-specific
+    body property.)
+
+Scan:
+  type: rdfs.Class
+  subClassOf: ListSourcedExpression
+  label: Scan
+  comment: >-
+    Running-aggregation iterator. For a source `[s_0, s_1, …, s_{n-1}]`,
+    evaluates `initialState` once at scan start to seed the
+    accumulator, then evaluates `accumulate` once per element with
+    `stateVar` bound to the running accumulator and `elementVar`
+    bound to the current element. The body's result is BOTH emitted
+    AND threaded as the next iteration's accumulator.
+
+    Use for cumulative aggregations that windowing can't express:
+    running sum / max / min, cumulative confidence shift, rolling
+    state machines (where each step's output depends on the prior
+    state), running deltas. Different shape from WindowedMap — Scan
+    sees a *running aggregation*, WindowedMap sees a *window of
+    elements*.
+
+    Source of length 0 emits nothing (silent empty). `initialState`
+    is evaluated once at scan start, not per-element — natural
+    reduce semantic.
+
+initialState:
+  type: owl.ObjectProperty
+  domain: Scan
+  range: Expression
+  label: Initial State
+  comment: >-
+    Expression evaluated once at scan start to seed the running
+    accumulator. The body's first iteration sees this value bound
+    to `stateVar`. Required.
+
+stateVar:
+  type: owl.DatatypeProperty
+  domain: Scan
+  range: xsd.string
+  label: State Var
+  comment: >-
+    Name of the variable bound to the running accumulator inside
+    `step`. Initially holds `initialState`; after each step it
+    holds the previous step's result. Required.
+
+elementVar:
+  type: owl.DatatypeProperty
+  domain: Scan
+  range: xsd.string
+  label: Element Var
+  comment: >-
+    Name of the variable bound to the current element inside
+    `step`. Required.
+
+accumulate:
+  type: owl.ObjectProperty
+  domain: Scan
+  range: Expression
+  label: Accumulate
+  comment: >-
+    Expression evaluated once per source element with `stateVar` and
+    `elementVar` in scope. Its result is BOTH the value emitted at
+    this position AND the next iteration's accumulator. Required.
+
+    (The shorter name `step` is taken by `Traverse.step` — `accumulate`
+    avoids collision and reads naturally as "accumulate this
+    expression as we scan.")
+
+ListItemAt:
+  type: rdfs.Class
+  subClassOf: ListSourcedExpression
+  label: List Item At
+  comment: >-
+    Returns the source list's element at the (0-based) `itemIndex`,
+    or undefined if the index is out of bounds. Used to access
+    individual positions of a `WindowedMap`'s windowVar list (e.g.
+    window[0] for the first element of the current window) and
+    elsewhere when an author needs positional list access.
+
+    Out-of-bounds is silent undefined (matches PropertyRead's
+    semantic for missing properties). Authors who want loud
+    failure should validate windowSize / source length elsewhere.
+
+itemIndex:
+  type: owl.ObjectProperty
+  domain: ListItemAt
+  range: Expression
+  label: Item Index
+  comment: >-
+    Expression yielding a non-negative integer. The 0-based position
+    in the source list to return. Required.
+
+# =============================================================================
+# COMPARISON, BOOLEAN, MEMBERSHIP, NUMERIC UTILITIES (added in 3.7.0)
+#
+# Closes the structural gap surfaced by `tx.PairwiseMap`: with
+# windowed iteration shipped, authors could see neighboring
+# elements but had no way to COMPARE them. The 3.6.0 surface for
+# Filter.predicate / When.condition was just `IsSet` and
+# `BooleanLiteral`. These eleven primitives unblock the full
+# diff / threshold / set-difference / lookup workflow on any
+# publisher.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Equality + comparison (BinaryComparison family)
+# -----------------------------------------------------------------------------
+
+BinaryComparison:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Binary Comparison
+  comment: >-
+    Abstract intermediate. Any two-operand boolean comparison —
+    Equals / GreaterThan / LessThan / GreaterThanOrEqual /
+    LessThanOrEqual. Not directly instantiable; authors instantiate
+    one of the concrete subclasses below.
+
+compareLeft:
+  type: owl.ObjectProperty
+  domain: BinaryComparison
+  range: Expression
+  label: Compare Left
+  comment: Left operand expression. Required.
+
+compareRight:
+  type: owl.ObjectProperty
+  domain: BinaryComparison
+  range: Expression
+  label: Compare Right
+  comment: Right operand expression. Required.
+
+Equals:
+  type: rdfs.Class
+  subClassOf: BinaryComparison
+  label: Equals
+  comment: >-
+    Returns true when `compareLeft` and `compareRight` evaluate to
+    equal values. URI equality for ReferenceKanonak / SubjectKanonak
+    operands (compares publisher + package_ + name; version is
+    ignored — equality is identity-by-name, not by version).
+    Value equality for string / number / boolean literals.
+    Cross-kind (URI vs literal, string vs number, etc.) returns
+    false — never errors. Either operand undefined returns false
+    (RDF spec: missing values aren't equal to anything).
+
+GreaterThan:
+  type: rdfs.Class
+  subClassOf: BinaryComparison
+  label: Greater Than
+  comment: >-
+    Returns true when `compareLeft > compareRight` numerically.
+    Both operands must be numbers; mixed kinds or non-numeric
+    operands return false. Use `tx.DateFormat` to convert ISO
+    datetime strings into a comparable form if you need
+    chronological comparison.
+
+LessThan:
+  type: rdfs.Class
+  subClassOf: BinaryComparison
+  label: Less Than
+  comment: Returns true when `compareLeft < compareRight` numerically. Same operand semantics as `GreaterThan`.
+
+GreaterThanOrEqual:
+  type: rdfs.Class
+  subClassOf: BinaryComparison
+  label: Greater Than Or Equal
+  comment: Returns true when `compareLeft >= compareRight` numerically. Same operand semantics as `GreaterThan`.
+
+LessThanOrEqual:
+  type: rdfs.Class
+  subClassOf: BinaryComparison
+  label: Less Than Or Equal
+  comment: Returns true when `compareLeft <= compareRight` numerically. Same operand semantics as `GreaterThan`.
+
+# -----------------------------------------------------------------------------
+# Boolean composition
+# -----------------------------------------------------------------------------
+
+Not:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Not
+  comment: >-
+    Returns the boolean negation of `operand`. Strict: if `operand`
+    evaluates to true, returns false; if false, returns true; any
+    other value returns undefined (matches the strict-boolean
+    pattern of `tx.Filter.predicate`).
+
+operand:
+  type: owl.ObjectProperty
+  domain: Not
+  range: Expression
+  label: Operand
+  comment: Boolean expression to negate. Required.
+
+BooleanLogic:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Boolean Logic
+  comment: >-
+    Abstract intermediate for n-ary boolean composition (And, Or).
+    Both subclasses short-circuit — And stops on the first non-
+    true operand; Or stops on the first true operand.
+
+operands:
+  type: owl.ObjectProperty
+  domain: BooleanLogic
+  range: Expression
+  label: Operands
+  comment: >-
+    List of boolean expressions. Authored as a YAML list. Empty
+    operand lists evaluate to the identity of the operation:
+    `And` over [] is true (vacuous); `Or` over [] is false
+    (vacuous).
+
+And:
+  type: rdfs.Class
+  subClassOf: BooleanLogic
+  label: And
+  comment: >-
+    Returns true when EVERY operand evaluates to true. Short-
+    circuits on the first non-true operand (so later operands
+    with side-effecting Traverse / ResolveRef don't run). Empty
+    operand list returns true (vacuous).
+
+Or:
+  type: rdfs.Class
+  subClassOf: BooleanLogic
+  label: Or
+  comment: >-
+    Returns true when ANY operand evaluates to true. Short-
+    circuits on the first true operand. Empty operand list
+    returns false (vacuous).
+
+# -----------------------------------------------------------------------------
+# List membership
+# -----------------------------------------------------------------------------
+
+Contains:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Contains
+  comment: >-
+    Returns true when any element of `haystack` equals `needle`,
+    using the same semantics as `tx.Equals` (URI equality for
+    refs/subjects, value equality for literals, cross-kind false).
+
+    Equivalent to a `tx.Filter` (over haystack with `tx.Equals`
+    predicate) followed by `tx.Count > 0`, but spares the author
+    the boilerplate. Reach for it constantly in diff / lookup
+    workflows: "is this thesis in the previous snapshot's
+    hasThesis list?"
+
+haystack:
+  type: owl.ObjectProperty
+  domain: Contains
+  range: Expression
+  label: Haystack
+  comment: Expression yielding the list to search. Required.
+
+needle:
+  type: owl.ObjectProperty
+  domain: Contains
+  range: Expression
+  label: Needle
+  comment: Expression yielding the value to search for. Required.
+
+# -----------------------------------------------------------------------------
+# Numeric utilities (UnaryNumericOp family)
+# -----------------------------------------------------------------------------
+
+UnaryNumericOp:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Unary Numeric Op
+  comment: >-
+    Abstract intermediate for one-operand numeric operations (Abs,
+    Negate). Operand must yield a number at runtime; non-numeric
+    operands raise a runtime error (matches the strict-numeric
+    pattern of the BinaryArithmetic family).
+
+value:
+  type: owl.ObjectProperty
+  domain: UnaryNumericOp
+  range: Expression
+  label: Value
+  comment: Numeric expression. Required.
+
+Abs:
+  type: rdfs.Class
+  subClassOf: UnaryNumericOp
+  label: Abs
+  comment: >-
+    Returns the absolute value of `value`. Unblocks the magnitude-
+    vs-threshold pattern (`abs(delta) >= 0.005`) without the
+    `Multiply(x, x) >= threshold * threshold` workaround that
+    obscures intent.
+
+Negate:
+  type: rdfs.Class
+  subClassOf: UnaryNumericOp
+  label: Negate
+  comment: Returns `-value` (unary negation).
+
+# -----------------------------------------------------------------------------
+# Value-kind discrimination (3.8.0)
+#
+# Three boolean predicates that branch on the runtime kind of a
+# value. Used by rendering / analysis transformations that need to
+# know whether they're looking at a reference, an embedded
+# resource, or a list before deciding what to emit.
+#
+# Each predicate takes a single `kindCheck` Expression. The
+# predicate evaluates kindCheck and inspects the result:
+#
+#   - IsReference returns true iff the result is a ReferenceKanonak.
+#   - IsEmbedded returns true iff the result is an EmbeddedKanonak.
+#   - IsList returns true iff the result is a list (array).
+#
+# Every other case (literal scalars, undefined, unknown kinds)
+# returns false. Matches the IsSet / Equals convention of "predicate
+# returns false on cases it doesn't recognize, never throws."
+# -----------------------------------------------------------------------------
+
+KindPredicate:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Kind Predicate
+  comment: >-
+    Abstract intermediate for boolean predicates that branch on the
+    runtime kind of a value (IsReference / IsEmbedded / IsList).
+    Each subclass shares the same `kindCheck` slot — an Expression
+    whose evaluated value's kind is being inspected. Mirrors the
+    BinaryComparison / BooleanLogic / UnaryNumericOp pattern from
+    earlier minor versions.
+
+kindCheck:
+  type: owl.ObjectProperty
+  domain: KindPredicate
+  range: Expression
+  label: Kind Check
+  comment: >-
+    The Expression whose runtime value's kind is being checked.
+    Required for every KindPredicate subclass.
+
+IsReference:
+  type: rdfs.Class
+  subClassOf: KindPredicate
+  label: Is Reference
+  comment: >-
+    Boolean predicate. Returns true iff `kindCheck` evaluates to a
+    ReferenceKanonak (a value that points at another resource by
+    URI). Used by renderers to decide between a ResourceLink (for
+    refs) and other display forms.
+
+IsEmbedded:
+  type: rdfs.Class
+  subClassOf: KindPredicate
+  label: Is Embedded
+  comment: >-
+    Boolean predicate. Returns true iff `kindCheck` evaluates to an
+    EmbeddedKanonak (an inline resource owned by its parent). Used by
+    renderers to decide whether to recurse into the embedded's own
+    statements (e.g. emit a nested PropertyList) instead of
+    treating it as an opaque value.
+
+IsList:
+  type: rdfs.Class
+  subClassOf: KindPredicate
+  label: Is List
+  comment: >-
+    Boolean predicate. Returns true iff `kindCheck` evaluates to a
+    list (array). Used by renderers and analyzers to decide whether
+    to iterate (ForEach / ListMap / etc.) before processing
+    individual elements.
+
+# -----------------------------------------------------------------------------
+# Raw statement value (3.8.0)
+#
+# Returns the raw object of a statement WITHOUT the string coercion
+# that StatementValue applies. Where StatementValue gives back the
+# local name of a reference, "[embedded]" for an EmbeddedKanonak,
+# and a comma-joined string for a list, StatementObject gives back
+# the actual ReferenceKanonak / EmbeddedKanonak / list / scalar
+# value that the rest of the transformation can branch on (via
+# IsReference / IsEmbedded / IsList) and structurally process
+# (via AllStatements on the embedded, ResolveRef on the reference,
+# ForEach on the list).
+#
+# Use StatementValue when you want a single rendered string per
+# statement (the original 3.4.0 use case). Use StatementObject when
+# you need the structure preserved (rich rendering, analysis,
+# aggregation).
+# -----------------------------------------------------------------------------
+
+StatementObject:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Statement Object
+  comment: >-
+    Returns the raw value of a statement (ReferenceKanonak /
+    EmbeddedKanonak / list / scalar) without string coercion.
+    Companion to StatementPredicate; replaces StatementValue in
+    rich-rendering paths that need to inspect or process the value
+    structurally rather than just display it.
+
+statementSource:
+  type: owl.ObjectProperty
+  domain: StatementObject
+  range: Expression
+  label: Statement Source
+  comment: >-
+    The Expression whose value is the statement to read. Required.
+    Typically a VarRef bound to the loop variable of a ForEach over
+    AllStatements.
+
+# -----------------------------------------------------------------------------
+# Local binding (3.9.0)
+#
+# Let separates "introduce a name in scope" from "iterate a list."
+# Critical for recursive-fragment patterns where a fragment that
+# calls itself on nested values needs each call site to bind the
+# value being rendered to a known name in scope before invoking
+# the fragment.
+# -----------------------------------------------------------------------------
+
+Let:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Let
+  comment: >-
+    Binds `letName` to the result of evaluating `letValue` in the
+    current environment, then evaluates `letBody` in the extended
+    environment. Returns the body's result. The binding shadows any
+    outer variable of the same name for the body's duration only —
+    the original scope is unaffected after Let returns.
+
+letName:
+  type: owl.DatatypeProperty
+  domain: Let
+  range: xsd.string
+  label: Let Name
+  comment: >-
+    The variable name to bind. Required. Subsequent VarRef
+    expressions inside `letBody` with this name resolve to the
+    bound value.
+
+letValue:
+  type: owl.ObjectProperty
+  domain: Let
+  range: Expression
+  label: Let Value
+  comment: >-
+    The Expression whose evaluated result becomes the bound
+    variable's value. Required.
+
+letBody:
+  type: owl.ObjectProperty
+  domain: Let
+  range: Expression
+  label: Let Body
+  comment: >-
+    The Expression evaluated in the extended environment. Its
+    result is what Let returns. Required.
+
+# -----------------------------------------------------------------------------
+# Dynamic statement lookup (3.10.0)
+#
+# tx.PropertyRead requires a static predicate URI (compiled at load
+# time). When the predicate to look up comes from an iteration
+# variable — e.g. a column name discovered from a sibling row's
+# statements — there's no way to express the lookup with the
+# 3.9.0 surface. tx.GetStatementByName closes that gap.
+# -----------------------------------------------------------------------------
+
+GetStatementByName:
+  type: rdfs.Class
+  subClassOf: Expression
+  label: Get Statement By Name
+  comment: >-
+    Returns the first statement on `inSubject` whose predicate's
+    local name matches `byName`, or undefined when no match exists.
+    Used by the universal renderer's tabular emission to look up
+    a row's statement for a given column when the column predicate
+    is loop-bound. Matches by local name only — predicates from
+    different packages with the same local name collide; safe
+    inside a single subject's statement set where the local-name
+    namespace is well-defined.
+
+inSubject:
+  type: owl.ObjectProperty
+  domain: GetStatementByName
+  range: Expression
+  label: In Subject
+  comment: >-
+    Expression yielding a SubjectKanonak or EmbeddedKanonak whose
+    statements will be searched. Required.
+
+byName:
+  type: owl.ObjectProperty
+  domain: GetStatementByName
+  range: Expression
+  label: By Name
+  comment: >-
+    Expression yielding a string — the predicate local name to
+    match. Required.
+

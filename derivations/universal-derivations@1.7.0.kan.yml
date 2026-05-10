@@ -1,0 +1,878 @@
+# =============================================================================
+# universal-derivations @ 1.7.0
+#
+# Shape-aware tabular rendering for heterogeneous lists of embeddeds.
+# 1.6.0 used the FIRST item's predicate names as column headers and
+# iterated each row's statements positionally for cells. That worked
+# for uniform lists (e.g. hasFitnessScore where every entry has
+# exactly forRegime + scoreValue) but mishandled heterogeneous shapes:
+# columns from items with extra predicates were silently dropped, and
+# cells misaligned when items had statements in different orders.
+#
+# 1.7.0 mirrors the FormView (legacy Display) approach using the new
+# tx 3.10.0 GetStatementByName primitive:
+#
+#   - Column headers = UNION of every distinct predicate name across
+#     every list item (in first-appearance order). Computed via
+#     ForEach + AllStatements + DistinctBy with key = predicate
+#     local name.
+#   - Cells = per (row item, column predicate name), use
+#     GetStatementByName to find the row's statement matching the
+#     column predicate. Missing statement → empty cell. Found
+#     statement → render its value via recursive
+#     Let + CallFragment(render-value).
+#
+# Recursion stays automatic: a cell whose value is itself a list of
+# embeddeds becomes a NESTED Table via render-value's IsList branch
+# re-firing. HTML backends embed `<table>` inside `<td>` cleanly.
+# Markdown backends still flatten nested-table content to a single
+# pipe-row line (GFM limitation); the JSON backend serializes
+# everything structurally.
+#
+# Requires tx 3.10.0 (GetStatementByName + DistinctBy) and docast
+# 1.2.0 (Table + TableRow vocabulary).
+#
+# 1.0.0 – 1.6.0 preserved on disk archivally.
+#
+# =============================================================================
+# universal-derivations @ 1.6.0 (history, unchanged in 1.7.0)
+#
+# Phase B: tabular rendering for lists of dict-keyed embeddeds.
+#
+# Lists of named embeddeds with consistent shape (the canonical
+# example: `hasFitnessScore: { fit-quiet: {…}, fit-bull: {…}, … }`)
+# now render as a real table instead of a vertical sequence of
+# nested PropertyLists. Closes the biggest remaining FormView
+# divergence — these lists are the most common shape in
+# property-bag style ontologies and tables collapse them into a
+# scannable grid.
+#
+# Mechanism:
+#
+#   - In the render-value fragment's IsList branch, peek at the
+#     first item via tx.ListItemAt(itemIndex=0). If that first
+#     item IsEmbedded, emit a docast.Table:
+#       * tableColumnLabels: the first item's predicate names with
+#         rdfs.label fallback. The leftmost column header is empty
+#         since that column holds the row name (the embedded's
+#         dict-key).
+#       * tableRows: ForEach over the items, emit a TableRow whose
+#         tableCells are: [Text(item's UriName), ...ForEach item's
+#         statements rendered via recursive Let+CallFragment(render-value)].
+#   - Otherwise (lists of references, scalars, or empty lists):
+#     fall through to the existing per-item dispatch (per-line
+#     ResourceLink for refs, Text for everything else).
+#
+# Heuristic: shape uniformity is NOT validated. The renderer
+# assumes that if the first item is embedded, all items will share
+# the same statement order. This holds for dict-keyed embedded
+# lists authored consistently in YAML (parse order matches
+# authoring order). When item shapes differ, columns may shift
+# across rows; backends render what they're given without
+# padding. Future iteration can add tx.ShapeKey or similar to
+# enforce or detect shape uniformity.
+#
+# Requires docast 1.2.0 (Table + TableRow vocabulary).
+#
+# Deferred to 1.7.0 / Phase C: type-as-styled-badge near the H1,
+# hover tooltips populated from rdfs.comment, dynamic property
+# lookup primitive (`tx.GetStatement(subject, predicateUri)`) for
+# shape-aware column ordering across heterogeneous lists.
+#
+# =============================================================================
+# universal-derivations @ 1.5.0 (history, unchanged in 1.6.0)
+#
+# Presentation polish — closes the visible-quality gap between the
+# universal renderer and a hand-rolled FormView-style display:
+#
+#   1. The H1 heading uses the resource's `rdfs.label` when set,
+#      falling back to its local name. Pre-1.5.0 always used the
+#      local name, so a resource labeled "Managed futures (KMLM/DBMF)"
+#      rendered with the kebab heading "managed-futures-trend".
+#   2. The resource's `rdfs.comment`, when set, renders as a
+#      description paragraph between the H1 and the property list.
+#   3. `rdfs.label` and `rdfs.comment` are filtered out of the
+#      property list — they're already shown as title/description,
+#      so listing them again would be noise.
+#   4. ResourceLink.linkLabel is populated with the target's
+#      `rdfs.label` (fallback to local name). Reference values now
+#      show readable text — `[Traditional IRA]` instead of
+#      `[traditional-ira]`.
+#   5. PropertyEntry.propertyKey uses the property's `rdfs.label`
+#      when the property entity declares one (fallback to local
+#      name). Properties with publisher-supplied labels get
+#      human-readable names; others keep their identifier form.
+#
+# Requires the SDK engine update that lets tx.ResolveRef pass
+# SubjectKanonak through unchanged (so the same Fallback
+# composition works for both Reference and resolved-Subject runtime
+# values).
+#
+# Deferred to 1.6.0 / Phase B: docast.Table class + uniform-list
+# detection in the renderer (so a list of dict-keyed embeddeds with
+# consistent shape renders as a real table).
+# Deferred to 1.7.0 / Phase C: type-as-styled-badge near the H1,
+# hover tooltips populated from rdfs.comment.
+#
+# =============================================================================
+# universal-derivations @ 1.4.0 (history, unchanged in 1.5.0)
+#
+# Architectural rewrite: factors per-value rendering into a recursive
+# ExpressionFragment (`render-value`). Earlier versions handled deeper
+# nesting by inlining a truncated dispatch chain at each level, so
+# references inside embeddeds — and embeddeds inside embeddeds — still
+# rendered as string-coerced text. 1.4.0 makes the rendering truly
+# recursive: every value, no matter how deeply nested, runs through
+# the same four-way dispatch (Reference, Embedded, List, scalar).
+#
+# Mechanism:
+#   - The `render-value` ExpressionFragment encapsulates the dispatch.
+#     Its body reads `currentValue` from scope and branches on its
+#     kind, producing the appropriate docast node.
+#   - Reference branch  → docast.ResourceLink
+#   - Embedded branch   → nested docast.PropertyList whose entries
+#                         recursively bind each sub-statement's value
+#                         via tx.Let and re-invoke render-value.
+#   - List branch       → ForEach items, bind each via Let, re-invoke.
+#   - Scalar fallback   → wrap currentValue in tx.Concat for
+#                         SCALAR_STRING_FIELDS auto-string-coercion.
+#
+# The top-level transformation rule emits the Document shell
+# (metadata + heading + outermost PropertyList of the input's
+# statements) and uses tx.Let + CallFragment(render-value) to render
+# each statement's value. Recursion is bounded by the loader's
+# MAX_FRAGMENT_DEPTH (16) — sufficient for any practical resource
+# graph; deeper would require revisiting the depth limit.
+#
+# Requires tx 3.9.0 (Let primitive) and docast 1.1.0 (ResourceLink +
+# PropertyList vocabulary).
+#
+# Visible behavior change vs 1.3.0: properties on embedded resources
+# whose values are references (e.g. `forRegime: reg.quiet-contango`
+# inside a hasFitnessScore embedded) now render as clickable links
+# instead of plain text. Same for any value at any nesting depth.
+#
+# 1.0.0 – 1.3.0 preserved on disk archivally; consumers pinned to
+# them continue working unchanged.
+# =============================================================================
+
+universal-derivations:
+  type: Package
+  publisher: kanonak.org
+  version: 1.7.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: transformations
+          match: ^
+          version: 3.10.0
+          alias: tx
+        - package: document-ast
+          match: ^
+          version: 1.2.0
+          alias: docast
+        - package: formats
+          match: ^
+          version: 1.0.0
+          alias: formats
+        - package: derivation
+          match: ^
+          version: 1.0.0
+          alias: derivation
+
+# =============================================================================
+# RECURSIVE VALUE RENDERER FRAGMENT
+#
+# Reads `currentValue` from scope (set by the caller via tx.Let or
+# tx.ForEach loopVar) and produces a docast node appropriate to the
+# value's runtime kind. Recurses for Embedded and List by re-binding
+# `currentValue` and re-invoking itself via CallFragment.
+# =============================================================================
+
+render-value:
+  type: tx.ExpressionFragment
+  tx.body:
+
+    type: tx.When
+    tx.condition:
+      type: tx.IsReference
+      tx.kindCheck:
+        type: tx.VarRef
+        tx.varName: currentValue
+    tx.thenBuild:
+      # Reference branch — emit a clickable ResourceLink. The target
+      # is the value itself (a ReferenceKanonak or a SubjectKanonak
+      # that resolved cleanly during parse). The backend extracts
+      # the canonical URI from either shape. linkLabel is populated
+      # with the target's rdfs.label when set, otherwise the
+      # backend falls back to the local name.
+      type: tx.BuildAstNode
+      tx.astClass: docast.ResourceLink
+      tx.set:
+        - tx.field: docast.target
+          tx.bindValue:
+            type: tx.VarRef
+            tx.varName: currentValue
+        - tx.field: docast.linkLabel
+          tx.bindValue:
+            type: tx.PropertyRead
+            tx.readSource:
+              type: tx.ResolveRef
+              tx.resolveSource:
+                type: tx.VarRef
+                tx.varName: currentValue
+            tx.readProp: rdfs.label
+
+    tx.elseBuild:
+      type: tx.When
+      tx.condition:
+        type: tx.IsEmbedded
+        tx.kindCheck:
+          type: tx.VarRef
+          tx.varName: currentValue
+      tx.thenBuild:
+        # Embedded branch. When the embedded has a name (dict-keyed
+        # in YAML, e.g. `fit-quiet: {…}`), wrap its statements in a
+        # single-entry PropertyList using the dict-key name as the
+        # entry's key — preserves the per-item naming in lists of
+        # named embeddeds. When the embedded is positional (no
+        # dict-key), emit the bare nested PropertyList of its
+        # statements without the wrapper.
+        type: tx.When
+        tx.condition:
+          type: tx.IsSet
+          tx.checkExpr:
+            type: tx.UriName
+            tx.uriNameOf:
+              type: tx.VarRef
+              tx.varName: currentValue
+        tx.thenBuild:
+          # Named (dict-keyed) embedded — wrap with name as header.
+          type: tx.BuildAstNode
+          tx.astClass: docast.PropertyList
+          tx.set:
+            - tx.field: docast.propertyEntries
+              tx.bindValue:
+                type: tx.Concat
+                tx.parts:
+                  - type: tx.BuildAstNode
+                    tx.astClass: docast.PropertyEntry
+                    tx.set:
+                      - tx.field: docast.propertyKey
+                        tx.bindValue:
+                          type: tx.UriName
+                          tx.uriNameOf:
+                            type: tx.VarRef
+                            tx.varName: currentValue
+                      - tx.field: docast.propertyValue
+                        tx.bindValue:
+                          type: tx.Concat
+                          tx.parts:
+                            - type: tx.BuildAstNode
+                              tx.astClass: docast.PropertyList
+                              tx.set:
+                                - tx.field: docast.propertyEntries
+                                  tx.bindValue:
+                                    type: tx.ForEach
+                                    tx.source:
+                                      type: tx.AllStatements
+                                      tx.statementsOf:
+                                        type: tx.VarRef
+                                        tx.varName: currentValue
+                                    tx.loopVar: subStmt
+                                    tx.emit:
+                                      type: tx.BuildAstNode
+                                      tx.astClass: docast.PropertyEntry
+                                      tx.set:
+                                        - tx.field: docast.propertyKey
+                                          tx.bindValue:
+                                            type: tx.Fallback
+                                            tx.primary:
+                                              type: tx.PropertyRead
+                                              tx.readSource:
+                                                type: tx.ResolveRef
+                                                tx.resolveSource:
+                                                  type: tx.StatementPredicate
+                                                  tx.predicateOf:
+                                                    type: tx.VarRef
+                                                    tx.varName: subStmt
+                                              tx.readProp: rdfs.label
+                                            tx.alternate:
+                                              type: tx.UriName
+                                              tx.uriNameOf:
+                                                type: tx.StatementPredicate
+                                                tx.predicateOf:
+                                                  type: tx.VarRef
+                                                  tx.varName: subStmt
+                                        - tx.field: docast.propertyValue
+                                          tx.bindValue:
+                                            type: tx.Concat
+                                            tx.parts:
+                                              - type: tx.Let
+                                                tx.letName: currentValue
+                                                tx.letValue:
+                                                  type: tx.StatementObject
+                                                  tx.statementSource:
+                                                    type: tx.VarRef
+                                                    tx.varName: subStmt
+                                                tx.letBody:
+                                                  type: tx.CallFragment
+                                                  tx.fragmentRef: render-value
+        tx.elseBuild:
+          # Positional embedded — bare nested PropertyList of statements.
+          type: tx.BuildAstNode
+          tx.astClass: docast.PropertyList
+          tx.set:
+            - tx.field: docast.propertyEntries
+              tx.bindValue:
+                type: tx.ForEach
+                tx.source:
+                  type: tx.AllStatements
+                  tx.statementsOf:
+                    type: tx.VarRef
+                    tx.varName: currentValue
+                tx.loopVar: subStmt
+                tx.emit:
+                  type: tx.BuildAstNode
+                  tx.astClass: docast.PropertyEntry
+                  tx.set:
+                    - tx.field: docast.propertyKey
+                      tx.bindValue:
+                        type: tx.Fallback
+                        tx.primary:
+                          type: tx.PropertyRead
+                          tx.readSource:
+                            type: tx.ResolveRef
+                            tx.resolveSource:
+                              type: tx.StatementPredicate
+                              tx.predicateOf:
+                                type: tx.VarRef
+                                tx.varName: subStmt
+                          tx.readProp: rdfs.label
+                        tx.alternate:
+                          type: tx.UriName
+                          tx.uriNameOf:
+                            type: tx.StatementPredicate
+                            tx.predicateOf:
+                              type: tx.VarRef
+                              tx.varName: subStmt
+                    - tx.field: docast.propertyValue
+                      tx.bindValue:
+                        type: tx.Concat
+                        tx.parts:
+                          - type: tx.Let
+                            tx.letName: currentValue
+                            tx.letValue:
+                              type: tx.StatementObject
+                              tx.statementSource:
+                                type: tx.VarRef
+                                tx.varName: subStmt
+                            tx.letBody:
+                              type: tx.CallFragment
+                              tx.fragmentRef: render-value
+
+      tx.elseBuild:
+        type: tx.When
+        tx.condition:
+          type: tx.IsList
+          tx.kindCheck:
+            type: tx.VarRef
+            tx.varName: currentValue
+        tx.thenBuild:
+          # List branch. Peek at the first item — if it's an
+          # EmbeddedKanonak, render the whole list as a docast.Table
+          # (the natural shape for dict-keyed embedded collections
+          # with consistent property structure). Otherwise fall
+          # back to the per-item ForEach (one rendered node per
+          # element flowing into the parent field as a list).
+          type: tx.When
+          tx.condition:
+            type: tx.IsEmbedded
+            tx.kindCheck:
+              type: tx.ListItemAt
+              tx.source:
+                type: tx.VarRef
+                tx.varName: currentValue
+              tx.itemIndex:
+                type: tx.IntegerLiteral
+                tx.integerLiteral: 0
+          tx.thenBuild:
+            # List of embeddeds → shape-aware Table. Compute the
+            # union of predicate names across ALL items first
+            # (DistinctBy on the flattened statement set keyed by
+            # predicate local name), then use that ONE list both
+            # to label columns and to look up cell values per row
+            # (via tx.GetStatementByName). Heterogeneous shapes
+            # render correctly: items with extra predicates
+            # contribute extra columns; items missing a predicate
+            # get an empty cell for that column.
+            type: tx.Let
+            tx.letName: columnStmts
+            tx.letValue:
+              type: tx.DistinctBy
+              tx.source:
+                # ForEach over items, emit each item's AllStatements;
+                # ForEach flattens, so the result is one big array
+                # of statements across every row.
+                type: tx.ForEach
+                tx.source:
+                  type: tx.VarRef
+                  tx.varName: currentValue
+                tx.loopVar: item
+                tx.emit:
+                  type: tx.AllStatements
+                  tx.statementsOf:
+                    type: tx.VarRef
+                    tx.varName: item
+              tx.loopVar: stmt
+              tx.distinctKey:
+                type: tx.UriName
+                tx.uriNameOf:
+                  type: tx.StatementPredicate
+                  tx.predicateOf:
+                    type: tx.VarRef
+                    tx.varName: stmt
+            tx.letBody:
+              type: tx.BuildAstNode
+              tx.astClass: docast.Table
+              tx.set:
+
+                # Column labels: empty leading string for the row-
+                # name column, then per-column predicate label
+                # (rdfs.label fallback to local name).
+                - tx.field: docast.tableColumnLabels
+                  tx.bindValue:
+                    type: tx.Concat
+                    tx.parts:
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: ""
+                      - type: tx.ForEach
+                        tx.source:
+                          type: tx.VarRef
+                          tx.varName: columnStmts
+                        tx.loopVar: colStmt
+                        tx.emit:
+                          type: tx.Fallback
+                          tx.primary:
+                            type: tx.PropertyRead
+                            tx.readSource:
+                              type: tx.ResolveRef
+                              tx.resolveSource:
+                                type: tx.StatementPredicate
+                                tx.predicateOf:
+                                  type: tx.VarRef
+                                  tx.varName: colStmt
+                            tx.readProp: rdfs.label
+                          tx.alternate:
+                            type: tx.UriName
+                            tx.uriNameOf:
+                              type: tx.StatementPredicate
+                              tx.predicateOf:
+                                type: tx.VarRef
+                                tx.varName: colStmt
+
+                # Rows: ForEach item → TableRow whose first cell is
+                # the item's UriName and whose subsequent cells are
+                # this row's value for each column predicate (via
+                # GetStatementByName), rendered via render-value.
+                - tx.field: docast.tableRows
+                  tx.bindValue:
+                    type: tx.ForEach
+                    tx.source:
+                      type: tx.VarRef
+                      tx.varName: currentValue
+                    tx.loopVar: item
+                    tx.emit:
+                      type: tx.BuildAstNode
+                      tx.astClass: docast.TableRow
+                      tx.set:
+                        - tx.field: docast.tableCells
+                          tx.bindValue:
+                            type: tx.Concat
+                            tx.parts:
+                              # Row label = item's UriName as Text.
+                              - type: tx.BuildAstNode
+                                tx.astClass: docast.Text
+                                tx.set:
+                                  - tx.field: docast.text
+                                    tx.bindValue:
+                                      type: tx.UriName
+                                      tx.uriNameOf:
+                                        type: tx.VarRef
+                                        tx.varName: item
+                              # Per-column cells: look up THIS row's
+                              # statement matching the column predicate
+                              # name. When found, render via render-value.
+                              # When not, emit empty Text.
+                              - type: tx.ForEach
+                                tx.source:
+                                  type: tx.VarRef
+                                  tx.varName: columnStmts
+                                tx.loopVar: colStmt
+                                tx.emit:
+                                  type: tx.Let
+                                  tx.letName: cellStmt
+                                  tx.letValue:
+                                    type: tx.GetStatementByName
+                                    tx.inSubject:
+                                      type: tx.VarRef
+                                      tx.varName: item
+                                    tx.byName:
+                                      type: tx.UriName
+                                      tx.uriNameOf:
+                                        type: tx.StatementPredicate
+                                        tx.predicateOf:
+                                          type: tx.VarRef
+                                          tx.varName: colStmt
+                                  tx.letBody:
+                                    type: tx.When
+                                    tx.condition:
+                                      type: tx.IsSet
+                                      tx.checkExpr:
+                                        type: tx.VarRef
+                                        tx.varName: cellStmt
+                                    tx.thenBuild:
+                                      type: tx.Let
+                                      tx.letName: currentValue
+                                      tx.letValue:
+                                        type: tx.StatementObject
+                                        tx.statementSource:
+                                          type: tx.VarRef
+                                          tx.varName: cellStmt
+                                      tx.letBody:
+                                        type: tx.CallFragment
+                                        tx.fragmentRef: render-value
+                                    tx.elseBuild:
+                                      type: tx.BuildAstNode
+                                      tx.astClass: docast.Text
+                                      tx.set:
+                                        - tx.field: docast.text
+                                          tx.bindValue:
+                                            type: tx.StringLiteral
+                                            tx.stringLiteral: ""
+
+          tx.elseBuild:
+            # Non-embedded list (refs, scalars, mixed) — per-item
+            # render. ForEach result is a list of rendered nodes
+            # that flows into the parent field as a list.
+            type: tx.ForEach
+            tx.source:
+              type: tx.VarRef
+              tx.varName: currentValue
+            tx.loopVar: item
+            tx.emit:
+              type: tx.Let
+              tx.letName: currentValue
+              tx.letValue:
+                type: tx.VarRef
+                tx.varName: item
+              tx.letBody:
+                type: tx.CallFragment
+                tx.fragmentRef: render-value
+
+        tx.elseBuild:
+          # Scalar fallback — wrap currentValue in tx.Concat so the
+          # text field's SCALAR_STRING_FIELDS auto-coercion turns the
+          # bound value into a string regardless of whether it's a
+          # JS string, number, or boolean at runtime.
+          type: tx.BuildAstNode
+          tx.astClass: docast.Text
+          tx.set:
+            - tx.field: docast.text
+              tx.bindValue:
+                type: tx.Concat
+                tx.parts:
+                  - type: tx.VarRef
+                    tx.varName: currentValue
+
+# =============================================================================
+# UNIVERSAL TRANSFORMATION
+#
+# Produces a docast.Document for any resource. Used by all three
+# format bindings on rdfs.Resource — the same docast tree gets
+# serialized differently per backend.
+# =============================================================================
+
+any-resource-renderer:
+  type: tx.InstanceTransformation
+
+  tx.inputPattern:
+    tx.matchesClass: rdfs.Resource
+
+  tx.artifactName:
+    type: tx.UriName
+    tx.uriNameOf:
+      type: tx.VarRef
+      tx.varName: input
+
+  tx.outputs:
+    - tx.html
+    - tx.markdown-with-frontmatter
+    - tx.json
+
+  tx.rule:
+    type: tx.BuildAstNode
+    tx.astClass: docast.Document
+    tx.set:
+
+      # ------------------------------------------------------------
+      # Frontmatter / structured metadata channel — read by the
+      # markdown-with-frontmatter backend. The HTML and JSON
+      # backends ignore it (HTML reads children only; JSON dumps
+      # the whole tree).
+      # ------------------------------------------------------------
+      - tx.field: docast.metadata
+        tx.bindValue:
+          type: tx.BuildAstNode
+          tx.astClass: docast.StructuredMap
+          tx.set:
+            - tx.field: docast.entries
+              tx.bindValue:
+                type: tx.Concat
+                tx.parts:
+                  - type: tx.BuildAstNode
+                    tx.astClass: docast.StructuredEntry
+                    tx.set:
+                      - tx.field: docast.key
+                        tx.bindValue:
+                          type: tx.StringLiteral
+                          tx.stringLiteral: name
+                      - tx.field: docast.value
+                        tx.bindValue:
+                          type: tx.BuildAstNode
+                          tx.astClass: docast.StringScalar
+                          tx.set:
+                            - tx.field: docast.stringValue
+                              tx.bindValue:
+                                type: tx.UriName
+                                tx.uriNameOf:
+                                  type: tx.VarRef
+                                  tx.varName: input
+
+                  - type: tx.BuildAstNode
+                    tx.astClass: docast.StructuredEntry
+                    tx.set:
+                      - tx.field: docast.key
+                        tx.bindValue:
+                          type: tx.StringLiteral
+                          tx.stringLiteral: source
+                      - tx.field: docast.value
+                        tx.bindValue:
+                          type: tx.BuildAstNode
+                          tx.astClass: docast.StringScalar
+                          tx.set:
+                            - tx.field: docast.stringValue
+                              tx.bindValue:
+                                type: tx.SubjectUri
+                                tx.subjectOf:
+                                  type: tx.VarRef
+                                  tx.varName: input
+
+      # ------------------------------------------------------------
+      # Narrative children: H1 with the resource's local name, then
+      # a PropertyList of the resource's statements where each
+      # value is rendered recursively via the render-value fragment.
+      # ------------------------------------------------------------
+      - tx.field: docast.children
+        tx.bindValue:
+          type: tx.Concat
+          tx.parts:
+
+            - type: tx.BuildAstNode
+              tx.astClass: docast.Heading
+              tx.set:
+                - tx.field: docast.level
+                  tx.bindValue:
+                    type: tx.IntegerLiteral
+                    tx.integerLiteral: 1
+                - tx.field: docast.inlines
+                  tx.bindValue:
+                    type: tx.Concat
+                    tx.parts:
+                      - type: tx.BuildAstNode
+                        tx.astClass: docast.Text
+                        tx.set:
+                          - tx.field: docast.text
+                            tx.bindValue:
+                              # Prefer the resource's rdfs.label;
+                              # fall back to its local name when no
+                              # label is declared.
+                              type: tx.Fallback
+                              tx.primary:
+                                type: tx.PropertyRead
+                                tx.readSource:
+                                  type: tx.VarRef
+                                  tx.varName: input
+                                tx.readProp: rdfs.label
+                              tx.alternate:
+                                type: tx.UriName
+                                tx.uriNameOf:
+                                  type: tx.VarRef
+                                  tx.varName: input
+
+            # Description paragraph from rdfs.comment, when set. When
+            # the resource has no comment, this When yields undefined
+            # which the engine skips when assembling the Concat.
+            - type: tx.When
+              tx.condition:
+                type: tx.IsSet
+                tx.checkExpr:
+                  type: tx.PropertyRead
+                  tx.readSource:
+                    type: tx.VarRef
+                    tx.varName: input
+                  tx.readProp: rdfs.comment
+              tx.thenBuild:
+                type: tx.BuildAstNode
+                tx.astClass: docast.Paragraph
+                tx.set:
+                  - tx.field: docast.inlines
+                    tx.bindValue:
+                      type: tx.Concat
+                      tx.parts:
+                        - type: tx.BuildAstNode
+                          tx.astClass: docast.Text
+                          tx.set:
+                            - tx.field: docast.text
+                              tx.bindValue:
+                                type: tx.PropertyRead
+                                tx.readSource:
+                                  type: tx.VarRef
+                                  tx.varName: input
+                                tx.readProp: rdfs.comment
+
+            - type: tx.BuildAstNode
+              tx.astClass: docast.PropertyList
+              tx.set:
+                - tx.field: docast.propertyEntries
+                  tx.bindValue:
+                    type: tx.ForEach
+                    # Filter out `label` and `comment` — they're
+                    # already shown as the title and description
+                    # paragraph above. Listing them again would be
+                    # noise.
+                    tx.source:
+                      type: tx.Filter
+                      tx.source:
+                        type: tx.AllStatements
+                        tx.statementsOf:
+                          type: tx.VarRef
+                          tx.varName: input
+                      tx.loopVar: stmt
+                      tx.predicate:
+                        type: tx.Not
+                        tx.operand:
+                          type: tx.Contains
+                          tx.haystack:
+                            type: tx.Concat
+                            tx.parts:
+                              - type: tx.StringLiteral
+                                tx.stringLiteral: label
+                              - type: tx.StringLiteral
+                                tx.stringLiteral: comment
+                          tx.needle:
+                            type: tx.UriName
+                            tx.uriNameOf:
+                              type: tx.StatementPredicate
+                              tx.predicateOf:
+                                type: tx.VarRef
+                                tx.varName: stmt
+                    tx.loopVar: stmt
+                    tx.emit:
+                      type: tx.BuildAstNode
+                      tx.astClass: docast.PropertyEntry
+                      tx.set:
+                        - tx.field: docast.propertyKey
+                          tx.bindValue:
+                            # Prefer the property's rdfs.label;
+                            # fall back to its local name. Resolves
+                            # the predicate reference to its target
+                            # subject so we can read the label off
+                            # the property entity.
+                            type: tx.Fallback
+                            tx.primary:
+                              type: tx.PropertyRead
+                              tx.readSource:
+                                type: tx.ResolveRef
+                                tx.resolveSource:
+                                  type: tx.StatementPredicate
+                                  tx.predicateOf:
+                                    type: tx.VarRef
+                                    tx.varName: stmt
+                              tx.readProp: rdfs.label
+                            tx.alternate:
+                              type: tx.UriName
+                              tx.uriNameOf:
+                                type: tx.StatementPredicate
+                                tx.predicateOf:
+                                  type: tx.VarRef
+                                  tx.varName: stmt
+                        - tx.field: docast.propertyValue
+                          tx.bindValue:
+                            type: tx.Concat
+                            tx.parts:
+                              - type: tx.Let
+                                tx.letName: currentValue
+                                tx.letValue:
+                                  type: tx.StatementObject
+                                  tx.statementSource:
+                                    type: tx.VarRef
+                                    tx.varName: stmt
+                                tx.letBody:
+                                  type: tx.CallFragment
+                                  tx.fragmentRef: render-value
+
+# =============================================================================
+# UNIVERSAL DERIVATION BINDINGS ON rdfs.Resource
+#
+# Open-world augmentation: this package adds `derivations` statements
+# to `rdfs.Resource`, which is defined in `kanonak.org/core-rdf@1.0.0`.
+# The parser merges these into the same canonical subject as
+# core-rdf's original declaration. Discovery walks the class
+# hierarchy bottom-up and finds these defaults at the root.
+# =============================================================================
+
+rdfs.Resource:
+  derivation.derivations:
+
+    - type: derivation.Derivation
+      derivation.format: formats.html
+      derivation.variant: derivation.default
+      derivation.transformation:
+        type: tx.TransformationReference
+        tx.publisher: kanonak.org
+        tx.package: universal-derivations
+        tx.version: 1.7.0
+        tx.name: any-resource-renderer
+
+    - type: derivation.Derivation
+      derivation.format: formats.markdown
+      derivation.variant: derivation.default
+      derivation.transformation:
+        type: tx.TransformationReference
+        tx.publisher: kanonak.org
+        tx.package: universal-derivations
+        tx.version: 1.7.0
+        tx.name: any-resource-renderer
+
+    - type: derivation.Derivation
+      derivation.format: formats.json
+      derivation.variant: derivation.default
+      derivation.transformation:
+        type: tx.TransformationReference
+        tx.publisher: kanonak.org
+        tx.package: universal-derivations
+        tx.version: 1.7.0
+        tx.name: any-resource-renderer
