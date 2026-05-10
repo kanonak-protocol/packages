@@ -150,17 +150,25 @@ kanonak-protocol-spec:
       hasRequiredRule:
         fragment-grammar-rule:
           text: >-
-            Fragment payloads MUST follow dot-bracket path notation:
-            `name` for a dict-keyed embedded by name, `[N]` for a
-            positional list item by 0-based index, `.` to separate path
-            segments. Composition is unrestricted — `name.deeper`,
-            `[0].name`, `name[0].nested`, etc. are all valid.
+            Fragment payloads MUST follow dot-bracket path notation with
+            two traversal mechanisms:
+              - `name`: traverse by dict-key name (for dict-keyed embeddeds)
+                or by property name (for properties on a subject or embedded).
+              - `[N]`: index into a list value by 0-based position. Works
+                for ANY list value, whether items are dict-keyed or positional.
+              - `.`: separates path segments.
+            The two mechanisms compose freely. For lists where items have
+            dict-key names, BOTH `name` and `[N]` resolve to the same item;
+            the name form is preferred for stability (an index shifts when
+            items reorder; a dict-key name does not).
           rationale: >-
             Mirrors JSONPath / jq-style addressing, which is familiar to
-            anyone who's worked with structured data tools. The dot-bracket
-            grammar handles both addressing styles Kanonak supports:
-            named embeddeds (the dict-keyed YAML form) and positional
-            embeddeds (the list YAML form), in any composition.
+            anyone who's worked with structured-data tools. Supporting both
+            traversal mechanisms gives consumers the right tool for the
+            situation: name-based addressing for stability when sharing
+            and bookmarking, position-based addressing when the user knows
+            "the first item" but not its name (or when items have no
+            names at all).
         fragment-traversal-rule:
           text: >-
             Tools resolving a fragment MUST traverse the parent resource's
@@ -214,6 +222,16 @@ kanonak-protocol-spec:
           description: >-
             Three-level dict-keyed traversal — typical of property-bag
             ontologies with nested named embeddeds.
+        equivalent-name-and-index:
+          pro.value: |
+            https://portfolio.genval.ai/strategies/1.0.0/managed-futures-trend#hasFitnessScore.fit-quiet.scoreValue
+            https://portfolio.genval.ai/strategies/1.0.0/managed-futures-trend#hasFitnessScore[0].scoreValue
+          description: >-
+            Both URLs resolve to the same scoreValue. The first form
+            traverses by dict-key name (`fit-quiet`), the second by
+            positional index (`[0]`). Either is valid; the name form
+            survives item reordering, the index form is useful when
+            the consumer knows position but not name.
       hasInvalidExample:
         state-in-fragment:
           pro.value: |
