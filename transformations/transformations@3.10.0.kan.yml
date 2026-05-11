@@ -775,6 +775,18 @@ stylesheet:
     consumer visual coherence.
   backendUri: kanonak.org/transformations/stylesheet
 
+yaml:
+  type: OutputFormat
+  label: YAML
+  comment: >
+    Pure YAML serialization. The backend walks docast.Document.children
+    for RawBlock(text/yaml) and emits the rawContent verbatim. Used by
+    universal-derivations to expose every resource as YAML — the same
+    representation the .kan.yml authoring file uses, but materialized
+    per-resource via the derivation system. URL-form: .yaml extension
+    on the canonical resource URL.
+  backendUri: kanonak.org/transformations/yaml
+
 # =============================================================================
 # EXPRESSION HIERARCHY
 #

@@ -1111,6 +1111,131 @@ any-resource-stylesheet:
                       }
 
 # =============================================================================
+# UNIVERSAL SVG TRANSFORMATION
+#
+# Produces a basic resource card SVG for any Kanonak resource — the
+# universal default for `(formats.svg, default)`. v1 emits a simple
+# vertically-stacked card (title, type, list of property names) using
+# SVG `<text>` with relative-positioned `<tspan dy="…">` so the
+# layout works without coordinate arithmetic in tx.
+#
+# Publishers wanting richer per-class graph layouts (node-edge
+# diagrams, force-directed layouts, etc.) override at the class
+# level — the universal default is a "something visual exists"
+# baseline rather than an end-state visualization.
+#
+# Caveat: SVG is XML, but tx has no escape primitive. The
+# transformation trusts that rdfs.label values and predicate URI
+# names are XML-safe (typical kebab-case / Title-Case conventions
+# satisfy this). Authors with `<`, `&`, or `"` in label text will see
+# broken SVG; the workaround until a tx.EscapeXml primitive lands
+# is to override the transformation at the publisher class.
+# =============================================================================
+
+any-resource-svg:
+  type: tx.InstanceTransformation
+
+  tx.inputPattern:
+    tx.matchesClass: rdfs.Resource
+
+  tx.artifactName:
+    type: tx.UriName
+    tx.uriNameOf:
+      type: tx.VarRef
+      tx.varName: input
+
+  tx.outputs:
+    - tx.svg
+
+  tx.rule:
+    type: tx.BuildAstNode
+    tx.astClass: docast.Document
+    tx.set:
+      - tx.field: docast.children
+        tx.bindValue:
+          type: tx.Concat
+          tx.parts:
+            - type: tx.BuildAstNode
+              tx.astClass: docast.RawBlock
+              tx.set:
+                - tx.field: docast.mediaType
+                  tx.bindValue:
+                    type: tx.UriLiteral
+                    tx.refTo: docast.image-svg-xml
+                - tx.field: docast.rawContent
+                  tx.bindValue:
+                    type: tx.Concat
+                    tx.parts:
+
+                      # SVG opening + background card.
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: |-
+                          <svg xmlns="http://www.w3.org/2000/svg" width="500" height="auto" viewBox="0 0 500 600" preserveAspectRatio="xMinYMin meet">
+                            <rect width="500" height="600" fill="white" stroke="#d0d7de" stroke-width="1" rx="6"/>
+                            <text x="20" y="36" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" fill="#1f2328">
+
+                      # Title — rdfs.label fallback to URI local name.
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: '<tspan font-size="20" font-weight="600">'
+                      - type: tx.Fallback
+                        tx.primary:
+                          type: tx.PropertyRead
+                          tx.readSource:
+                            type: tx.VarRef
+                            tx.varName: input
+                          tx.readProp: rdfs.label
+                        tx.alternate:
+                          type: tx.UriName
+                          tx.uriNameOf:
+                            type: tx.VarRef
+                            tx.varName: input
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: '</tspan>'
+
+                      # Subtitle — full canonical URI in muted color.
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: '<tspan x="20" dy="22" font-size="11" fill="#6e7781" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">'
+                      - type: tx.SubjectUri
+                        tx.subjectOf:
+                          type: tx.VarRef
+                          tx.varName: input
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: '</tspan>'
+
+                      # Spacer + section heading.
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: '<tspan x="20" dy="28" font-size="11" fill="#8b949e" font-weight="600" letter-spacing="0.06em">PROPERTIES</tspan>'
+
+                      # One tspan per statement — predicate name only
+                      # (values are heterogeneous and need kind dispatch
+                      # we keep simple for the v1 default). dy="20" gives
+                      # comfortable line spacing.
+                      - type: tx.ForEach
+                        tx.source:
+                          type: tx.AllStatements
+                          tx.statementsOf:
+                            type: tx.VarRef
+                            tx.varName: input
+                        tx.loopVar: stmt
+                        tx.emit:
+                          type: tx.Concat
+                          tx.parts:
+                            - type: tx.StringLiteral
+                              tx.stringLiteral: '<tspan x="20" dy="20" font-size="13" fill="#1f2328">'
+                            - type: tx.UriName
+                              tx.uriNameOf:
+                                type: tx.StatementPredicate
+                                tx.predicateOf:
+                                  type: tx.VarRef
+                                  tx.varName: stmt
+                            - type: tx.StringLiteral
+                              tx.stringLiteral: '</tspan>'
+
+                      # Close the text element + svg.
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: '</text></svg>'
+
+# =============================================================================
 # UNIVERSAL DERIVATION BINDINGS ON rdfs.Resource
 #
 # Open-world augmentation: this package adds `derivations` statements
@@ -1162,3 +1287,13 @@ rdfs.Resource:
         tx.package: universal-derivations
         tx.version: 1.7.0
         tx.name: any-resource-stylesheet
+
+    - type: derivation.Derivation
+      derivation.format: formats.svg
+      derivation.variant: derivation.default
+      derivation.transformation:
+        type: tx.TransformationReference
+        tx.publisher: kanonak.org
+        tx.package: universal-derivations
+        tx.version: 1.7.0
+        tx.name: any-resource-svg
