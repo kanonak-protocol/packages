@@ -1,0 +1,37 @@
+# Package declaration
+core-prose:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+
+SubstitutableString:
+  type: Datatype
+  label: Substitutable String
+  comment: >
+    A string that may embed [[reference]] placeholders. Each placeholder
+    names a Kanonak resource resolved through the containing document's
+    import closure - bare ([[seattle]]), alias-qualified ([[us.portland]]),
+    or a local entity. An optional display label follows a pipe, e.g.
+    [[seattle|the Emerald City]]. All other text is opaque to the SDK.
+  subClassOf: xsd.string
+
+Markdown:
+  type: Datatype
+  label: Markdown
+  comment: >
+    A SubstitutableString whose surrounding text is CommonMark markdown.
+    The reference contract is identical to SubstitutableString; the
+    markdown flavour only affects how derivations render the value -
+    verbatim into markdown output, through a renderer into HTML.
+    Placeholders inside fenced or inline code are left untouched.
+  subClassOf: SubstitutableString
