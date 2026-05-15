@@ -1,0 +1,1627 @@
+# =============================================================================
+# universal-derivations @ 1.8.0
+#
+# Additive minor bump. Adds the universal dynamodb-json walker — one
+# recursive `ExpressionFragment` (`as-attribute-value`) plus one
+# `InstanceTransformation` (`resource-to-attribute-value`) matching
+# `rdfs.Resource`. The walker mirrors `render-value` structurally
+# but emits the docast.StructuredValue tree the `dynamodb-json`
+# backend serializes into DynamoDB attribute-value JSON.
+#
+# Dispatch tree (uniform recursion via tx.CallFragment):
+#
+#   IsList       → StructuredList(items: recurse each item)
+#   IsEmbedded   → StructuredMap(entries: AllStatements → recurse)
+#   IsReference  → StringScalar(stringValue = canonical URI)
+#   IsBoolean    → StringScalar(stringValue = "true"/"false",
+#                                escapeHint = docast.esc-dynamodb-bool)
+#   IsNumber     → IntegerScalar(integerValue = value)
+#   IsString     → StringScalar(stringValue = value)  ← terminal fallback
+#
+# Why each piece is necessary:
+#
+#   - The new `IsString` / `IsNumber` / `IsBoolean` predicates
+#     (transformations@3.13.0) split the leaf-scalar branch that the
+#     HTML / Markdown renderer collapses; dynamodb-json needs the
+#     split so booleans land in `{BOOL}`, numbers in `{N}`, and
+#     strings in `{S}`. Without this split a type-fidelity serializer
+#     would lose DynamoDB's typed query capabilities.
+#
+#   - The LiteralKanonak unwrap in iteration operators
+#     (transformations@3.13.0 engine fix) ensures a list-of-string
+#     item bound via tx.ListMap arrives as the primitive string
+#     `"alpha"` rather than the `{value: "alpha"}` wrapper. Without
+#     this the leaf-scalar predicates would always return false for
+#     list-iterated values.
+#
+#   - The per-scalar `escapeHint` slot on StringScalar / IntegerScalar
+#     (document-ast@1.3.0) lets a list-item BooleanScalar carry its
+#     dispatch hint inline, since list items have no enclosing
+#     StructuredEntry to source the hint from.
+#
+# Map-entry ordering is INSERTION (source) order — same as the
+# existing render-value fragment. The Ask 4 canonical hash (sdk
+# `canonicalForm` / `kanonak hash`) uses its own plain canonical
+# JSON form which sorts internally; dynamodb-json's map-key order
+# is therefore implementation-defined, since DynamoDB itself does
+# not preserve attribute order anyway.
+#
+# Adds a `formats.dynamodb-json` derivation binding to `rdfs.Resource`
+# alongside the existing html / markdown / json / stylesheet / svg
+# bindings, so the universal dispatcher (findDerivation) returns this
+# transformation for any resource at any class. `kanonak derive`
+# picks it up automatically.
+#
+# Requires transformations@3.13.0 (IsString/IsNumber/IsBoolean +
+# LiteralKanonak unwrap), document-ast@1.3.0 (esc-dynamodb-bool +
+# StringScalar.escapeHint), formats@1.1.0 (dynamodb-json Format).
+#
+# 1.0.0 – 1.7.0 preserved on disk archivally.
+#
+# =============================================================================
+# universal-derivations @ 1.7.0 (history, unchanged in 1.8.0)
+#
+# Phase C polish (additive on top of 1.7.0's tabular work below):
+#
+#   - Type badges next to the H1. The Heading.inlines now contains
+#     the title Text followed by one docast.Badge per `rdf:type`
+#     value (ForEach over PropertyRead of rdfs.type — engine
+#     auto-wraps single values into singleton lists). Each Badge is
+#     clickable (badgeTarget = the type Reference), labeled with the
+#     type's rdfs.label-or-name, and tooltipped with the type's
+#     rdfs.comment. Mirrors FormView's `.type-tag` chip.
+#   - Hover tooltips throughout. Every ResourceLink emitted by
+#     render-value's Reference branch carries linkTooltip = target's
+#     rdfs.comment; every PropertyEntry (outer + both inner embedded
+#     branches) carries propertyTooltip = predicate's rdfs.comment.
+#     Reader can hover any property name or reference and read the
+#     definition without navigating away.
+#   - `type` joins `label` and `comment` in the property-list filter,
+#     since type is now shown as Badges in the heading row.
+#
+# Requires docast 1.2.0's Badge inline class + linkTooltip /
+# propertyTooltip slots (added in the same commit as this Phase C
+# wave; both files were unpublished drafts).
+#
+# Shape-aware tabular rendering for heterogeneous lists of embeddeds.
+# 1.6.0 used the FIRST item's predicate names as column headers and
+# iterated each row's statements positionally for cells. That worked
+# for uniform lists (e.g. hasFitnessScore where every entry has
+# exactly forRegime + scoreValue) but mishandled heterogeneous shapes:
+# columns from items with extra predicates were silently dropped, and
+# cells misaligned when items had statements in different orders.
+#
+# 1.7.0 mirrors the FormView (legacy Display) approach using the new
+# tx 3.10.0 GetStatementByName primitive:
+#
+#   - Column headers = UNION of every distinct predicate name across
+#     every list item (in first-appearance order). Computed via
+#     ForEach + AllStatements + DistinctBy with key = predicate
+#     local name.
+#   - Cells = per (row item, column predicate name), use
+#     GetStatementByName to find the row's statement matching the
+#     column predicate. Missing statement → empty cell. Found
+#     statement → render its value via recursive
+#     Let + CallFragment(render-value).
+#
+# Recursion stays automatic: a cell whose value is itself a list of
+# embeddeds becomes a NESTED Table via render-value's IsList branch
+# re-firing. HTML backends embed `<table>` inside `<td>` cleanly.
+# Markdown backends still flatten nested-table content to a single
+# pipe-row line (GFM limitation); the JSON backend serializes
+# everything structurally.
+#
+# Requires tx 3.10.0 (GetStatementByName + DistinctBy) and docast
+# 1.2.0 (Table + TableRow vocabulary).
+#
+# 1.0.0 – 1.6.0 preserved on disk archivally.
+#
+# =============================================================================
+# universal-derivations @ 1.6.0 (history, unchanged in 1.7.0)
+#
+# Phase B: tabular rendering for lists of dict-keyed embeddeds.
+#
+# Lists of named embeddeds with consistent shape (the canonical
+# example: `hasFitnessScore: { fit-quiet: {…}, fit-bull: {…}, … }`)
+# now render as a real table instead of a vertical sequence of
+# nested PropertyLists. Closes the biggest remaining FormView
+# divergence — these lists are the most common shape in
+# property-bag style ontologies and tables collapse them into a
+# scannable grid.
+#
+# Mechanism:
+#
+#   - In the render-value fragment's IsList branch, peek at the
+#     first item via tx.ListItemAt(itemIndex=0). If that first
+#     item IsEmbedded, emit a docast.Table:
+#       * tableColumnLabels: the first item's predicate names with
+#         rdfs.label fallback. The leftmost column header is empty
+#         since that column holds the row name (the embedded's
+#         dict-key).
+#       * tableRows: ForEach over the items, emit a TableRow whose
+#         tableCells are: [Text(item's UriName), ...ForEach item's
+#         statements rendered via recursive Let+CallFragment(render-value)].
+#   - Otherwise (lists of references, scalars, or empty lists):
+#     fall through to the existing per-item dispatch (per-line
+#     ResourceLink for refs, Text for everything else).
+#
+# Heuristic: shape uniformity is NOT validated. The renderer
+# assumes that if the first item is embedded, all items will share
+# the same statement order. This holds for dict-keyed embedded
+# lists authored consistently in YAML (parse order matches
+# authoring order). When item shapes differ, columns may shift
+# across rows; backends render what they're given without
+# padding. Future iteration can add tx.ShapeKey or similar to
+# enforce or detect shape uniformity.
+#
+# Requires docast 1.2.0 (Table + TableRow vocabulary).
+#
+# Deferred to 1.7.0 / Phase C: type-as-styled-badge near the H1,
+# hover tooltips populated from rdfs.comment, dynamic property
+# lookup primitive (`tx.GetStatement(subject, predicateUri)`) for
+# shape-aware column ordering across heterogeneous lists.
+#
+# =============================================================================
+# universal-derivations @ 1.5.0 (history, unchanged in 1.6.0)
+#
+# Presentation polish — closes the visible-quality gap between the
+# universal renderer and a hand-rolled FormView-style display:
+#
+#   1. The H1 heading uses the resource's `rdfs.label` when set,
+#      falling back to its local name. Pre-1.5.0 always used the
+#      local name, so a resource labeled "Managed futures (KMLM/DBMF)"
+#      rendered with the kebab heading "managed-futures-trend".
+#   2. The resource's `rdfs.comment`, when set, renders as a
+#      description paragraph between the H1 and the property list.
+#   3. `rdfs.label` and `rdfs.comment` are filtered out of the
+#      property list — they're already shown as title/description,
+#      so listing them again would be noise.
+#   4. ResourceLink.linkLabel is populated with the target's
+#      `rdfs.label` (fallback to local name). Reference values now
+#      show readable text — `[Traditional IRA]` instead of
+#      `[traditional-ira]`.
+#   5. PropertyEntry.propertyKey uses the property's `rdfs.label`
+#      when the property entity declares one (fallback to local
+#      name). Properties with publisher-supplied labels get
+#      human-readable names; others keep their identifier form.
+#
+# Requires the SDK engine update that lets tx.ResolveRef pass
+# SubjectKanonak through unchanged (so the same Fallback
+# composition works for both Reference and resolved-Subject runtime
+# values).
+#
+# Deferred to 1.6.0 / Phase B: docast.Table class + uniform-list
+# detection in the renderer (so a list of dict-keyed embeddeds with
+# consistent shape renders as a real table).
+# Deferred to 1.7.0 / Phase C: type-as-styled-badge near the H1,
+# hover tooltips populated from rdfs.comment.
+#
+# =============================================================================
+# universal-derivations @ 1.4.0 (history, unchanged in 1.5.0)
+#
+# Architectural rewrite: factors per-value rendering into a recursive
+# ExpressionFragment (`render-value`). Earlier versions handled deeper
+# nesting by inlining a truncated dispatch chain at each level, so
+# references inside embeddeds — and embeddeds inside embeddeds — still
+# rendered as string-coerced text. 1.4.0 makes the rendering truly
+# recursive: every value, no matter how deeply nested, runs through
+# the same four-way dispatch (Reference, Embedded, List, scalar).
+#
+# Mechanism:
+#   - The `render-value` ExpressionFragment encapsulates the dispatch.
+#     Its body reads `currentValue` from scope and branches on its
+#     kind, producing the appropriate docast node.
+#   - Reference branch  → docast.ResourceLink
+#   - Embedded branch   → nested docast.PropertyList whose entries
+#                         recursively bind each sub-statement's value
+#                         via tx.Let and re-invoke render-value.
+#   - List branch       → ForEach items, bind each via Let, re-invoke.
+#   - Scalar fallback   → wrap currentValue in tx.Concat for
+#                         SCALAR_STRING_FIELDS auto-string-coercion.
+#
+# The top-level transformation rule emits the Document shell
+# (metadata + heading + outermost PropertyList of the input's
+# statements) and uses tx.Let + CallFragment(render-value) to render
+# each statement's value. Recursion is bounded by the loader's
+# MAX_FRAGMENT_DEPTH (16) — sufficient for any practical resource
+# graph; deeper would require revisiting the depth limit.
+#
+# Requires tx 3.9.0 (Let primitive) and docast 1.1.0 (ResourceLink +
+# PropertyList vocabulary).
+#
+# Visible behavior change vs 1.3.0: properties on embedded resources
+# whose values are references (e.g. `forRegime: reg.quiet-contango`
+# inside a hasFitnessScore embedded) now render as clickable links
+# instead of plain text. Same for any value at any nesting depth.
+#
+# 1.0.0 – 1.3.0 preserved on disk archivally; consumers pinned to
+# them continue working unchanged.
+# =============================================================================
+
+universal-derivations:
+  type: Package
+  publisher: kanonak.org
+  version: 1.8.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: transformations
+          match: ^
+          version: 3.13.0
+          alias: tx
+        - package: document-ast
+          match: ^
+          version: 1.3.0
+          alias: docast
+        - package: formats
+          match: ^
+          version: 1.1.0
+          alias: formats
+        - package: derivation
+          match: ^
+          version: 1.0.0
+          alias: derivation
+
+# =============================================================================
+# RECURSIVE VALUE RENDERER FRAGMENT
+#
+# Reads `currentValue` from scope (set by the caller via tx.Let or
+# tx.ForEach loopVar) and produces a docast node appropriate to the
+# value's runtime kind. Recurses for Embedded and List by re-binding
+# `currentValue` and re-invoking itself via CallFragment.
+# =============================================================================
+
+render-value:
+  type: tx.ExpressionFragment
+  tx.body:
+
+    type: tx.When
+    tx.condition:
+      type: tx.IsReference
+      tx.kindCheck:
+        type: tx.VarRef
+        tx.varName: currentValue
+    tx.thenBuild:
+      # Reference branch — emit a clickable ResourceLink. The target
+      # is the value itself (a ReferenceKanonak or a SubjectKanonak
+      # that resolved cleanly during parse). The backend extracts
+      # the canonical URI from either shape. linkLabel is populated
+      # with the target's rdfs.label when set, otherwise the
+      # backend falls back to the local name. linkTooltip carries
+      # the target's rdfs.comment so a reader can hover a reference
+      # value and read its definition without navigating away.
+      type: tx.BuildAstNode
+      tx.astClass: docast.ResourceLink
+      tx.set:
+        - tx.field: docast.target
+          tx.bindValue:
+            type: tx.VarRef
+            tx.varName: currentValue
+        - tx.field: docast.linkLabel
+          tx.bindValue:
+            type: tx.PropertyRead
+            tx.readSource:
+              type: tx.ResolveRef
+              tx.resolveSource:
+                type: tx.VarRef
+                tx.varName: currentValue
+            tx.readProp: rdfs.label
+        - tx.field: docast.linkTooltip
+          tx.bindValue:
+            type: tx.PropertyRead
+            tx.readSource:
+              type: tx.ResolveRef
+              tx.resolveSource:
+                type: tx.VarRef
+                tx.varName: currentValue
+            tx.readProp: rdfs.comment
+
+    tx.elseBuild:
+      type: tx.When
+      tx.condition:
+        type: tx.IsEmbedded
+        tx.kindCheck:
+          type: tx.VarRef
+          tx.varName: currentValue
+      tx.thenBuild:
+        # Embedded branch. When the embedded has a name (dict-keyed
+        # in YAML, e.g. `fit-quiet: {…}`), wrap its statements in a
+        # single-entry PropertyList using the dict-key name as the
+        # entry's key — preserves the per-item naming in lists of
+        # named embeddeds. When the embedded is positional (no
+        # dict-key), emit the bare nested PropertyList of its
+        # statements without the wrapper.
+        type: tx.When
+        tx.condition:
+          type: tx.IsSet
+          tx.checkExpr:
+            type: tx.UriName
+            tx.uriNameOf:
+              type: tx.VarRef
+              tx.varName: currentValue
+        tx.thenBuild:
+          # Named (dict-keyed) embedded — wrap with name as header.
+          type: tx.BuildAstNode
+          tx.astClass: docast.PropertyList
+          tx.set:
+            - tx.field: docast.propertyEntries
+              tx.bindValue:
+                type: tx.Concat
+                tx.parts:
+                  - type: tx.BuildAstNode
+                    tx.astClass: docast.PropertyEntry
+                    tx.set:
+                      - tx.field: docast.propertyKey
+                        tx.bindValue:
+                          type: tx.UriName
+                          tx.uriNameOf:
+                            type: tx.VarRef
+                            tx.varName: currentValue
+                      - tx.field: docast.propertyValue
+                        tx.bindValue:
+                          type: tx.Concat
+                          tx.parts:
+                            - type: tx.BuildAstNode
+                              tx.astClass: docast.PropertyList
+                              tx.set:
+                                - tx.field: docast.propertyEntries
+                                  tx.bindValue:
+                                    type: tx.ForEach
+                                    tx.source:
+                                      type: tx.AllStatements
+                                      tx.statementsOf:
+                                        type: tx.VarRef
+                                        tx.varName: currentValue
+                                    tx.loopVar: subStmt
+                                    tx.emit:
+                                      type: tx.BuildAstNode
+                                      tx.astClass: docast.PropertyEntry
+                                      tx.set:
+                                        - tx.field: docast.propertyKey
+                                          tx.bindValue:
+                                            type: tx.Fallback
+                                            tx.primary:
+                                              type: tx.PropertyRead
+                                              tx.readSource:
+                                                type: tx.ResolveRef
+                                                tx.resolveSource:
+                                                  type: tx.StatementPredicate
+                                                  tx.predicateOf:
+                                                    type: tx.VarRef
+                                                    tx.varName: subStmt
+                                              tx.readProp: rdfs.label
+                                            tx.alternate:
+                                              type: tx.UriName
+                                              tx.uriNameOf:
+                                                type: tx.StatementPredicate
+                                                tx.predicateOf:
+                                                  type: tx.VarRef
+                                                  tx.varName: subStmt
+                                        - tx.field: docast.propertyTooltip
+                                          tx.bindValue:
+                                            type: tx.PropertyRead
+                                            tx.readSource:
+                                              type: tx.ResolveRef
+                                              tx.resolveSource:
+                                                type: tx.StatementPredicate
+                                                tx.predicateOf:
+                                                  type: tx.VarRef
+                                                  tx.varName: subStmt
+                                            tx.readProp: rdfs.comment
+                                        - tx.field: docast.propertyValue
+                                          tx.bindValue:
+                                            type: tx.Concat
+                                            tx.parts:
+                                              - type: tx.Let
+                                                tx.letName: currentValue
+                                                tx.letValue:
+                                                  type: tx.StatementObject
+                                                  tx.statementSource:
+                                                    type: tx.VarRef
+                                                    tx.varName: subStmt
+                                                tx.letBody:
+                                                  type: tx.CallFragment
+                                                  tx.fragmentRef: render-value
+        tx.elseBuild:
+          # Positional embedded — bare nested PropertyList of statements.
+          type: tx.BuildAstNode
+          tx.astClass: docast.PropertyList
+          tx.set:
+            - tx.field: docast.propertyEntries
+              tx.bindValue:
+                type: tx.ForEach
+                tx.source:
+                  type: tx.AllStatements
+                  tx.statementsOf:
+                    type: tx.VarRef
+                    tx.varName: currentValue
+                tx.loopVar: subStmt
+                tx.emit:
+                  type: tx.BuildAstNode
+                  tx.astClass: docast.PropertyEntry
+                  tx.set:
+                    - tx.field: docast.propertyKey
+                      tx.bindValue:
+                        type: tx.Fallback
+                        tx.primary:
+                          type: tx.PropertyRead
+                          tx.readSource:
+                            type: tx.ResolveRef
+                            tx.resolveSource:
+                              type: tx.StatementPredicate
+                              tx.predicateOf:
+                                type: tx.VarRef
+                                tx.varName: subStmt
+                          tx.readProp: rdfs.label
+                        tx.alternate:
+                          type: tx.UriName
+                          tx.uriNameOf:
+                            type: tx.StatementPredicate
+                            tx.predicateOf:
+                              type: tx.VarRef
+                              tx.varName: subStmt
+                    - tx.field: docast.propertyTooltip
+                      tx.bindValue:
+                        type: tx.PropertyRead
+                        tx.readSource:
+                          type: tx.ResolveRef
+                          tx.resolveSource:
+                            type: tx.StatementPredicate
+                            tx.predicateOf:
+                              type: tx.VarRef
+                              tx.varName: subStmt
+                        tx.readProp: rdfs.comment
+                    - tx.field: docast.propertyValue
+                      tx.bindValue:
+                        type: tx.Concat
+                        tx.parts:
+                          - type: tx.Let
+                            tx.letName: currentValue
+                            tx.letValue:
+                              type: tx.StatementObject
+                              tx.statementSource:
+                                type: tx.VarRef
+                                tx.varName: subStmt
+                            tx.letBody:
+                              type: tx.CallFragment
+                              tx.fragmentRef: render-value
+
+      tx.elseBuild:
+        type: tx.When
+        tx.condition:
+          type: tx.IsList
+          tx.kindCheck:
+            type: tx.VarRef
+            tx.varName: currentValue
+        tx.thenBuild:
+          # List branch. Peek at the first item — if it's an
+          # EmbeddedKanonak, render the whole list as a docast.Table
+          # (the natural shape for dict-keyed embedded collections
+          # with consistent property structure). Otherwise fall
+          # back to the per-item ForEach (one rendered node per
+          # element flowing into the parent field as a list).
+          type: tx.When
+          tx.condition:
+            type: tx.IsEmbedded
+            tx.kindCheck:
+              type: tx.ListItemAt
+              tx.source:
+                type: tx.VarRef
+                tx.varName: currentValue
+              tx.itemIndex:
+                type: tx.IntegerLiteral
+                tx.integerLiteral: 0
+          tx.thenBuild:
+            # List of embeddeds → shape-aware Table. Compute the
+            # union of predicate names across ALL items first
+            # (DistinctBy on the flattened statement set keyed by
+            # predicate local name), then use that ONE list both
+            # to label columns and to look up cell values per row
+            # (via tx.GetStatementByName). Heterogeneous shapes
+            # render correctly: items with extra predicates
+            # contribute extra columns; items missing a predicate
+            # get an empty cell for that column.
+            type: tx.Let
+            tx.letName: columnStmts
+            tx.letValue:
+              type: tx.DistinctBy
+              tx.source:
+                # ForEach over items, emit each item's AllStatements;
+                # ForEach flattens, so the result is one big array
+                # of statements across every row.
+                type: tx.ForEach
+                tx.source:
+                  type: tx.VarRef
+                  tx.varName: currentValue
+                tx.loopVar: item
+                tx.emit:
+                  type: tx.AllStatements
+                  tx.statementsOf:
+                    type: tx.VarRef
+                    tx.varName: item
+              tx.loopVar: stmt
+              tx.distinctKey:
+                type: tx.UriName
+                tx.uriNameOf:
+                  type: tx.StatementPredicate
+                  tx.predicateOf:
+                    type: tx.VarRef
+                    tx.varName: stmt
+            tx.letBody:
+              type: tx.BuildAstNode
+              tx.astClass: docast.Table
+              tx.set:
+
+                # Column labels: empty leading string for the row-
+                # name column, then per-column predicate label
+                # (rdfs.label fallback to local name).
+                - tx.field: docast.tableColumnLabels
+                  tx.bindValue:
+                    type: tx.Concat
+                    tx.parts:
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: ""
+                      - type: tx.ForEach
+                        tx.source:
+                          type: tx.VarRef
+                          tx.varName: columnStmts
+                        tx.loopVar: colStmt
+                        tx.emit:
+                          type: tx.Fallback
+                          tx.primary:
+                            type: tx.PropertyRead
+                            tx.readSource:
+                              type: tx.ResolveRef
+                              tx.resolveSource:
+                                type: tx.StatementPredicate
+                                tx.predicateOf:
+                                  type: tx.VarRef
+                                  tx.varName: colStmt
+                            tx.readProp: rdfs.label
+                          tx.alternate:
+                            type: tx.UriName
+                            tx.uriNameOf:
+                              type: tx.StatementPredicate
+                              tx.predicateOf:
+                                type: tx.VarRef
+                                tx.varName: colStmt
+
+                # Rows: ForEach item → TableRow whose first cell is
+                # the item's UriName and whose subsequent cells are
+                # this row's value for each column predicate (via
+                # GetStatementByName), rendered via render-value.
+                - tx.field: docast.tableRows
+                  tx.bindValue:
+                    type: tx.ForEach
+                    tx.source:
+                      type: tx.VarRef
+                      tx.varName: currentValue
+                    tx.loopVar: item
+                    tx.emit:
+                      type: tx.BuildAstNode
+                      tx.astClass: docast.TableRow
+                      tx.set:
+                        - tx.field: docast.tableCells
+                          tx.bindValue:
+                            type: tx.Concat
+                            tx.parts:
+                              # Row label = item's UriName as Text.
+                              - type: tx.BuildAstNode
+                                tx.astClass: docast.Text
+                                tx.set:
+                                  - tx.field: docast.text
+                                    tx.bindValue:
+                                      type: tx.UriName
+                                      tx.uriNameOf:
+                                        type: tx.VarRef
+                                        tx.varName: item
+                              # Per-column cells: look up THIS row's
+                              # statement matching the column predicate
+                              # name. When found, render via render-value.
+                              # When not, emit empty Text.
+                              - type: tx.ForEach
+                                tx.source:
+                                  type: tx.VarRef
+                                  tx.varName: columnStmts
+                                tx.loopVar: colStmt
+                                tx.emit:
+                                  type: tx.Let
+                                  tx.letName: cellStmt
+                                  tx.letValue:
+                                    type: tx.GetStatementByName
+                                    tx.inSubject:
+                                      type: tx.VarRef
+                                      tx.varName: item
+                                    tx.byName:
+                                      type: tx.UriName
+                                      tx.uriNameOf:
+                                        type: tx.StatementPredicate
+                                        tx.predicateOf:
+                                          type: tx.VarRef
+                                          tx.varName: colStmt
+                                  tx.letBody:
+                                    type: tx.When
+                                    tx.condition:
+                                      type: tx.IsSet
+                                      tx.checkExpr:
+                                        type: tx.VarRef
+                                        tx.varName: cellStmt
+                                    tx.thenBuild:
+                                      type: tx.Let
+                                      tx.letName: currentValue
+                                      tx.letValue:
+                                        type: tx.StatementObject
+                                        tx.statementSource:
+                                          type: tx.VarRef
+                                          tx.varName: cellStmt
+                                      tx.letBody:
+                                        type: tx.CallFragment
+                                        tx.fragmentRef: render-value
+                                    tx.elseBuild:
+                                      type: tx.BuildAstNode
+                                      tx.astClass: docast.Text
+                                      tx.set:
+                                        - tx.field: docast.text
+                                          tx.bindValue:
+                                            type: tx.StringLiteral
+                                            tx.stringLiteral: ""
+
+          tx.elseBuild:
+            # Non-embedded list (refs, scalars, mixed) — per-item
+            # render. ForEach result is a list of rendered nodes
+            # that flows into the parent field as a list.
+            type: tx.ForEach
+            tx.source:
+              type: tx.VarRef
+              tx.varName: currentValue
+            tx.loopVar: item
+            tx.emit:
+              type: tx.Let
+              tx.letName: currentValue
+              tx.letValue:
+                type: tx.VarRef
+                tx.varName: item
+              tx.letBody:
+                type: tx.CallFragment
+                tx.fragmentRef: render-value
+
+        tx.elseBuild:
+          # Scalar fallback — wrap currentValue in tx.Concat so the
+          # text field's SCALAR_STRING_FIELDS auto-coercion turns the
+          # bound value into a string regardless of whether it's a
+          # JS string, number, or boolean at runtime.
+          type: tx.BuildAstNode
+          tx.astClass: docast.Text
+          tx.set:
+            - tx.field: docast.text
+              tx.bindValue:
+                type: tx.Concat
+                tx.parts:
+                  - type: tx.VarRef
+                    tx.varName: currentValue
+
+# =============================================================================
+# UNIVERSAL TRANSFORMATION
+#
+# Produces a docast.Document for any resource. Used by all three
+# format bindings on rdfs.Resource — the same docast tree gets
+# serialized differently per backend.
+# =============================================================================
+
+any-resource-renderer:
+  type: tx.InstanceTransformation
+
+  tx.inputPattern:
+    tx.matchesClass: rdfs.Resource
+
+  tx.artifactName:
+    type: tx.UriName
+    tx.uriNameOf:
+      type: tx.VarRef
+      tx.varName: input
+
+  tx.outputs:
+    - tx.html
+    - tx.markdown-with-frontmatter
+    - tx.json
+
+  tx.rule:
+    type: tx.BuildAstNode
+    tx.astClass: docast.Document
+    tx.set:
+
+      # ------------------------------------------------------------
+      # Frontmatter / structured metadata channel — read by the
+      # markdown-with-frontmatter backend. The HTML and JSON
+      # backends ignore it (HTML reads children only; JSON dumps
+      # the whole tree).
+      # ------------------------------------------------------------
+      - tx.field: docast.metadata
+        tx.bindValue:
+          type: tx.BuildAstNode
+          tx.astClass: docast.StructuredMap
+          tx.set:
+            - tx.field: docast.entries
+              tx.bindValue:
+                type: tx.Concat
+                tx.parts:
+                  - type: tx.BuildAstNode
+                    tx.astClass: docast.StructuredEntry
+                    tx.set:
+                      - tx.field: docast.key
+                        tx.bindValue:
+                          type: tx.StringLiteral
+                          tx.stringLiteral: name
+                      - tx.field: docast.value
+                        tx.bindValue:
+                          type: tx.BuildAstNode
+                          tx.astClass: docast.StringScalar
+                          tx.set:
+                            - tx.field: docast.stringValue
+                              tx.bindValue:
+                                type: tx.UriName
+                                tx.uriNameOf:
+                                  type: tx.VarRef
+                                  tx.varName: input
+
+                  - type: tx.BuildAstNode
+                    tx.astClass: docast.StructuredEntry
+                    tx.set:
+                      - tx.field: docast.key
+                        tx.bindValue:
+                          type: tx.StringLiteral
+                          tx.stringLiteral: source
+                      - tx.field: docast.value
+                        tx.bindValue:
+                          type: tx.BuildAstNode
+                          tx.astClass: docast.StringScalar
+                          tx.set:
+                            - tx.field: docast.stringValue
+                              tx.bindValue:
+                                type: tx.SubjectUri
+                                tx.subjectOf:
+                                  type: tx.VarRef
+                                  tx.varName: input
+
+      # ------------------------------------------------------------
+      # Narrative children: H1 with the resource's local name, then
+      # a PropertyList of the resource's statements where each
+      # value is rendered recursively via the render-value fragment.
+      # ------------------------------------------------------------
+      - tx.field: docast.children
+        tx.bindValue:
+          type: tx.Concat
+          tx.parts:
+
+            - type: tx.BuildAstNode
+              tx.astClass: docast.Heading
+              tx.set:
+                - tx.field: docast.level
+                  tx.bindValue:
+                    type: tx.IntegerLiteral
+                    tx.integerLiteral: 1
+                - tx.field: docast.inlines
+                  tx.bindValue:
+                    type: tx.Concat
+                    tx.parts:
+                      - type: tx.BuildAstNode
+                        tx.astClass: docast.Text
+                        tx.set:
+                          - tx.field: docast.text
+                            tx.bindValue:
+                              # Prefer the resource's rdfs.label;
+                              # fall back to its local name when no
+                              # label is declared.
+                              type: tx.Fallback
+                              tx.primary:
+                                type: tx.PropertyRead
+                                tx.readSource:
+                                  type: tx.VarRef
+                                  tx.varName: input
+                                tx.readProp: rdfs.label
+                              tx.alternate:
+                                type: tx.UriName
+                                tx.uriNameOf:
+                                  type: tx.VarRef
+                                  tx.varName: input
+
+                      # One Badge per rdf:type value. ForEach handles
+                      # both single-typed (`type: SomeClass`) and
+                      # multi-typed (`type: [Class1, Class2]`) inputs
+                      # — the engine's evaluateList wraps single
+                      # values into singleton lists transparently.
+                      # Badge is targeted at the type's own resource
+                      # page so the user can navigate by clicking the
+                      # chip; tooltip is the type's rdfs.comment so
+                      # the chip is self-documenting on hover.
+                      - type: tx.ForEach
+                        tx.source:
+                          type: tx.PropertyRead
+                          tx.readSource:
+                            type: tx.VarRef
+                            tx.varName: input
+                          tx.readProp: rdfs.type
+                        tx.loopVar: typeRef
+                        tx.emit:
+                          type: tx.BuildAstNode
+                          tx.astClass: docast.Badge
+                          tx.set:
+                            - tx.field: docast.badgeLabel
+                              tx.bindValue:
+                                type: tx.Fallback
+                                tx.primary:
+                                  type: tx.PropertyRead
+                                  tx.readSource:
+                                    type: tx.ResolveRef
+                                    tx.resolveSource:
+                                      type: tx.VarRef
+                                      tx.varName: typeRef
+                                  tx.readProp: rdfs.label
+                                tx.alternate:
+                                  type: tx.UriName
+                                  tx.uriNameOf:
+                                    type: tx.VarRef
+                                    tx.varName: typeRef
+                            - tx.field: docast.badgeTarget
+                              tx.bindValue:
+                                type: tx.VarRef
+                                tx.varName: typeRef
+                            - tx.field: docast.badgeTooltip
+                              tx.bindValue:
+                                type: tx.PropertyRead
+                                tx.readSource:
+                                  type: tx.ResolveRef
+                                  tx.resolveSource:
+                                    type: tx.VarRef
+                                    tx.varName: typeRef
+                                tx.readProp: rdfs.comment
+
+            # Description paragraph from rdfs.comment, when set. When
+            # the resource has no comment, this When yields undefined
+            # which the engine skips when assembling the Concat.
+            - type: tx.When
+              tx.condition:
+                type: tx.IsSet
+                tx.checkExpr:
+                  type: tx.PropertyRead
+                  tx.readSource:
+                    type: tx.VarRef
+                    tx.varName: input
+                  tx.readProp: rdfs.comment
+              tx.thenBuild:
+                type: tx.BuildAstNode
+                tx.astClass: docast.Paragraph
+                tx.set:
+                  - tx.field: docast.inlines
+                    tx.bindValue:
+                      type: tx.Concat
+                      tx.parts:
+                        - type: tx.BuildAstNode
+                          tx.astClass: docast.Text
+                          tx.set:
+                            - tx.field: docast.text
+                              tx.bindValue:
+                                type: tx.PropertyRead
+                                tx.readSource:
+                                  type: tx.VarRef
+                                  tx.varName: input
+                                tx.readProp: rdfs.comment
+
+            - type: tx.BuildAstNode
+              tx.astClass: docast.PropertyList
+              tx.set:
+                - tx.field: docast.propertyEntries
+                  tx.bindValue:
+                    type: tx.ForEach
+                    # Filter out `type`, `label`, and `comment` —
+                    # they're already shown in the heading row (type
+                    # as Badges, label as title text, comment as
+                    # description paragraph). Listing them again
+                    # would be noise.
+                    tx.source:
+                      type: tx.Filter
+                      tx.source:
+                        type: tx.AllStatements
+                        tx.statementsOf:
+                          type: tx.VarRef
+                          tx.varName: input
+                      tx.loopVar: stmt
+                      tx.predicate:
+                        type: tx.Not
+                        tx.operand:
+                          type: tx.Contains
+                          tx.haystack:
+                            type: tx.Concat
+                            tx.parts:
+                              - type: tx.StringLiteral
+                                tx.stringLiteral: type
+                              - type: tx.StringLiteral
+                                tx.stringLiteral: label
+                              - type: tx.StringLiteral
+                                tx.stringLiteral: comment
+                          tx.needle:
+                            type: tx.UriName
+                            tx.uriNameOf:
+                              type: tx.StatementPredicate
+                              tx.predicateOf:
+                                type: tx.VarRef
+                                tx.varName: stmt
+                    tx.loopVar: stmt
+                    tx.emit:
+                      type: tx.BuildAstNode
+                      tx.astClass: docast.PropertyEntry
+                      tx.set:
+                        - tx.field: docast.propertyKey
+                          tx.bindValue:
+                            # Prefer the property's rdfs.label;
+                            # fall back to its local name. Resolves
+                            # the predicate reference to its target
+                            # subject so we can read the label off
+                            # the property entity.
+                            type: tx.Fallback
+                            tx.primary:
+                              type: tx.PropertyRead
+                              tx.readSource:
+                                type: tx.ResolveRef
+                                tx.resolveSource:
+                                  type: tx.StatementPredicate
+                                  tx.predicateOf:
+                                    type: tx.VarRef
+                                    tx.varName: stmt
+                              tx.readProp: rdfs.label
+                            tx.alternate:
+                              type: tx.UriName
+                              tx.uriNameOf:
+                                type: tx.StatementPredicate
+                                tx.predicateOf:
+                                  type: tx.VarRef
+                                  tx.varName: stmt
+                        # Hover tooltip for the property name —
+                        # populated with the predicate's rdfs.comment
+                        # when set. Reader can hover any property in
+                        # the form to see its definition without
+                        # navigating to the property's own page.
+                        - tx.field: docast.propertyTooltip
+                          tx.bindValue:
+                            type: tx.PropertyRead
+                            tx.readSource:
+                              type: tx.ResolveRef
+                              tx.resolveSource:
+                                type: tx.StatementPredicate
+                                tx.predicateOf:
+                                  type: tx.VarRef
+                                  tx.varName: stmt
+                            tx.readProp: rdfs.comment
+                        - tx.field: docast.propertyValue
+                          tx.bindValue:
+                            type: tx.Concat
+                            tx.parts:
+                              - type: tx.Let
+                                tx.letName: currentValue
+                                tx.letValue:
+                                  type: tx.StatementObject
+                                  tx.statementSource:
+                                    type: tx.VarRef
+                                    tx.varName: stmt
+                                tx.letBody:
+                                  type: tx.CallFragment
+                                  tx.fragmentRef: render-value
+
+# =============================================================================
+# UNIVERSAL STYLESHEET TRANSFORMATION
+#
+# Produces the protocol-level baseline CSS as a derivable artifact.
+# Every Kanonak Browser implementation (VS Code today, Chrome plugin
+# / standalone tomorrow) calls findDerivation(rdfs.Resource, formats.
+# stylesheet, default), gets THIS transformation, runs it, and injects
+# the resulting CSS into its rendered page. That's how cross-consumer
+# visual coherence is owned by the protocol rather than by each
+# consumer hard-coding its own styles.
+#
+# The CSS uses a `--kan-*` CSS-variable layer so consumers can theme
+# specific dimensions (link color, badge background) without having
+# to override every selector. VS Code's webview, for example, binds
+# `--kan-link-color: var(--vscode-textLink-foreground)` in its host
+# stylesheet so links pick up the IDE theme automatically; a static-
+# site export uses the variable defaults and gets a sensible neutral
+# look; a publisher who wants snapshot pages to use brand colors
+# overrides at the WorldviewSnapshot class level via its OWN
+# stylesheet derivation; a user who wants a custom global theme
+# publishes a `my-theme` package that augments rdfs.Resource with
+# its own (formats.stylesheet, default) — open-world load-order
+# precedence picks their override over this universal default.
+# =============================================================================
+
+any-resource-stylesheet:
+  type: tx.InstanceTransformation
+
+  tx.inputPattern:
+    tx.matchesClass: rdfs.Resource
+
+  tx.artifactName:
+    type: tx.UriName
+    tx.uriNameOf:
+      type: tx.VarRef
+      tx.varName: input
+
+  tx.outputs:
+    - tx.stylesheet
+
+  tx.rule:
+    type: tx.BuildAstNode
+    tx.astClass: docast.Document
+    tx.set:
+      - tx.field: docast.children
+        tx.bindValue:
+          type: tx.Concat
+          tx.parts:
+            - type: tx.BuildAstNode
+              tx.astClass: docast.RawBlock
+              tx.set:
+                - tx.field: docast.mediaType
+                  tx.bindValue:
+                    type: tx.UriLiteral
+                    tx.refTo: docast.text-css
+                - tx.field: docast.rawContent
+                  tx.bindValue:
+                    type: tx.StringLiteral
+                    tx.stringLiteral: |
+                      :root {
+                        --kan-link-color: #0066cc;
+                        --kan-link-hover-color: #004999;
+                        --kan-badge-bg: #ddebf7;
+                        --kan-badge-fg: #044289;
+                        --kan-text-color: inherit;
+                        --kan-muted-color: #6e7781;
+                        --kan-border-color: #d0d7de;
+                        --kan-table-header-bg: #f6f8fa;
+                      }
+
+                      /* Reference links — every <a class="kan-link">
+                         emitted by HtmlBackend.renderResourceLink. */
+                      .kan-link {
+                        color: var(--kan-link-color);
+                        cursor: pointer;
+                        text-decoration: none;
+                      }
+                      .kan-link:hover {
+                        color: var(--kan-link-hover-color);
+                        text-decoration: underline;
+                      }
+
+                      /* Type / annotation chips — emitted by
+                         HtmlBackend.renderBadge for every docast.Badge
+                         in the AST. Span when untargeted, anchor when
+                         clickable. */
+                      .kan-badge {
+                        display: inline-block;
+                        background: var(--kan-badge-bg);
+                        color: var(--kan-badge-fg);
+                        padding: 2px 8px;
+                        border-radius: 10px;
+                        font-size: 11px;
+                        font-weight: 500;
+                        text-decoration: none;
+                        vertical-align: middle;
+                        margin-left: 6px;
+                      }
+                      a.kan-badge { cursor: pointer; }
+                      a.kan-badge:hover {
+                        filter: brightness(0.95);
+                        text-decoration: none;
+                      }
+
+                      /* PropertyList — definition-list rendering of a
+                         resource's statements. Class is `property-list`
+                         (no kan- prefix; engine uses the same class
+                         since 1.0.0). */
+                      dl.property-list {
+                        margin: 0.5em 0 1em;
+                        padding: 0;
+                      }
+                      dl.property-list dt {
+                        font-weight: 600;
+                        color: var(--kan-text-color);
+                        margin: 0.6em 0 0.1em;
+                      }
+                      dl.property-list dt:first-child {
+                        margin-top: 0;
+                      }
+                      dl.property-list dd {
+                        margin: 0 0 0 1.2em;
+                        color: var(--kan-text-color);
+                      }
+                      /* Nested PropertyLists (embedded resources) sit
+                         inside a <dd>; tighten margins so they don't
+                         drift too far from their parent row. */
+                      dl.property-list dd > dl.property-list {
+                        margin-top: 0.2em;
+                      }
+
+                      /* Table rendering for lists of dict-keyed
+                         embeddeds. */
+                      table.property-table {
+                        border-collapse: collapse;
+                        margin: 0.4em 0;
+                        width: 100%;
+                      }
+                      table.property-table th,
+                      table.property-table td {
+                        border: 1px solid var(--kan-border-color);
+                        padding: 0.3em 0.6em;
+                        text-align: left;
+                        vertical-align: top;
+                        font-size: 13px;
+                      }
+                      table.property-table th {
+                        background: var(--kan-table-header-bg);
+                        font-weight: 600;
+                      }
+
+# =============================================================================
+# UNIVERSAL SVG TRANSFORMATION
+#
+# Produces a basic resource card SVG for any Kanonak resource — the
+# universal default for `(formats.svg, default)`. v1 emits a simple
+# vertically-stacked card (title, type, list of property names) using
+# SVG `<text>` with relative-positioned `<tspan dy="…">` so the
+# layout works without coordinate arithmetic in tx.
+#
+# Publishers wanting richer per-class graph layouts (node-edge
+# diagrams, force-directed layouts, etc.) override at the class
+# level — the universal default is a "something visual exists"
+# baseline rather than an end-state visualization.
+#
+# Caveat: SVG is XML, but tx has no escape primitive. The
+# transformation trusts that rdfs.label values and predicate URI
+# names are XML-safe (typical kebab-case / Title-Case conventions
+# satisfy this). Authors with `<`, `&`, or `"` in label text will see
+# broken SVG; the workaround until a tx.EscapeXml primitive lands
+# is to override the transformation at the publisher class.
+# =============================================================================
+
+any-resource-svg:
+  type: tx.InstanceTransformation
+
+  tx.inputPattern:
+    tx.matchesClass: rdfs.Resource
+
+  tx.artifactName:
+    type: tx.UriName
+    tx.uriNameOf:
+      type: tx.VarRef
+      tx.varName: input
+
+  tx.outputs:
+    - tx.svg
+
+  tx.rule:
+    type: tx.BuildAstNode
+    tx.astClass: docast.Document
+    tx.set:
+      - tx.field: docast.children
+        tx.bindValue:
+          type: tx.Concat
+          tx.parts:
+            - type: tx.BuildAstNode
+              tx.astClass: docast.RawBlock
+              tx.set:
+                - tx.field: docast.mediaType
+                  tx.bindValue:
+                    type: tx.UriLiteral
+                    tx.refTo: docast.image-svg-xml
+                - tx.field: docast.rawContent
+                  tx.bindValue:
+                    type: tx.Concat
+                    tx.parts:
+
+                      # SVG opening + background card.
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: |-
+                          <svg xmlns="http://www.w3.org/2000/svg" width="500" height="auto" viewBox="0 0 500 600" preserveAspectRatio="xMinYMin meet">
+                            <rect width="500" height="600" fill="white" stroke="#d0d7de" stroke-width="1" rx="6"/>
+                            <text x="20" y="36" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" fill="#1f2328">
+
+                      # Title — rdfs.label fallback to URI local name.
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: '<tspan font-size="20" font-weight="600">'
+                      - type: tx.Fallback
+                        tx.primary:
+                          type: tx.PropertyRead
+                          tx.readSource:
+                            type: tx.VarRef
+                            tx.varName: input
+                          tx.readProp: rdfs.label
+                        tx.alternate:
+                          type: tx.UriName
+                          tx.uriNameOf:
+                            type: tx.VarRef
+                            tx.varName: input
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: '</tspan>'
+
+                      # Subtitle — full canonical URI in muted color.
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: '<tspan x="20" dy="22" font-size="11" fill="#6e7781" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">'
+                      - type: tx.SubjectUri
+                        tx.subjectOf:
+                          type: tx.VarRef
+                          tx.varName: input
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: '</tspan>'
+
+                      # Spacer + section heading.
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: '<tspan x="20" dy="28" font-size="11" fill="#8b949e" font-weight="600" letter-spacing="0.06em">PROPERTIES</tspan>'
+
+                      # One tspan per statement — predicate name only
+                      # (values are heterogeneous and need kind dispatch
+                      # we keep simple for the v1 default). dy="20" gives
+                      # comfortable line spacing.
+                      - type: tx.ForEach
+                        tx.source:
+                          type: tx.AllStatements
+                          tx.statementsOf:
+                            type: tx.VarRef
+                            tx.varName: input
+                        tx.loopVar: stmt
+                        tx.emit:
+                          type: tx.Concat
+                          tx.parts:
+                            - type: tx.StringLiteral
+                              tx.stringLiteral: '<tspan x="20" dy="20" font-size="13" fill="#1f2328">'
+                            - type: tx.UriName
+                              tx.uriNameOf:
+                                type: tx.StatementPredicate
+                                tx.predicateOf:
+                                  type: tx.VarRef
+                                  tx.varName: stmt
+                            - type: tx.StringLiteral
+                              tx.stringLiteral: '</tspan>'
+
+                      # Close the text element + svg.
+                      - type: tx.StringLiteral
+                        tx.stringLiteral: '</text></svg>'
+
+# =============================================================================
+# UNIVERSAL DYNAMODB-JSON WALKER (1.8.0)
+#
+# Walks any Kanonak resource into a docast.StructuredValue tree that
+# the dynamodb-json backend turns into DynamoDB attribute-value JSON.
+# Structurally a sibling of `render-value` (HTML/Markdown), but the
+# leaf branches dispatch to typed StructuredValue shapes so the
+# serializer can preserve `{S}` / `{N}` / `{BOOL}` / `{M}` / `{L}`
+# distinctions DynamoDB needs for typed queries.
+# =============================================================================
+
+as-attribute-value:
+  type: tx.ExpressionFragment
+  tx.body:
+
+    type: tx.When
+    tx.condition:
+      type: tx.IsList
+      tx.kindCheck:
+        type: tx.VarRef
+        tx.varName: currentValue
+    tx.thenBuild:
+      # List branch — StructuredList whose items are each value
+      # recursively walked through the same fragment.
+      type: tx.BuildAstNode
+      tx.astClass: docast.StructuredList
+      tx.set:
+        - tx.field: docast.items
+          tx.bindValue:
+            type: tx.ListMap
+            tx.source:
+              type: tx.VarRef
+              tx.varName: currentValue
+            tx.loopVar: item
+            tx.mapBody:
+              type: tx.Let
+              tx.letName: currentValue
+              tx.letValue:
+                type: tx.VarRef
+                tx.varName: item
+              tx.letBody:
+                type: tx.CallFragment
+                tx.fragmentRef: as-attribute-value
+
+    tx.elseBuild:
+      type: tx.When
+      tx.condition:
+        type: tx.IsEmbedded
+        tx.kindCheck:
+          type: tx.VarRef
+          tx.varName: currentValue
+      tx.thenBuild:
+        # Embedded branch — StructuredMap whose entries are one
+        # StructuredEntry per statement on the embedded. Each entry's
+        # key is the predicate's local name; its value is the
+        # statement's object recursively walked.
+        type: tx.BuildAstNode
+        tx.astClass: docast.StructuredMap
+        tx.set:
+          - tx.field: docast.entries
+            tx.bindValue:
+              type: tx.ForEach
+              tx.source:
+                type: tx.AllStatements
+                tx.statementsOf:
+                  type: tx.VarRef
+                  tx.varName: currentValue
+              tx.loopVar: subStmt
+              tx.emit:
+                type: tx.BuildAstNode
+                tx.astClass: docast.StructuredEntry
+                tx.set:
+                  - tx.field: docast.key
+                    tx.bindValue:
+                      type: tx.UriName
+                      tx.uriNameOf:
+                        type: tx.StatementPredicate
+                        tx.predicateOf:
+                          type: tx.VarRef
+                          tx.varName: subStmt
+                  - tx.field: docast.value
+                    tx.bindValue:
+                      type: tx.Let
+                      tx.letName: currentValue
+                      tx.letValue:
+                        type: tx.StatementObject
+                        tx.statementSource:
+                          type: tx.VarRef
+                          tx.varName: subStmt
+                      tx.letBody:
+                        type: tx.CallFragment
+                        tx.fragmentRef: as-attribute-value
+
+      tx.elseBuild:
+        type: tx.When
+        tx.condition:
+          type: tx.IsReference
+          tx.kindCheck:
+            type: tx.VarRef
+            tx.varName: currentValue
+        tx.thenBuild:
+          # Reference branch — StringScalar carrying the target's
+          # full canonical URI (publisher/package@version/name). The
+          # dynamodb-json backend emits this as `{ "S": "<uri>" }`,
+          # which preserves enough identity to round-trip the ref
+          # back through `parseKanonakAddress`.
+          type: tx.BuildAstNode
+          tx.astClass: docast.StringScalar
+          tx.set:
+            - tx.field: docast.stringValue
+              tx.bindValue:
+                type: tx.SubjectUri
+                tx.subjectOf:
+                  type: tx.VarRef
+                  tx.varName: currentValue
+
+        tx.elseBuild:
+          type: tx.When
+          tx.condition:
+            type: tx.IsBoolean
+            tx.kindCheck:
+              type: tx.VarRef
+              tx.varName: currentValue
+          tx.thenBuild:
+            # Boolean branch — docast has no native BooleanScalar, so
+            # we emit a StringScalar carrying "true"/"false" with the
+            # esc-dynamodb-bool hint inline. The backend's hint-
+            # dispatch turns this into `{ "BOOL": true|false }`.
+            # The on-scalar hint (vs. on the enclosing
+            # StructuredEntry) is what lets list-item booleans work,
+            # since list items have no enclosing entry.
+            type: tx.BuildAstNode
+            tx.astClass: docast.StringScalar
+            tx.set:
+              - tx.field: docast.stringValue
+                tx.bindValue:
+                  type: tx.Concat
+                  tx.parts:
+                    - type: tx.VarRef
+                      tx.varName: currentValue
+              - tx.field: docast.escapeHint
+                tx.bindValue:
+                  type: tx.UriLiteral
+                  tx.refTo: docast.esc-dynamodb-bool
+
+          tx.elseBuild:
+            type: tx.When
+            tx.condition:
+              type: tx.IsNumber
+              tx.kindCheck:
+                type: tx.VarRef
+                tx.varName: currentValue
+            tx.thenBuild:
+              # Number branch — IntegerScalar carrying the JS number.
+              # The backend emits `{ "N": "<canonical decimal>" }`
+              # for both ints and decimals (DynamoDB's N is always a
+              # string anyway).
+              type: tx.BuildAstNode
+              tx.astClass: docast.IntegerScalar
+              tx.set:
+                - tx.field: docast.integerValue
+                  tx.bindValue:
+                    type: tx.VarRef
+                    tx.varName: currentValue
+
+            tx.elseBuild:
+              # String terminal — plain StringScalar. The When-chain
+              # falls through to here for any value where IsList /
+              # IsEmbedded / IsReference / IsBoolean / IsNumber all
+              # returned false: a JS string, or any unrecognised
+              # shape the dispatch tree didn't catch.
+              type: tx.BuildAstNode
+              tx.astClass: docast.StringScalar
+              tx.set:
+                - tx.field: docast.stringValue
+                  tx.bindValue:
+                    type: tx.Concat
+                    tx.parts:
+                      - type: tx.VarRef
+                        tx.varName: currentValue
+
+# =============================================================================
+# UNIVERSAL DYNAMODB-JSON TRANSFORMATION
+#
+# Wraps the as-attribute-value walker in a docast.Document whose
+# `metadata` channel is the StructuredMap produced by recursing into
+# the input resource's statements. The dynamodb-json backend reads
+# Document.metadata and serializes it; the `children` channel is
+# unused (dynamodb-json is a structured-only output).
+# =============================================================================
+
+resource-to-attribute-value:
+  type: tx.InstanceTransformation
+
+  tx.inputPattern:
+    tx.matchesClass: rdfs.Resource
+
+  tx.artifactName:
+    type: tx.UriName
+    tx.uriNameOf:
+      type: tx.VarRef
+      tx.varName: input
+
+  tx.outputs:
+    - tx.dynamodb-json
+
+  # The top level builds the StructuredMap directly rather than
+  # delegating to `as-attribute-value` with `currentValue = input`.
+  # IsReference treats SubjectKanonak and ReferenceKanonak symmetrically
+  # ("is a navigable Kanonak resource"), so handing the matched subject
+  # to the fragment would collapse it to a URI string instead of
+  # walking its statements. Matches the same split universal-derivations'
+  # render-value uses for its top-level PropertyList: the fragment
+  # handles VALUE positions; the transformation rule handles the
+  # SUBJECT scope.
+  tx.rule:
+    type: tx.BuildAstNode
+    tx.astClass: docast.Document
+    tx.set:
+      - tx.field: docast.metadata
+        tx.bindValue:
+          type: tx.BuildAstNode
+          tx.astClass: docast.StructuredMap
+          tx.set:
+            - tx.field: docast.entries
+              tx.bindValue:
+                type: tx.ForEach
+                tx.source:
+                  type: tx.AllStatements
+                  tx.statementsOf:
+                    type: tx.VarRef
+                    tx.varName: input
+                tx.loopVar: stmt
+                tx.emit:
+                  type: tx.BuildAstNode
+                  tx.astClass: docast.StructuredEntry
+                  tx.set:
+                    - tx.field: docast.key
+                      tx.bindValue:
+                        type: tx.UriName
+                        tx.uriNameOf:
+                          type: tx.StatementPredicate
+                          tx.predicateOf:
+                            type: tx.VarRef
+                            tx.varName: stmt
+                    - tx.field: docast.value
+                      tx.bindValue:
+                        type: tx.Let
+                        tx.letName: currentValue
+                        tx.letValue:
+                          type: tx.StatementObject
+                          tx.statementSource:
+                            type: tx.VarRef
+                            tx.varName: stmt
+                        tx.letBody:
+                          type: tx.CallFragment
+                          tx.fragmentRef: as-attribute-value
+
+# =============================================================================
+# UNIVERSAL DERIVATION BINDINGS ON rdfs.Resource
+#
+# Open-world augmentation: this package adds `derivations` statements
+# to `rdfs.Resource`, which is defined in `kanonak.org/core-rdf@1.0.0`.
+# The parser merges these into the same canonical subject as
+# core-rdf's original declaration. Discovery walks the class
+# hierarchy bottom-up and finds these defaults at the root.
+# =============================================================================
+
+rdfs.Resource:
+  derivation.derivations:
+
+    - type: derivation.Derivation
+      derivation.format: formats.html
+      derivation.variant: derivation.default
+      derivation.transformation:
+        type: tx.TransformationReference
+        tx.publisher: kanonak.org
+        tx.package: universal-derivations
+        tx.version: 1.8.0
+        tx.name: any-resource-renderer
+
+    - type: derivation.Derivation
+      derivation.format: formats.markdown
+      derivation.variant: derivation.default
+      derivation.transformation:
+        type: tx.TransformationReference
+        tx.publisher: kanonak.org
+        tx.package: universal-derivations
+        tx.version: 1.8.0
+        tx.name: any-resource-renderer
+
+    - type: derivation.Derivation
+      derivation.format: formats.json
+      derivation.variant: derivation.default
+      derivation.transformation:
+        type: tx.TransformationReference
+        tx.publisher: kanonak.org
+        tx.package: universal-derivations
+        tx.version: 1.8.0
+        tx.name: any-resource-renderer
+
+    - type: derivation.Derivation
+      derivation.format: formats.stylesheet
+      derivation.variant: derivation.default
+      derivation.transformation:
+        type: tx.TransformationReference
+        tx.publisher: kanonak.org
+        tx.package: universal-derivations
+        tx.version: 1.8.0
+        tx.name: any-resource-stylesheet
+
+    - type: derivation.Derivation
+      derivation.format: formats.svg
+      derivation.variant: derivation.default
+      derivation.transformation:
+        type: tx.TransformationReference
+        tx.publisher: kanonak.org
+        tx.package: universal-derivations
+        tx.version: 1.8.0
+        tx.name: any-resource-svg
+
+    - type: derivation.Derivation
+      derivation.format: formats.dynamodb-json
+      derivation.variant: derivation.default
+      derivation.transformation:
+        type: tx.TransformationReference
+        tx.publisher: kanonak.org
+        tx.package: universal-derivations
+        tx.version: 1.8.0
+        tx.name: resource-to-attribute-value
