@@ -410,15 +410,6 @@ source:
     references rendered as links point at the latest version of their
     target.
 
-orderBy:
-  type: owl.ObjectProperty
-  domain: Timeline
-  range: rdfs.Resource
-  label: Order By
-  comment: >-
-    The date/datetime property a Timeline band sorts its instances by,
-    ascending (oldest first). e.g. wv.observedAt for a snapshot timeline.
-
 
 chips:
   type: owl.ObjectProperty
