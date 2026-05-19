@@ -274,3 +274,44 @@ base-stylesheet:
       color: var(--kan-accent-hover);
       text-decoration: underline;
     }
+
+    /* ResourceGrid band */
+    .kan-resource-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin: 24px 0;
+    }
+    .kan-resource-card {
+      display: block;
+      padding: 16px 18px;
+      background: var(--kan-bg-card);
+      border: 1px solid var(--kan-border);
+      border-radius: var(--kan-radius);
+      color: var(--kan-text);
+      text-decoration: none;
+      transition: border-color 120ms, transform 120ms;
+    }
+    .kan-resource-card:hover {
+      border-color: var(--kan-accent);
+      text-decoration: none;
+      transform: translateY(-1px);
+    }
+    .kan-resource-card-title {
+      font-family: var(--kan-font-display);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--kan-text);
+      margin: 0 0 8px;
+      line-height: 1.3;
+    }
+    .kan-resource-card-subtitle {
+      font-size: 13px;
+      color: var(--kan-text-dim);
+      margin: 0;
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
