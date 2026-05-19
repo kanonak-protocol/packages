@@ -1,58 +1,3 @@
-# =============================================================================
-# look @ 1.0.0
-#
-# Declarative visual presentation vocabulary. Publishers declare HOW
-# their classes, packages, and publisher itself should appear, and the
-# universal-look renderer produces HTML, CSS, and SVG. Replaces the
-# practice of authoring per-class `tx.InstanceTransformation` packages
-# with inline HTML/CSS strings.
-#
-# Mental model: three Views (one per URL level), one Kit
-#
-#   /                              → PublisherKit's rootView (a PublisherView)
-#   /{package}                     → Package's derivation.look (a PackageView)
-#   /{package}/{version}           → same, version-pinned
-#   /{package}/{name}              → resource's class's derivation.look (a ResourceView)
-#   /{package}/{version}/{name}    → same, version-pinned
-#
-# Three view types describe page content. The PublisherKit additionally
-# carries publisher-wide chrome (brand, nav, footer, default tokens)
-# that wraps every page on the site regardless of which view is active.
-#
-# Each view is a sequence of Bands — semantic building blocks (Hero,
-# PropertyList, ResourceGrid, etc.) that read specific properties off
-# the input resource and render one region of the page.
-#
-# v0.1 band vocabulary:
-#
-#   Per-resource bands (read input properties):
-#     - Hero          : title + optional eyebrow / subtitle / badges
-#     - BadgeRow      : type badges with tooltips
-#     - ChipRow       : inline labeled chips from a list of properties
-#     - PropertyList  : definition-list of predicate → value pairs
-#     - PropertyTable : table from a list-of-dict-keyed-embeddeds
-#     - ReferenceList : labeled groups of cross-references
-#     - Markdown      : prose section from a string property
-#
-#   Aggregation bands (operate on resource sets):
-#     - ResourceGrid     : grid of resource cards, queryable
-#     - ResourceCount    : per-class count aggregates
-#     - FeaturedResource : embed a specific resource's full view inline
-#
-# Supporting types: ResourceQuery (the query DSL for aggregation
-# bands), NavLink (kit nav entries), Footer (kit footer content),
-# InstanceVariant + WhenCondition (per-instance variant rules).
-#
-# DRY principle: bands reference properties and resources; labels and
-# titles derive from the referenced thing's own rdfs.label. Authors
-# don't duplicate labels inline.
-#
-# Property-level annotation:
-#   - look.urlForm : operator (*, ^, ~, =) controlling how a reference
-#     property emits URLs. Applied to NavLink.target so nav links
-#     render in latest form (`*`). Property authors annotate their own
-#     reference properties to control rendering.
-# =============================================================================
 
 look:
   type: Package
@@ -82,9 +27,6 @@ look:
           version: 1.0.0
           alias: tok
 
-# =============================================================================
-# ABSTRACT BASES
-# =============================================================================
 
 Band:
   type: rdfs.Class
@@ -104,9 +46,6 @@ View:
     InstanceVariant rules. Bound to a class, package, or publisher via
     `derivation.look`.
 
-# =============================================================================
-# VIEW TYPES — one per URL level
-# =============================================================================
 
 ResourceView:
   type: rdfs.Class
@@ -135,9 +74,6 @@ PublisherView:
     The content of the publisher root URL (`/`). Set as the
     `rootView` slot of a PublisherKit.
 
-# =============================================================================
-# PUBLISHER KIT — publisher-wide chrome
-# =============================================================================
 
 PublisherKit:
   type: rdfs.Class
@@ -166,9 +102,6 @@ Footer:
     Site-wide footer content — optional text (license, copyright)
     plus a list of additional links.
 
-# =============================================================================
-# INSTANCE VARIANT RULES
-# =============================================================================
 
 InstanceVariant:
   type: rdfs.Class
@@ -189,9 +122,6 @@ WhenCondition:
     predicates (numeric thresholds, multi-property logic) fall
     through to custom transformations.
 
-# =============================================================================
-# PER-RESOURCE BANDS
-# =============================================================================
 
 Hero:
   type: rdfs.Class
@@ -260,9 +190,6 @@ Markdown:
     property whose content is processed through the SDK's CommonMark
     renderer.
 
-# =============================================================================
-# AGGREGATION BANDS — operate on resource sets, used in PackageView / PublisherView
-# =============================================================================
 
 ResourceGrid:
   type: rdfs.Class
@@ -294,9 +221,6 @@ FeaturedResource:
     direct reference to the resource. Typical use: a publisher
     root view featuring the latest snapshot's main view.
 
-# =============================================================================
-# SUPPORTING TYPES
-# =============================================================================
 
 ResourceQuery:
   type: rdfs.Class
@@ -314,9 +238,6 @@ ResourceCountEntry:
     One entry in a ResourceCount band. `source` references the class
     to count. The label is derived from the class's rdfs.label.
 
-# =============================================================================
-# PROPERTIES — on View
-# =============================================================================
 
 bands:
   type: owl.ObjectProperty
@@ -338,9 +259,6 @@ variants:
     variants layer their token / look overrides on top of the
     class-level cascade.
 
-# =============================================================================
-# PROPERTIES — on Hero
-# =============================================================================
 
 title:
   type: owl.ObjectProperty
@@ -381,9 +299,6 @@ badges:
     badges always link to the latest version of each class — the
     most useful behavior for type identity.
 
-# =============================================================================
-# PROPERTIES — shared (multiple bands)
-# =============================================================================
 
 source:
   type: owl.ObjectProperty
@@ -399,9 +314,6 @@ source:
     the class to count. urlForm is "*" — references rendered as
     links point at the latest version of their target.
 
-# =============================================================================
-# PROPERTIES — on ChipRow
-# =============================================================================
 
 chips:
   type: owl.ObjectProperty
@@ -412,9 +324,6 @@ chips:
     List of property references; each becomes a labeled chip
     showing the property's label and the input's value.
 
-# =============================================================================
-# PROPERTIES — on PropertyTable
-# =============================================================================
 
 cellAs:
   type: owl.ObjectProperty
@@ -441,9 +350,6 @@ cellMax:
   comment: >-
     Maximum value for normalized cell renderers.
 
-# =============================================================================
-# PROPERTIES — on ReferenceList
-# =============================================================================
 
 entries:
   type: owl.ObjectProperty
@@ -457,9 +363,6 @@ entries:
     the property's rdfs.label. urlForm is "=" — citation-style
     references pin to exact versions for reproducibility.
 
-# =============================================================================
-# PROPERTIES — on ResourceCount
-# =============================================================================
 
 counts:
   type: owl.ObjectProperty
@@ -468,9 +371,6 @@ counts:
   label: Counts
   comment: List of count-entries to display.
 
-# =============================================================================
-# PROPERTIES — on ResourceQuery
-# =============================================================================
 
 ofClass:
   type: owl.ObjectProperty
@@ -502,9 +402,6 @@ limit:
   label: Limit
   comment: Maximum number of results. Omit for unlimited.
 
-# =============================================================================
-# PROPERTIES — on NavLink
-# =============================================================================
 
 target:
   type: owl.ObjectProperty
@@ -520,9 +417,6 @@ target:
     `look.urlForm` annotation: `*` means strip the version from the
     rendered URL so the link always points to the latest version.
 
-# =============================================================================
-# PROPERTIES — on PublisherKit
-# =============================================================================
 
 brand:
   type: owl.ObjectProperty
@@ -557,9 +451,6 @@ rootView:
     The PublisherView rendered at the publisher's root URL (`/`).
     Distinct from chrome — this is the content area beneath the nav.
 
-# =============================================================================
-# PROPERTIES — on Footer
-# =============================================================================
 
 text:
   type: owl.DatatypeProperty
@@ -578,9 +469,6 @@ links:
   label: Links
   comment: Optional list of additional links in the footer.
 
-# =============================================================================
-# PROPERTIES — on InstanceVariant
-# =============================================================================
 
 when:
   type: owl.ObjectProperty
@@ -591,9 +479,6 @@ when:
     The predicate that gates this variant. When the condition matches
     the input instance, the variant's token / look overrides apply.
 
-# =============================================================================
-# PROPERTIES — on WhenCondition
-# =============================================================================
 
 property:
   type: owl.ObjectProperty
@@ -609,9 +494,6 @@ equals:
   label: Equals
   comment: The value the property must equal for the condition to match.
 
-# =============================================================================
-# PROPERTY-LEVEL ANNOTATION — controls URL rendering of references
-# =============================================================================
 
 urlForm:
   type: owl.AnnotationProperty

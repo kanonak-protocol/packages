@@ -1,39 +1,3 @@
-# =============================================================================
-# formats @ 1.2.0
-#
-# Canonical names for derivation target formats. A `Format` is the
-# *what* a Kanonak resource can be derived into — `html`, `markdown`,
-# `typescript`, etc.
-#
-# Each Format carries:
-#   - mediaType:           IANA media type for HTTP / file-system identification.
-#   - fileExtension:       Conventional extension (with leading dot) for
-#                          artifact filenames. Optional.
-#   - latestUrlBehavior:   How a server should respond to a latest-form URL
-#                          (e.g. `/snapshot/view` without a pinned version).
-#                          See below.
-#
-# -----------------------------------------------------------------------------
-# 1.2.0 — additive minor bump. Introduces `latestUrlBehavior` and
-# annotates every Format instance:
-#
-#   - human-facing formats (html, svg, stylesheet) → "serve"
-#     The server returns the latest content directly at the latest URL.
-#     Users bookmark and share the latest URL as a stable handle.
-#
-#   - machine-facing formats (markdown, json, yaml, xml, typescript,
-#     c-sharp, rust, python, dynamodb-json) → "redirect"
-#     The server returns a 302 to the pinned URL, so automated
-#     consumers (AI agents, importers) always know exactly which
-#     version they received.
-#
-# This distinction is content-aware behavior the protocol owns rather
-# than each publisher reinventing. Static publishers emit redirect
-# files (`_redirects`, `.htaccess`, meta-refresh HTML) for machine
-# formats; dynamic servers return HTTP 302s.
-#
-# 1.0.0 and 1.1.0 preserved on disk archivally.
-# =============================================================================
 
 formats:
   type: Package
@@ -55,9 +19,6 @@ formats:
           version: 1.0.0
           alias: xsd
 
-# =============================================================================
-# CLASSES
-# =============================================================================
 
 Format:
   type: rdfs.Class
@@ -77,9 +38,6 @@ LatestUrlBehavior:
     the pinned URL). Format instances declare their behavior via
     the `latestUrlBehavior` property.
 
-# =============================================================================
-# PROPERTIES
-# =============================================================================
 
 mediaType:
   type: owl.DatatypeProperty
@@ -113,9 +71,6 @@ latestUrlBehavior:
     machine-facing formats — return 302 to the pinned URL so the
     client knows exactly which version it received.
 
-# =============================================================================
-# LATEST URL BEHAVIOR INSTANCES
-# =============================================================================
 
 serve:
   type: LatestUrlBehavior
@@ -136,12 +91,6 @@ redirect:
     languages) where the consumer needs to know exactly which version
     it fetched.
 
-# =============================================================================
-# CANONICAL FORMAT INSTANCES
-#
-# Authors targeting these formats reference them as
-# `formats.html`, `formats.markdown`, etc. via the import alias.
-# =============================================================================
 
 html:
   type: Format

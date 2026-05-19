@@ -1,0 +1,39 @@
+
+universal-look:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: derivation
+          match: ^
+          version: 1.1.0
+          alias: derivation
+        - package: look
+          match: ^
+          version: 1.0.0
+          alias: look
+        - package: look-tokens
+          match: ^
+          version: 1.0.0
+          alias: tok
+
+
+rdfs.Resource:
+  derivation.look:
+    type: look.ResourceView
+    bands:
+      - type: look.Hero
+        look.title: rdfs.label
+        look.eyebrow: rdfs.type
+        look.subtitle: rdfs.comment
+        look.badges: rdfs.type
