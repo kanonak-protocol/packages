@@ -1,0 +1,356 @@
+look-styles:
+  type: Package
+  publisher: kanonak.org
+  version: 1.1.0
+  comment: >-
+    Default base stylesheet for the look layer. Carries one site.Asset
+    (mediaType text/css) whose content is the CSS rules that pair with
+    the HTML structure LookRenderer emits — page layout, site-nav,
+    figure, markdown, and every band class. Publishers override by
+    shipping their own site.Asset named "base-stylesheet" under their
+    publisher's namespace; LookRenderer prefers the asset whose
+    publisher matches the page being rendered, falling back to the
+    kanonak.org default.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: site
+          match: ^
+          version: 1.0.0
+          alias: site
+
+base-stylesheet:
+  type: site.Asset
+  rdfs.label: "Look base stylesheet"
+  rdfs.comment: >-
+    Base CSS rules paired with LookRenderer's HTML emission — class
+    names here are a contract with the renderer's <header class="kan-hero">,
+    <nav class="kan-site-nav">, etc.
+  site.mediaType: text/css
+  site.content: |
+    * { box-sizing: border-box; }
+    body {
+      background: var(--kan-bg);
+      color: var(--kan-text);
+      font-family: var(--kan-font-body);
+      line-height: var(--kan-line-height-body);
+      margin: 0;
+    }
+    a { color: var(--kan-accent); text-decoration: none; }
+    a:hover { color: var(--kan-accent-hover); text-decoration: underline; }
+    
+    /* Page layout */
+    .kan-main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 24px 64px;
+    }
+    
+    /* Site navigation chrome */
+    .kan-site-nav {
+      border-bottom: 1px solid var(--kan-border);
+      background: var(--kan-bg-card);
+      padding: 12px 24px;
+      margin-bottom: 24px;
+    }
+    .kan-site-nav ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 24px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .kan-site-nav .kan-nav-link {
+      font-family: var(--kan-font-mono);
+      font-size: 13px;
+      color: var(--kan-text-dim);
+      letter-spacing: 0.04em;
+      padding: 4px 0;
+      text-decoration: none;
+    }
+    .kan-site-nav .kan-nav-link:hover {
+      color: var(--kan-accent);
+    }
+    .kan-site-nav .kan-nav-link[aria-current="page"] {
+      color: var(--kan-text);
+      border-bottom: 1px solid var(--kan-accent);
+    }
+
+    /* Breadcrumb — publisher → package → resource on every page */
+    .kan-breadcrumb {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 16px 24px 0;
+    }
+    .kan-breadcrumb ol {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-family: var(--kan-font-mono);
+      font-size: 12px;
+      color: var(--kan-text-faint);
+      letter-spacing: 0.04em;
+    }
+    .kan-breadcrumb li {
+      display: flex;
+      align-items: center;
+    }
+    .kan-breadcrumb li + li::before {
+      content: "/";
+      margin-right: 8px;
+      color: var(--kan-text-faint);
+      opacity: 0.5;
+    }
+    .kan-breadcrumb a {
+      color: var(--kan-text-dim);
+      text-decoration: none;
+    }
+    .kan-breadcrumb a:hover {
+      color: var(--kan-accent);
+    }
+    .kan-breadcrumb li[aria-current="page"] {
+      color: var(--kan-text);
+    }
+
+    /* Figure (per-resource SVG) */
+    .kan-figure {
+      margin: 24px 0;
+      text-align: center;
+    }
+    .kan-figure img {
+      max-width: 100%;
+      height: auto;
+    }
+    
+    /* Markdown band */
+    .kan-markdown { margin: 16px 0 32px; }
+    .kan-markdown h2 {
+      font-family: var(--kan-font-display);
+      font-size: 22px;
+      color: var(--kan-text);
+      margin: 32px 0 12px;
+    }
+    .kan-markdown h3 {
+      font-family: var(--kan-font-display);
+      font-size: 18px;
+      color: var(--kan-text);
+      margin: 24px 0 10px;
+    }
+    .kan-markdown p { margin: 12px 0; color: var(--kan-text-dim); }
+    .kan-markdown ul, .kan-markdown ol {
+      color: var(--kan-text-dim);
+      padding-left: 24px;
+    }
+    .kan-markdown li { margin: 6px 0; }
+    .kan-markdown strong { color: var(--kan-text); font-weight: 600; }
+    .kan-markdown code {
+      font-family: var(--kan-font-mono);
+      font-size: 0.9em;
+      background: var(--kan-bg-card);
+      padding: 1px 6px;
+      border-radius: var(--kan-radius-sm);
+      color: var(--kan-text);
+    }
+    .kan-markdown a { color: var(--kan-accent); }
+    .kan-markdown a:hover { color: var(--kan-accent-hover); text-decoration: underline; }
+    
+    /* Hero band */
+    .kan-hero {
+      padding: 32px 0 24px;
+      border-bottom: 1px solid var(--kan-border);
+      margin-bottom: 32px;
+    }
+    .kan-hero-eyebrow {
+      font-family: var(--kan-font-mono);
+      font-size: 11px;
+      color: var(--kan-accent);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: block;
+    }
+    .kan-hero-title {
+      font-family: var(--kan-font-display);
+      font-size: 32px;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      margin: 0 0 12px;
+      line-height: var(--kan-line-height-heading);
+      color: var(--kan-text);
+    }
+    .kan-hero-subtitle {
+      font-size: 17px;
+      color: var(--kan-text-dim);
+      font-weight: 300;
+      line-height: 1.55;
+      margin: 0 0 16px;
+    }
+    .kan-hero-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+    }
+    
+    /* PropertyList band */
+    .kan-property-list {
+      margin: 24px 0;
+    }
+    .kan-property-list-title {
+      font-family: var(--kan-font-mono);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--kan-text-dim);
+      margin: 0 0 12px;
+      font-weight: 600;
+    }
+    .kan-property-list-items {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .kan-property-list-items > li {
+      color: var(--kan-text);
+    }
+    .kan-property-list-items > li.kan-empty {
+      color: var(--kan-text-faint);
+      font-style: italic;
+    }
+    
+    /* BadgeRow band */
+    .kan-badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 16px 0;
+    }
+    
+    /* Badge (used by Hero badges + BadgeRow) */
+    .kan-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background: var(--kan-badge-bg);
+      color: var(--kan-badge-fg);
+      border-radius: var(--kan-radius-sm);
+      font-size: 11px;
+      font-weight: 500;
+      text-decoration: none;
+      letter-spacing: 0.02em;
+    }
+    .kan-badge:hover {
+      filter: brightness(1.1);
+      text-decoration: none;
+    }
+    
+    /* ChipRow band */
+    .kan-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 16px 0;
+    }
+    .kan-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      background: var(--kan-bg-card);
+      border: 1px solid var(--kan-border);
+      border-radius: var(--kan-radius-sm);
+      font-family: var(--kan-font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .kan-chip-key { color: var(--kan-text-faint); }
+    .kan-chip-val { color: var(--kan-text); font-weight: 500; }
+    
+    /* ReferenceList band */
+    dl.kan-reference-list {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 8px 16px;
+      margin: 16px 0;
+      padding: 16px 18px;
+      background: var(--kan-bg-card);
+      border: 1px solid var(--kan-border);
+      border-radius: var(--kan-radius);
+    }
+    dl.kan-reference-list dt {
+      font-family: var(--kan-font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--kan-text-faint);
+      align-self: center;
+    }
+    dl.kan-reference-list dd { margin: 0; align-self: center; }
+    
+    /* Link (used by reference values across bands) */
+    .kan-link {
+      color: var(--kan-accent);
+      text-decoration: none;
+    }
+    .kan-link:hover {
+      color: var(--kan-accent-hover);
+      text-decoration: underline;
+    }
+
+    /* ResourceGrid band */
+    .kan-resource-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin: 24px 0;
+    }
+    .kan-resource-card {
+      display: block;
+      padding: 16px 18px;
+      background: var(--kan-bg-card);
+      border: 1px solid var(--kan-border);
+      border-radius: var(--kan-radius);
+      color: var(--kan-text);
+      text-decoration: none;
+      transition: border-color 120ms, transform 120ms;
+    }
+    .kan-resource-card:hover {
+      border-color: var(--kan-accent);
+      text-decoration: none;
+      transform: translateY(-1px);
+    }
+    .kan-resource-card-title {
+      font-family: var(--kan-font-display);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--kan-text);
+      margin: 0 0 8px;
+      line-height: 1.3;
+    }
+    .kan-resource-card-subtitle {
+      font-size: 13px;
+      color: var(--kan-text-dim);
+      margin: 0;
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
