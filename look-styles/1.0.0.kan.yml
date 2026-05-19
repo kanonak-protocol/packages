@@ -86,7 +86,46 @@ base-stylesheet:
       color: var(--kan-text);
       border-bottom: 1px solid var(--kan-accent);
     }
-    
+
+    /* Breadcrumb — publisher → package → resource on every page */
+    .kan-breadcrumb {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 16px 24px 0;
+    }
+    .kan-breadcrumb ol {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-family: var(--kan-font-mono);
+      font-size: 12px;
+      color: var(--kan-text-faint);
+      letter-spacing: 0.04em;
+    }
+    .kan-breadcrumb li {
+      display: flex;
+      align-items: center;
+    }
+    .kan-breadcrumb li + li::before {
+      content: "/";
+      margin-right: 8px;
+      color: var(--kan-text-faint);
+      opacity: 0.5;
+    }
+    .kan-breadcrumb a {
+      color: var(--kan-text-dim);
+      text-decoration: none;
+    }
+    .kan-breadcrumb a:hover {
+      color: var(--kan-accent);
+    }
+    .kan-breadcrumb li[aria-current="page"] {
+      color: var(--kan-text);
+    }
+
     /* Figure (per-resource SVG) */
     .kan-figure {
       margin: 24px 0;
