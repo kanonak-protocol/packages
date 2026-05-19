@@ -1,0 +1,624 @@
+
+look:
+  type: Package
+  publisher: kanonak.org
+  version: 1.2.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: derivation
+          match: ^
+          version: 1.1.0
+          alias: derivation
+        - package: look-tokens
+          match: ^
+          version: 1.0.0
+          alias: tok
+
+
+Band:
+  type: rdfs.Class
+  label: Band
+  comment: >-
+    Abstract base for all bands. A band is a semantic building block
+    of a View — it reads properties off the input resource and
+    renders one region of the page. Concrete subclasses constrain
+    which inputs the band reads and how it renders.
+
+View:
+  type: rdfs.Class
+  label: View
+  comment: >-
+    Abstract base for the three view types — ResourceView, PackageView,
+    PublisherView. A view is an ordered list of Bands plus optional
+    InstanceVariant rules. Bound to a class, package, or publisher via
+    `derivation.look`.
+
+
+ResourceView:
+  type: rdfs.Class
+  subClassOf: View
+  label: Resource View
+  comment: >-
+    The content of a resource page. Bound to a class via
+    `derivation.look`; every instance of the class renders its
+    resource URL through this view.
+
+PackageView:
+  type: rdfs.Class
+  subClassOf: View
+  label: Package View
+  comment: >-
+    The content of a package page (`/{package}` or
+    `/{package}/{version}`). Bound to a Package resource via
+    `derivation.look`. Aggregation bands (ResourceGrid,
+    ResourceCount) typically appear here.
+
+PublisherView:
+  type: rdfs.Class
+  subClassOf: View
+  label: Publisher View
+  comment: >-
+    The content of the publisher root URL (`/`). Set as the
+    `rootView` slot of a PublisherKit.
+
+
+PublisherKit:
+  type: rdfs.Class
+  label: Publisher Kit
+  comment: >-
+    Publisher-wide configuration: brand, navigation, footer, default
+    tokens, and the publisher's root view. The kit's chrome (brand /
+    nav / footer) wraps every page on the publisher's site,
+    regardless of which view is active. Default tokens apply
+    site-wide unless overridden per-class.
+
+NavLink:
+  type: rdfs.Class
+  label: Nav Link
+  comment: >-
+    A single entry in a publisher's navigation. References a target
+    resource (typically a package or named resource); the rendered
+    label comes from `rdfs.label` (on the NavLink itself if set,
+    otherwise on the target). URL form is controlled by the
+    `look.urlForm` annotation on the `target` property (default `*`).
+
+NavGroup:
+  type: rdfs.Class
+  subClassOf: Band
+  label: Nav Group
+  comment: >-
+    An ordered list of navigation entries rendered as a `<nav>` block.
+    `entries` is a list of NavLink references (or any rdfs.Resource —
+    direct references render with the target's `rdfs.label`). A
+    publisher typically defines one NavGroup as their site chrome;
+    the LookRenderer discovers it by class+publisher and renders it
+    at the top of every standalone HTML document.
+
+SemanticSvg:
+  type: rdfs.Class
+  subClassOf: View
+  label: Semantic SVG
+  comment: >-
+    A single responsive SVG with four nested visibility tiers — tier-chip
+    (rendered at <60px wide), tier-icon (60-160), tier-card (160-400),
+    and tier-full (>=400). CSS media queries inside the SVG show exactly
+    one tier based on the rendered viewport, so one file works as a
+    favicon, a sidebar tile, a grid card, and an embedded hero figure
+    without per-context variants. Used as the resource's universal
+    visual identity — every Kanonak resource gets `<canonical>.svg`
+    at its URL. When a class does not declare a SemanticSvg view, the
+    renderer emits a default — first letter of `rdfs.label` on the
+    cascaded `--kan-accent` token, with tier-full adding the full label.
+    Domain-specific extensions (custom per-tier SVG fragments) attach
+    via future per-tier slot properties; v1.2.0 ships the defaults
+    only.
+
+Footer:
+  type: rdfs.Class
+  label: Footer
+  comment: >-
+    Site-wide footer content — optional text (license, copyright)
+    plus a list of additional links.
+
+
+InstanceVariant:
+  type: rdfs.Class
+  label: Instance Variant
+  comment: >-
+    A conditional override that fires when an instance matches a
+    WhenCondition. Used to swap tokens (or, rarely, the entire view)
+    based on instance state — e.g., a thesis with status `active`
+    accents green, with status `retired` accents gray. Variants
+    layer on top of the class-level cascade.
+
+WhenCondition:
+  type: rdfs.Class
+  label: When Condition
+  comment: >-
+    A predicate matching an instance's property value. v0.1 supports
+    only equality matching (property + equals). More complex
+    predicates (numeric thresholds, multi-property logic) fall
+    through to custom transformations.
+
+
+Hero:
+  type: rdfs.Class
+  subClassOf: Band
+  label: Hero
+  comment: >-
+    Page header band. Renders a title (typically the resource's
+    rdfs.label), optionally preceded by an eyebrow tag (rdf:type or
+    similar), followed by a subtitle paragraph (rdfs.comment) and
+    type badges. The title, eyebrow, subtitle, and badges fields each
+    reference a property whose value is read from the input resource.
+
+BadgeRow:
+  type: rdfs.Class
+  subClassOf: Band
+  label: Badge Row
+  comment: >-
+    Renders type references as clickable badges with tooltips drawn
+    from each target's rdfs.comment. `source` is the property holding
+    the type references (typically rdf:type).
+
+ChipRow:
+  type: rdfs.Class
+  subClassOf: Band
+  label: Chip Row
+  comment: >-
+    Inline labeled chips, one per property in `chips`. Each chip
+    shows the property's label and the input's value for that
+    property. Chips with no value on the input are omitted.
+
+PropertyList:
+  type: rdfs.Class
+  subClassOf: Band
+  label: Property List
+  comment: >-
+    Definition-list rendering of one property's contents. `source`
+    is the property to read (typically an embedded or list-of-embeddeds).
+    The list title defaults to `source.rdfs.label`.
+
+PropertyTable:
+  type: rdfs.Class
+  subClassOf: Band
+  label: Property Table
+  comment: >-
+    Table rendering for a list of dict-keyed embeddeds. Each row is
+    one embedded; columns are the union of predicate names across
+    the embeddeds. Optional `cellAs` overrides the cell renderer
+    (e.g., look.BarMeter); `cellMin` / `cellMax` bound numeric
+    visualizations.
+
+ReferenceList:
+  type: rdfs.Class
+  subClassOf: Band
+  label: Reference List
+  comment: >-
+    Labeled groups of cross-references. `entries` is a list of
+    properties; each property's references are rendered as a labeled
+    group. Each link's label comes from the target's rdfs.label.
+
+Markdown:
+  type: rdfs.Class
+  subClassOf: Band
+  label: Markdown
+  comment: >-
+    Prose section rendered as Markdown. `source` is a string-valued
+    property whose content is processed through the SDK's CommonMark
+    renderer.
+
+
+ResourceGrid:
+  type: rdfs.Class
+  subClassOf: Band
+  label: Resource Grid
+  comment: >-
+    Grid of resource cards. `source` is a ResourceQuery selecting
+    which resources to include. Each card renders the resource's
+    own derivation.look in `compact` variant if available, else
+    falls back to a minimal hero + summary card.
+
+ResourceCount:
+  type: rdfs.Class
+  subClassOf: Band
+  label: Resource Count
+  comment: >-
+    Per-class count aggregates. `counts` is a list of
+    ResourceCountEntry resources, each scoping to one class.
+    Labels come from each class's rdfs.label; the count itself is
+    derived at render time by counting matching instances in the
+    workspace.
+
+FeaturedResource:
+  type: rdfs.Class
+  subClassOf: Band
+  label: Featured Resource
+  comment: >-
+    Embed a specific resource's full view inline. `source` is a
+    direct reference to the resource. Typical use: a publisher
+    root view featuring the latest snapshot's main view.
+
+
+ResourceQuery:
+  type: rdfs.Class
+  label: Resource Query
+  comment: >-
+    Declarative resource selector — class, optional orderBy property,
+    optional direction (ascending / descending), optional limit. v0.1
+    keeps the DSL intentionally small; complex queries should be
+    expressed via custom transformations.
+
+ResourceCountEntry:
+  type: rdfs.Class
+  label: Resource Count Entry
+  comment: >-
+    One entry in a ResourceCount band. `source` references the class
+    to count. The label is derived from the class's rdfs.label.
+
+
+bands:
+  type: owl.ObjectProperty
+  domain: View
+  range: Band
+  label: Bands
+  comment: >-
+    Ordered list of bands that compose this view. Render order
+    matches list order.
+
+variants:
+  type: owl.ObjectProperty
+  domain: View
+  range: InstanceVariant
+  label: Variants
+  comment: >-
+    Optional list of conditional overrides. Each variant's
+    WhenCondition is evaluated against the input instance; matching
+    variants layer their token / look overrides on top of the
+    class-level cascade.
+
+
+title:
+  type: owl.ObjectProperty
+  domain: Hero
+  range: rdfs.Resource
+  label: Title Property
+  comment: >-
+    Property whose value supplies the Hero's headline text. Typically
+    `rdfs.label`. The renderer reads input[title] and emits the value.
+
+eyebrow:
+  type: owl.ObjectProperty
+  domain: Hero
+  range: rdfs.Resource
+  label: Eyebrow Property
+  comment: >-
+    Optional property whose value supplies the small uppercase text
+    above the title. Typically `rdf:type`.
+
+subtitle:
+  type: owl.ObjectProperty
+  domain: Hero
+  range: rdfs.Resource
+  label: Subtitle Property
+  comment: >-
+    Optional property whose value supplies a subtitle paragraph
+    below the title. Typically `rdfs.comment`.
+
+badges:
+  type: owl.ObjectProperty
+  domain: Hero
+  range: rdfs.Resource
+  urlForm: "*"
+  label: Badges Property
+  comment: >-
+    Optional property whose value is a list of type references to
+    render as clickable badges with tooltips. urlForm is "*" so
+    badges always link to the latest version of each class — the
+    most useful behavior for type identity.
+
+
+semanticSvg:
+  type: owl.ObjectProperty
+  domain: rdfs.Resource
+  range: SemanticSvg
+  label: Semantic SVG
+  comment: >-
+    The class-level or instance-level SemanticSvg declaration. Renderers
+    asking for a resource's SVG walk the type cascade looking for this
+    property, and the closest declaration wins (instance-replace semantics
+    — same as derivation.look). The default declared on rdfs.Resource
+    in this package provides a first-letter glyph fallback so every
+    resource has a sane SVG even when its class declares nothing.
+
+tierChip:
+  type: owl.DatatypeProperty
+  domain: SemanticSvg
+  range: xsd.string
+  label: Tier Chip SVG
+  comment: >-
+    Raw SVG fragment shown when the resource's SVG is rendered at <60px
+    wide — favicon, tree node, breadcrumb dot. Placed inside the
+    `<g class="tier-chip">` group. Supports placeholders `{{label}}`,
+    `{{firstLetter}}`, `{{uri}}` (substituted per-instance). CSS variables
+    like `var(--kan-accent)` work directly inside the fragment.
+
+tierIcon:
+  type: owl.DatatypeProperty
+  domain: SemanticSvg
+  range: xsd.string
+  label: Tier Icon SVG
+  comment: >-
+    Raw SVG fragment for 60-160px renders — sidebar tiles, hover previews.
+    Same placeholder + CSS-variable rules as tierChip.
+
+tierCard:
+  type: owl.DatatypeProperty
+  domain: SemanticSvg
+  range: xsd.string
+  label: Tier Card SVG
+  comment: >-
+    Raw SVG fragment for 160-400px renders — ResourceGrid card thumbnails.
+    Same placeholder + CSS-variable rules as tierChip.
+
+tierFull:
+  type: owl.DatatypeProperty
+  domain: SemanticSvg
+  range: xsd.string
+  label: Tier Full SVG
+  comment: >-
+    Raw SVG fragment for >=400px renders — hero figures, embed cards.
+    Same placeholder + CSS-variable rules as tierChip.
+
+source:
+  type: owl.ObjectProperty
+  range: rdfs.Resource
+  urlForm: "*"
+  label: Source
+  comment: >-
+    For property-reading bands (BadgeRow, PropertyList, PropertyTable,
+    Markdown): the property whose value supplies the band's content.
+    For resource-targeting bands (FeaturedResource): a direct
+    reference to a specific resource. For query-driven bands
+    (ResourceGrid): a ResourceQuery instance. For ResourceCountEntry:
+    the class to count. urlForm is "*" — references rendered as
+    links point at the latest version of their target.
+
+
+chips:
+  type: owl.ObjectProperty
+  domain: ChipRow
+  range: rdfs.Resource
+  label: Chips
+  comment: >-
+    List of property references; each becomes a labeled chip
+    showing the property's label and the input's value.
+
+
+cellAs:
+  type: owl.ObjectProperty
+  domain: PropertyTable
+  range: rdfs.Class
+  label: Cell As
+  comment: >-
+    Optional band class to render each cell with. When absent,
+    cells render their value via the universal value-walker.
+
+cellMin:
+  type: owl.DatatypeProperty
+  domain: PropertyTable
+  range: xsd.decimal
+  label: Cell Min
+  comment: >-
+    Minimum value for normalized cell renderers (e.g., BarMeter).
+
+cellMax:
+  type: owl.DatatypeProperty
+  domain: PropertyTable
+  range: xsd.decimal
+  label: Cell Max
+  comment: >-
+    Maximum value for normalized cell renderers.
+
+
+entries:
+  type: owl.ObjectProperty
+  domain: ReferenceList
+  range: rdfs.Resource
+  urlForm: "="
+  label: Entries
+  comment: >-
+    List of property references; each property's references render
+    as a labeled cross-reference group. Group label derives from
+    the property's rdfs.label. urlForm is "=" — citation-style
+    references pin to exact versions for reproducibility.
+
+
+counts:
+  type: owl.ObjectProperty
+  domain: ResourceCount
+  range: ResourceCountEntry
+  label: Counts
+  comment: List of count-entries to display.
+
+
+ofClass:
+  type: owl.ObjectProperty
+  domain: ResourceQuery
+  range: rdfs.Class
+  label: Of Class
+  comment: The class to query for instances of.
+
+orderBy:
+  type: owl.ObjectProperty
+  domain: ResourceQuery
+  range: rdfs.Resource
+  label: Order By
+  comment: >-
+    Optional property to order results by. Property's value must
+    be comparable (numbers, strings, dates).
+
+direction:
+  type: owl.DatatypeProperty
+  domain: ResourceQuery
+  range: xsd.string
+  label: Direction
+  comment: '"ascending" or "descending". Defaults to "ascending".'
+
+limit:
+  type: owl.DatatypeProperty
+  domain: ResourceQuery
+  range: xsd.integer
+  label: Limit
+  comment: Maximum number of results. Omit for unlimited.
+
+
+target:
+  type: owl.ObjectProperty
+  domain: NavLink
+  range: rdfs.Resource
+  urlForm: "*"
+  label: Target
+  comment: >-
+    The resource this nav link points to. Range is rdfs.Resource —
+    typically a Package (for `/snapshot`) or a named resource (for
+    `/snapshot/view`). The rendered label comes from the target's
+    own `rdfs.label`. URL form is controlled by the property-level
+    `look.urlForm` annotation: `*` means strip the version from the
+    rendered URL so the link always points to the latest version.
+
+
+brand:
+  type: owl.ObjectProperty
+  domain: PublisherKit
+  range: rdfs.Resource
+  label: Brand
+  comment: >-
+    The Publisher resource this kit is for. The rendered brand name
+    comes from the Publisher's rdfs.label; the brand link points to
+    `/` (the publisher's own root).
+
+nav:
+  type: owl.ObjectProperty
+  domain: PublisherKit
+  range: NavLink
+  label: Nav
+  comment: Ordered list of nav entries shown in the chrome.
+
+footer:
+  type: owl.ObjectProperty
+  domain: PublisherKit
+  range: Footer
+  label: Footer
+  comment: Optional site-wide footer content.
+
+rootView:
+  type: owl.ObjectProperty
+  domain: PublisherKit
+  range: PublisherView
+  label: Root View
+  comment: >-
+    The PublisherView rendered at the publisher's root URL (`/`).
+    Distinct from chrome — this is the content area beneath the nav.
+
+
+text:
+  type: owl.DatatypeProperty
+  domain: Footer
+  range: xsd.string
+  label: Text
+  comment: >-
+    Literal footer text (license info, copyright). One of the few
+    places in the look vocabulary where a literal string is
+    appropriate — there's no canonical resource to derive it from.
+
+links:
+  type: owl.ObjectProperty
+  domain: Footer
+  range: NavLink
+  label: Links
+  comment: Optional list of additional links in the footer.
+
+
+when:
+  type: owl.ObjectProperty
+  domain: InstanceVariant
+  range: WhenCondition
+  label: When
+  comment: >-
+    The predicate that gates this variant. When the condition matches
+    the input instance, the variant's token / look overrides apply.
+
+
+property:
+  type: owl.ObjectProperty
+  domain: WhenCondition
+  range: rdfs.Resource
+  label: Property
+  comment: The property of the input instance to test.
+
+equals:
+  type: owl.ObjectProperty
+  domain: WhenCondition
+  range: rdfs.Resource
+  label: Equals
+  comment: The value the property must equal for the condition to match.
+
+
+urlForm:
+  type: owl.AnnotationProperty
+  range: xsd.string
+  label: URL Form
+  comment: >-
+    Operator controlling how this property's reference values render
+    as URLs. Four valid values, matching Kanonak's version-compatibility
+    operators:
+      - "*" : any version (latest) — emit `/{package}/{name}`
+      - "^" : major-pinned — emit `/{package}/{major}/{name}`
+      - "~" : minor-pinned — emit `/{package}/{major}.{minor}/{name}`
+      - "=" : exact pin — emit `/{package}/{version}/{name}` (default)
+    Applied to a property declaration, this annotation is read by
+    the renderer when emitting any reference whose predicate is the
+    annotated property. References in YAML remain canonical pinned
+    pointers; the operator controls only the rendered URL form.
+
+
+# Default 4-tier SemanticSvg declared on rdfs.Resource — every Kanonak
+# resource inherits this when its class hierarchy declares nothing
+# closer. Placeholders {{label}}, {{firstLetter}}, {{uri}} are substituted
+# per-instance by the renderer; tokens like var(--kan-accent) resolve
+# from the resource's cascaded tokens.
+rdfs.Resource:
+  semanticSvg:
+    type: SemanticSvg
+    tierChip: |
+      <rect x="0" y="0" width="400" height="400" rx="80" fill="var(--kan-accent)"/>
+    tierIcon: |
+      <rect x="0" y="0" width="400" height="400" rx="48" fill="var(--kan-accent)"/>
+      <text x="200" y="245" text-anchor="middle" font-size="240" font-weight="700" fill="var(--kan-bg-card)" font-family="var(--kan-font-display)">{{firstLetter}}</text>
+    tierCard: |
+      <rect x="0" y="0" width="400" height="400" rx="14" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="2"/>
+      <rect x="0" y="0" width="400" height="80" rx="14" fill="var(--kan-accent)"/>
+      <rect x="0" y="60" width="400" height="20" fill="var(--kan-accent)"/>
+      <text x="40" y="55" font-size="48" font-weight="700" fill="var(--kan-bg-card)" font-family="var(--kan-font-display)">{{firstLetter}}</text>
+      <text x="40" y="160" font-size="22" font-weight="600" fill="var(--kan-text)" font-family="var(--kan-font-display)">{{label}}</text>
+    tierFull: |
+      <rect x="0" y="0" width="400" height="400" rx="14" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="2"/>
+      <rect x="0" y="0" width="400" height="80" rx="14" fill="var(--kan-accent)"/>
+      <rect x="0" y="60" width="400" height="20" fill="var(--kan-accent)"/>
+      <text x="40" y="55" font-size="48" font-weight="700" fill="var(--kan-bg-card)" font-family="var(--kan-font-display)">{{firstLetter}}</text>
+      <text x="40" y="140" font-size="22" font-weight="600" fill="var(--kan-text)" font-family="var(--kan-font-display)">{{label}}</text>
+      <text x="40" y="370" font-size="14" fill="var(--kan-text-dim)" font-family="var(--kan-font-mono)">{{uri}}</text>
