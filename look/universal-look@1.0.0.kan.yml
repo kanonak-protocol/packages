@@ -1,0 +1,72 @@
+# =============================================================================
+# universal-look @ 1.0.0
+#
+# Augments `rdfs.Resource` with a default `derivation.look` declaration —
+# the universal baseline view rendered for any Kanonak resource that
+# doesn't declare its own look in its class hierarchy. Mirrors the role
+# `kanonak.org/universal-derivations` plays for the legacy
+# transformation-based rendering: a sensible fallback that ensures
+# every resource has SOMETHING to render through.
+#
+# The baseline view is a single Hero band:
+#   - title    = rdfs.label
+#   - eyebrow  = rdf.type
+#   - subtitle = rdfs.comment
+#   - badges   = rdf.type
+#
+# Publishers customize by declaring their own `derivation.look` on
+# their classes, which the cascade picks up before reaching this
+# universal floor.
+#
+# This package depends on `kanonak.org/look-tokens@1.0.0` for the
+# token defaults that go with the default view — both packages
+# augment rdfs.Resource so any resource has both a baseline look
+# AND baseline tokens out of the box.
+# =============================================================================
+
+universal-look:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: derivation
+          match: ^
+          version: 1.1.0
+          alias: derivation
+        - package: look
+          match: ^
+          version: 1.0.0
+          alias: look
+        - package: look-tokens
+          match: ^
+          version: 1.0.0
+          alias: tok
+
+# =============================================================================
+# UNIVERSAL DEFAULT LOOK ON rdfs.Resource
+#
+# Open-world augmentation: this declaration merges into rdfs.Resource's
+# canonical subject. The LookRenderer's cascade walks bottom-up and
+# falls through to this declaration when no closer class declares its
+# own `derivation.look`.
+# =============================================================================
+
+rdfs.Resource:
+  derivation.look:
+    type: look.ResourceView
+    bands:
+      - type: look.Hero
+        look.title: rdfs.label
+        look.eyebrow: rdfs.type
+        look.subtitle: rdfs.comment
+        look.badges: rdfs.type

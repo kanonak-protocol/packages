@@ -1,0 +1,228 @@
+# =============================================================================
+# derivation @ 1.1.0
+#
+# Additive minor bump. Introduces two new properties for the declarative
+# look authoring surface introduced in `kanonak.org/look@1.0.0`:
+#
+#   - derivation.look:   bind a class to a declarative View describing
+#                        how instances of the class should appear as a
+#                        page (the bands that compose it). Range is
+#                        rdfs.Resource — typically an instance of
+#                        look.ResourceView, look.PackageView, or
+#                        look.PublisherView.
+#   - derivation.tokens: bind a class to visual token overrides. Range
+#                        is rdfs.Resource — typically an embedded
+#                        resource whose statements are (Token URI, value)
+#                        pairs. Cascade rules: merge by token key across
+#                        the class hierarchy in BFS order with multi-type
+#                        fan-out; closer-to-instance wins per key.
+#
+# Both properties coexist with the existing `derivations` list. A
+# class can declare a custom `tx.InstanceTransformation` via the
+# existing `derivation.derivations` slot AND a declarative
+# `derivation.look` — custom transformations override `look` for the
+# formats they handle; `look` covers everything else.
+#
+# Override semantics:
+#   - derivation.look — class hierarchy: first-declared-type wins
+#     (matches transformation discovery). Per-instance: replaces.
+#   - derivation.tokens — class hierarchy: merge by key (matches the
+#     "class hierarchy merges by key" semantic). Per-instance: per-key
+#     replace; keys not overridden inherit from the cascade.
+#
+# 1.0.0 preserved on disk archivally.
+# =============================================================================
+
+derivation:
+  type: Package
+  publisher: kanonak.org
+  version: 1.1.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: transformations
+          match: ^
+          version: 3.3.0
+          alias: tx
+        - package: formats
+          match: ^
+          version: 1.0.0
+          alias: formats
+
+# =============================================================================
+# CLASSES
+# =============================================================================
+
+Variant:
+  type: rdfs.Class
+  label: Variant
+  comment: >-
+    A named variant within a format. The same class may have multiple
+    derivations producing the same format but optimized for different
+    contexts (default for the canonical view, compact for cards,
+    summary for previews, focus for one-thing-at-a-time, etc.).
+    Extensible — publishers may define their own variants.
+
+Derivation:
+  type: rdfs.Class
+  label: Derivation
+  comment: >-
+    A single binding declaring how an instance of a class is derived
+    into an artifact of a specific format and variant via a named
+    transformation. Carried in lists on rdfs.Class.derivations and
+    optionally per-instance.
+
+# =============================================================================
+# PROPERTIES ON Derivation
+# =============================================================================
+
+format:
+  type: owl.ObjectProperty
+  domain: Derivation
+  range: formats.Format
+  label: Format
+  comment: >-
+    The target format produced by this derivation. References a
+    canonical Format instance from `kanonak.org/formats@1.0.0` or a
+    publisher extension thereof.
+
+variant:
+  type: owl.ObjectProperty
+  domain: Derivation
+  range: Variant
+  label: Variant
+  comment: >-
+    The named variant within the format. Defaults to `default` when
+    omitted on a Derivation declaration. A class with one derivation
+    per format need not specify variant on each entry.
+
+transformation:
+  type: owl.ObjectProperty
+  domain: Derivation
+  range: tx.TransformationReference
+  label: Transformation
+  comment: >-
+    Pointer to the published transformation that produces the
+    artifact. Resolves at lookup time via TransformationReference's
+    publisher / package / version / name fields.
+
+# =============================================================================
+# CLASS-LEVEL BINDINGS
+# =============================================================================
+
+derivations:
+  type: owl.ObjectProperty
+  domain: rdfs.Class
+  range: Derivation
+  label: Derivations
+  comment: >-
+    The list of derivations available for instances of the class.
+    Each entry binds a (format, variant) pair to a transformation.
+    Class-hierarchy override merges by (format, variant) — a
+    subclass overriding `html/default` keeps its parent's other
+    entries. Per-instance override of this property replaces
+    entirely; the instance's derivations are the only ones
+    considered in that case.
+
+look:
+  type: owl.ObjectProperty
+  domain: rdfs.Resource
+  range: rdfs.Resource
+  label: Look
+  comment: >-
+    Declarative visual presentation for instances of this class.
+    Value is typically an instance of look.ResourceView,
+    look.PackageView, or look.PublisherView (from
+    kanonak.org/look@1.0.0) declaring the bands that compose the
+    page. Class-hierarchy override is first-declared-type-wins
+    (same semantic as transformation discovery); per-instance
+    override replaces. Coexists with `derivations` — custom
+    transformations declared in `derivations` win for the specific
+    (format, variant) pairs they cover; `look` covers everything
+    else. Used by the universal look renderer in
+    kanonak.org/universal-look to produce HTML/CSS/SVG without
+    publisher-authored transformations.
+
+tokens:
+  type: owl.ObjectProperty
+  domain: rdfs.Resource
+  range: rdfs.Resource
+  label: Tokens
+  comment: >-
+    Visual token overrides for instances of this class. Value is an
+    embedded resource whose statements are (Token URI, value) pairs —
+    e.g., `look.accent: "hsl(200, 65%, 55%)"`. Token classes and
+    canonical token instances are defined in
+    kanonak.org/look-tokens@1.0.0. Class-hierarchy merge: tokens
+    cascade from rdfs.Resource defaults through the class hierarchy
+    in BFS order with multi-type fan-out; first class encountered
+    that declares a given token key wins. Per-instance override of a
+    specific token key wins; keys not overridden continue to inherit
+    through the cascade.
+
+# =============================================================================
+# CANONICAL VARIANT INSTANCES
+#
+# Authors targeting these variants reference them as
+# `derivations.default`, `derivations.compact`, etc.
+# Publishers can define their own variants in their own packages.
+# =============================================================================
+
+default:
+  type: Variant
+  label: Default
+  comment: >-
+    The canonical / primary derivation for a format. Used when a
+    consumer requests a format without specifying a variant.
+
+compact:
+  type: Variant
+  label: Compact
+  comment: >-
+    A reduced representation suitable for embedding in lists,
+    cards, or aggregate views. Typically emits less detail than
+    the default variant.
+
+summary:
+  type: Variant
+  label: Summary
+  comment: >-
+    A short-form summary representation. Typically a single
+    paragraph or a few key facts, suitable for previews and
+    snippets.
+
+card:
+  type: Variant
+  label: Card
+  comment: >-
+    A self-contained card representation suitable for grid layouts,
+    feeds, and dashboards. Usually shows an icon / image, a title,
+    and a small amount of metadata.
+
+print:
+  type: Variant
+  label: Print
+  comment: >-
+    A representation optimized for print or PDF output. May
+    expand collapsed sections, drop interactive elements, and
+    apply a print stylesheet.
+
+focus:
+  type: Variant
+  label: Focus
+  comment: >-
+    A single-thing-at-a-time representation, optimized for the
+    case where the resource is the sole subject of the page —
+    typically with chrome de-emphasized.
