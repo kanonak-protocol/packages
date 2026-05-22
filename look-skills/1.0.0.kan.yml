@@ -1,0 +1,575 @@
+look-skills:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: agent-skills
+          match: ^
+          version: 1.2.0
+          alias: skills
+        - package: core-spdx
+          match: ^
+          version: 1.0.0
+          alias: spdx
+
+look-authoring:
+  type: skills.Skill
+  skills.name: look-authoring
+  description: >-
+    Expert at styling a Kanonak publisher's ontology with the look system —
+    the declarative visual layer (kanonak.org/look) that turns classes,
+    packages, and publishers into rendered HTML/SVG pages without hand-written
+    transformations. Teaches an AI agent how to attach a look to a TYPE (not an
+    instance), how to think in semantic zoom (the same concept presented as a
+    chip, an icon, a card, and a full page), how to author the three views — a
+    publisher landing page (PublisherView), a package page (PackageView), and a
+    per-resource page (ResourceView) — and how to drive it with the Kanonak CLI
+    (`kanonak serve --watch`, `validate`, `derive`, `publish`). Covers the band
+    catalogue (Hero, ResourceGrid, FeaturedResource, ResourceCount, StatRow,
+    Timeline, Distribution, PublisherPackages, Details, …), design tokens,
+    instance variants, the displayLabel/displaySummary lens for ontologies that
+    do not use rdfs.label, and a complete custom worked example. Use when the
+    user asks to style/skin their ontology, customize a publisher landing page
+    or dashboard, control how a class renders, feature or aggregate resources,
+    theme with tokens, or otherwise design how their Kanonak content looks.
+  license: spdx.Apache-2-0
+  compatibility: >-
+    Requires the Kanonak CLI (`kanonak`) on PATH and a publisher workspace of
+    `.kan.yml` files. Previewing renders needs `kanonak serve` (a local HTTP
+    origin). The look vocabulary is `kanonak.org/look@^1.18.0` with tokens from
+    `kanonak.org/look-tokens` and the universal floor from
+    `kanonak.org/universal-look`; import these in any document that declares a
+    look. No network access required for local authoring and preview.
+  allowedTools:
+    - skills.read
+    - skills.grep
+    - skills.glob
+    - skills.edit
+    - skills.write
+    - skills.bash
+  hasSection:
+
+    - title: The one idea — a type renders itself
+      body: |
+        There is a single mental model behind the entire look system. Learn
+        it first and everything else is detail:
+
+        > **A type knows how to present itself. You attach a *look* to a
+        > class (or a package, or a publisher), and every instance of that
+        > type renders through it. Whatever a type does not declare, it
+        > inherits from its superclass, and ultimately from the universal
+        > floor on `rdfs.Resource`.**
+
+        Three consequences follow, and they are the whole spirit of the
+        system:
+
+        1. **Style TYPES, never instances.** You almost never style one
+           resource. You style the *concept* — the class — and all its
+           instances follow. Styling an instance directly is a rare,
+           deliberate override, not the default move. If you find yourself
+           wanting to style each instance, you are working at the wrong
+           level: pull the styling up onto the class.
+
+        2. **It is declarative data in the graph, not code.** A look is a
+           `derivation.look` value: an ordered list of *bands* (Hero,
+           ResourceGrid, Distribution, …) authored in YAML. You do not write
+           HTML, CSS, or a transformation. The SDK's renderer reads the
+           bands and emits the page. (If you have seen older publishers
+           hand-author HTML transformations or `StaticPage` heredocs — that
+           is the OLD way. Do not do that. Author bands.)
+
+        3. **It cascades, closest-declarer-wins.** The renderer walks an
+           instance's type chain (the class, its `subClassOf` ancestors, then
+           `rdfs.Resource`) and uses the closest declaration. So you declare
+           broad defaults high in your hierarchy and specialize lower down —
+           exactly like CSS specificity, but over the ontology.
+
+        The rest of this skill teaches: the CLI loop (author → preview),
+        semantic zoom (the levels you style at), the three views, the band
+        catalogue, the display lens, tokens/variants, and a full worked
+        example.
+
+    - title: The author-and-preview loop (Kanonak CLI)
+      body: |
+        Styling is a tight edit-preview loop. You edit a `.kan.yml`, you
+        look at the rendered page, you iterate. The CLI gives you that:
+
+        ```bash
+        # Live preview — the SAME rendering `kanonak publish` produces,
+        # served from your workspace. Edit a .kan.yml, refresh, see it.
+        # This is your primary styling loop.
+        kanonak serve --watch
+        #   → open the printed http://localhost:PORT
+        #   → a resource page:   /{package}/{version}/{name}
+        #   → a package page:    /{package}/{version}   (or /{package})
+        #   → the landing page:  /
+
+        # Validate before you commit — catches unresolved references AND
+        # (since look@1.18.0) displayLabel/displaySummary that point at a
+        # property not in scope for the class.
+        kanonak validate
+
+        # Materialize ONE artifact for a resource (the polymorphic walk
+        # finds the binding for the (format, variant) by climbing the
+        # class hierarchy to the universal floor).
+        kanonak derive <publisher>/<package>[@<version>]/<name> \
+          --format html --variant default --out ./out
+
+        # Variants select an alternate rendering of the same (resource,
+        # format): default, compact (cards), summary, card, print, focus.
+        kanonak derive .../my-resource --format svg   # the resource's identity SVG
+        ```
+
+        **Mental model of the URL space** (you are styling these three
+        page kinds):
+
+        | URL | Page | Styled by |
+        |-----|------|-----------|
+        | `/` | publisher landing | a `PublisherKit`'s `rootView` (a `PublisherView`) |
+        | `/{package}/{version}` | package overview | `derivation.look` on the Package (a `PackageView`) |
+        | `/{package}/{version}/{name}` | one resource | `derivation.look` on the resource's class (a `ResourceView`) |
+
+        Author the look in the relevant `.kan.yml`, keep `kanonak serve
+        --watch` running, and refine against what you see. Never reach for
+        a hand-written HTML file.
+
+    - title: Semantic zoom — decide how a concept looks at each level of detail
+      body: |
+        This is the part that separates good look authoring from bad. Before
+        you write any bands, think about how each concept in your ontology
+        should appear at different **levels of abstraction and detail** —
+        because the same resource is shown at many sizes:
+
+        - as a **chip** (a favicon, a breadcrumb dot, a nav marker, < 60px),
+        - as an **icon** (a sidebar tile, 60–160px),
+        - as a **card** (one cell in a grid, 160–400px),
+        - as a **full page** (the resource's own page, ≥ 400px).
+
+        The look system gives you a knob for each zoom level, and they all
+        attach to the TYPE:
+
+        | Zoom | Property on the class | What it controls |
+        |------|----------------------|------------------|
+        | visual identity, all sizes | `look.semanticSvg` (4 tiers: `tierChip`/`tierIcon`/`tierCard`/`tierFull`) | one responsive SVG that shows the right tier at the rendered size |
+        | the resource's name | `look.displayLabel` | which property supplies the display name |
+        | the one-line summary | `look.displaySummary` | which property supplies the description |
+        | the full page | `derivation.look` (a View of bands) | the whole resource/package/publisher page |
+        | theme | `derivation.tokens` | colors, spacing, fonts that cascade |
+
+        **The discipline:** for each important class in your ontology, ask
+        "what is the smallest meaningful representation of this thing, and
+        how does it grow as there's more room?" A `Security` might be a
+        ticker glyph as a chip, a ticker + name as a card, and a full
+        dashboard as a page. You declare that once on the `Security` class;
+        every security inherits it.
+
+        **Declare at the right level.** Put universal defaults high (your
+        domain base class, or lean on the `rdfs.Resource` floor); specialize
+        on specific subclasses. A `FinancialInstrument` base class can carry
+        the shared card look, while `Bond` and `Equity` subclasses override
+        only the page view. Closest declaration wins, per-tier and per-band,
+        so a subclass overriding the card SVG still inherits the chip SVG
+        from its parent.
+
+    - title: The display lens — make ANY ontology render correctly (displayLabel / displaySummary)
+      body: |
+        Renderers need a display name and a one-line summary for every
+        resource — for cards, nav links, hero titles, the SVG `{{label}}`,
+        reference links, page titles. By default those come from `rdfs.label`
+        and `rdfs.comment`. **But `rdfs.label`/`rdfs.comment` are a
+        convention, not a requirement.** Many well-designed ontologies carry
+        their display fields in domain-specific properties (`teamName`,
+        `participantDisplayName`, `securityTicker`, `guideTitle`).
+
+        Do **not** duplicate those into `rdfs.label` just to satisfy the
+        renderer. Instead point the lens at the real property — once, on the
+        class:
+
+        ```yaml
+        ont.Team:
+          look.displayLabel: ont.teamName
+          look.displaySummary: ont.teamDescription
+        ```
+
+        Now every card, nav entry, hero, SVG, and reference label for any
+        Team shows `teamName` / `teamDescription`. The lens cascades exactly
+        like everything else (closest class wins; the universal default on
+        `rdfs.Resource` is `rdfs.label` / `rdfs.comment`, so resources that
+        DO use rdfs.label keep working with no declaration).
+
+        Two CLI affordances back this up:
+
+        - **Completion**: while authoring `look.displayLabel:` / `look.displaySummary:`
+          on a class in a `.kan.yml`, the Kanonak VS Code extension offers
+          the properties in scope for that class (its own domain properties
+          plus universal ones), inserted in the correct alias-qualified form.
+        - **Validation**: `kanonak validate` flags a lens that points at a
+          property whose `domain` does not cover the class — that would
+          silently fall back to the resource's name at render time, so it is
+          surfaced as a warning rather than failing quietly.
+
+        Rule of thumb: the value must be a property whose `domain` is this
+        class, an ancestor, or `rdfs.Resource`. Typically a datatype property
+        holding the text; pointing at a relationship shows the *target's*
+        display name.
+
+    - title: View 1 — the resource page (ResourceView)
+      body: |
+        A `look.ResourceView` is the content of one resource's page, bound to
+        a class via `derivation.look`. Its `bands` are an ordered list; the
+        renderer emits them top to bottom.
+
+        ```yaml
+        ont.Strategy:
+          derivation.look:
+            type: look.ResourceView
+            bands:
+              - type: look.Hero
+                look.title: ont.strategyName       # or rely on displayLabel
+                look.eyebrow: rdfs.type
+                look.subtitle: ont.thesis
+                look.icon: true                      # show the chip SVG beside the title
+              - type: look.StatRow
+                look.stats:
+                  - look.statLabel: "μ"
+                    look.statPath: "ont.estimate/est.mean"
+                  - look.statLabel: "95% CI"
+                    look.statPath: "ont.estimate/est.upper95"
+              - type: look.Distribution
+                look.alphaPath: "ont.estimate/est.alpha"
+                look.betaPath: "ont.estimate/est.beta"
+              - type: look.Markdown
+                look.source: ont.rationale            # a core-prose Markdown property
+              - type: look.ReferenceList
+                look.entries:
+                  - ont.supportingEvidence
+                  - ont.relatedStrategies
+              - type: look.Details                    # generic property sheet for the rest
+                look.skip:
+                  - ont.strategyName                  # already shown as the Hero title
+        ```
+
+        Notes that matter:
+
+        - **Property-reading bands** (`Hero`, `ChipRow`, `PropertyList`,
+          `BadgeRow`, `Markdown`) take a property reference and read its
+          value off the instance. `look.title: ont.strategyName` means "read
+          this instance's `strategyName`."
+        - **Path bands** (`StatRow`, `Distribution`, `Timeline`) take a
+          `/`-separated `*Path` string that reaches *into* embedded objects:
+          `"ont.estimate/est.mean"` follows `estimate`, then reads `mean`.
+        - **`look.Details`** is the great default — a recursive property
+          sheet for everything you have not surfaced elsewhere. A minimal
+          good ResourceView is often just `Hero` + `Details`.
+        - If you declare nothing, the `rdfs.Resource` floor gives every
+          resource a `Hero` (title/eyebrow/subtitle/badges) plus a `Details`
+          sheet — so even an un-styled class renders sensibly.
+
+    - title: View 2 — the package page (PackageView)
+      body: |
+        A `look.PackageView` is the content of a package's overview page,
+        bound to the Package (the `core-kanonak.Package` class, or your
+        specific package). The default floor gives every package a `Hero` +
+        `PackageContents` (a card grid of the package's members), so you only
+        author a PackageView when you want more than the listing.
+
+        Aggregation and series bands shine here — a package page is the
+        natural home for a roll-up across all the package's instances:
+
+        ```yaml
+        ck.Package:
+          derivation.look:
+            type: look.PackageView
+            bands:
+              - type: look.Hero
+                look.title: rdfs.label
+                look.subtitle: rdfs.comment
+              - type: look.SectionHeading
+                look.heading: "How the theses evolved"
+              - type: look.Timeline
+                look.source: ont.WorldviewThesis      # the class to place on the time axis
+                look.orderBy: ont.asOf
+                look.track: ont.hasThesis              # sub-resources to follow across versions
+                look.metricPath: "ont.confidence/est.mean"
+                look.axisMin: 0
+                look.axisMax: 1
+              - type: look.ResourceGrid
+                look.source:
+                  type: look.ResourceQuery
+                  look.ofClass: ont.Strategy
+                  look.orderBy: ont.priority
+                  look.direction: descending
+                  look.limit: 12
+              - type: look.PackageContents          # the rest of the members
+        ```
+
+        - **`look.ResourceGrid`** renders a card per resource selected by a
+          `look.ResourceQuery` (`ofClass` + optional `orderBy`/`direction`/`limit`).
+          Each card uses the resource's own `compact`/`card` look if it has
+          one, else a generated card from its SVG + displayLabel + summary.
+        - **`look.ResourceCount`** shows per-class counts (a list of
+          `ResourceCountEntry`, each scoping one class) — a compact dashboard
+          stat strip.
+        - **`look.Timeline` / `look.VersionDiff`** turn a versioned series
+          into a trajectory chart / trend rows; **`look.TimePlot`** scatters
+          dated items into lanes. These are the "dashboard" bands.
+
+    - title: View 3 — the publisher landing page (PublisherView + PublisherKit)
+      body: |
+        The publisher root (`/`) is special. It is the `rootView` of a
+        `look.PublisherKit` — the kit also carries the site chrome (brand,
+        nav, footer) that wraps EVERY page on the publisher's site. Author
+        one PublisherKit for your publisher:
+
+        ```yaml
+        my-site-kit:
+          type: look.PublisherKit
+          look.brand: my-publisher                  # the Publisher resource; brand name from its label
+          look.nav:
+            - type: look.NavLink
+              look.target: ont.strategies            # → /strategies (urlForm * = latest)
+            - type: look.NavLink
+              look.target: ont.research
+          look.footer:
+            type: look.Footer
+            look.text: "© 2026 Acme Research · Apache-2.0"
+          look.rootView:
+            type: look.PublisherView
+            bands:
+              - type: look.Hero
+                look.title: my-publisher
+                look.subtitle: my-publisher           # or a tagline property
+              - type: look.FeaturedResource
+                look.source: ont.flagship-snapshot    # embeds that resource's full view inline
+              - type: look.SectionHeading
+                look.heading: "At a glance"
+              - type: look.ResourceCount
+                look.counts:
+                  - type: look.ResourceCountEntry
+                    look.source: ont.Strategy
+                  - type: look.ResourceCountEntry
+                    look.source: ont.WorldviewThesis
+              - type: look.SectionHeading
+                look.heading: "Explore the packages"
+              - type: look.PublisherPackages          # a grid of all your packages
+        ```
+
+        This is exactly the menu of choices a landing page wants:
+
+        - **Customize the hero / brand**: `Hero` band + the kit's `brand`,
+          `nav`, `footer` chrome.
+        - **Feature / focus on something**: `look.FeaturedResource` embeds a
+          chosen resource's full view inline (point it at a `^`-tracked
+          import so it always features the newest version).
+        - **Dashboard roll-up**: `look.ResourceCount` (counts), `look.StatRow`
+          (computed stats), `look.ResourceGrid` (curated lists), `look.Timeline`
+          (trends) — compose these into a dashboard.
+        - **Just list the packages**: `look.PublisherPackages` — a card grid
+          of every package you publish, each linking to its overview. The
+          zero-effort discovery section.
+
+        Pretty paths come from THOUGHTFUL PACKAGE NAMING, not custom routing:
+        a `/timeline` page is a package named `timeline`. Never reach for a
+        routing table.
+
+    - title: Band catalogue (quick reference)
+      body: |
+        Bands are the building blocks. Group them by what they do:
+
+        **Header & identity**
+        - `Hero` — title / eyebrow / subtitle / badges (+ `icon: true` for the chip SVG).
+        - `BadgeRow` — type references as clickable badges.
+        - `Figure` — embeds a resource's SemanticSvg at full tier.
+
+        **Property display (read fields off the instance)**
+        - `Details` — recursive property sheet for everything (the workhorse default).
+        - `PropertyList` — a definition list for one property's contents.
+        - `PropertyTable` — a table over a list of dict-keyed embeddeds (`cellAs` for custom cells).
+        - `ChipRow` — inline labeled chips, one per property.
+        - `Markdown` — prose from a core-prose Markdown property.
+
+        **Cross-references**
+        - `ReferenceList` — labeled groups of outgoing references (`entries`; `labelPath`/`badgePath` for detail rows).
+        - `ReferencedBy` — incoming references (who points at this), as a card grid (`via` to restrict).
+
+        **Aggregation & query (package/publisher dashboards)**
+        - `ResourceGrid` — card grid from a `ResourceQuery` (`ofClass`/`orderBy`/`direction`/`limit`).
+        - `ResourceCount` — per-class counts.
+        - `PackageContents` — the package's own members (no slots).
+        - `PublisherPackages` — all the publisher's packages (no slots).
+        - `FeaturedResource` — embed one resource's full view inline.
+
+        **Time & quantitative (ontology-neutral charts)**
+        - `Timeline` — versioned series as a trajectory chart (`source`/`orderBy`/`track`/`metricPath`, `axisMin`/`axisMax`, `lowerPath`/`upperPath`).
+        - `VersionDiff` — the same series as per-key trend rows with sparklines.
+        - `VersionDelta` — change of a metric vs the previous version of THIS resource.
+        - `TimePlot` — dated items scattered into lanes (`orderBy`/`laneBy`/`labelPath`).
+        - `StatRow` — a strip of labeled stats (`stats` → `statLabel` + `statPath`).
+        - `Distribution` — a Beta density curve from `alphaPath`/`betaPath`.
+        - `Horizon` — a structured condition tree (e.g. an invalidation condition).
+
+        **Structure & navigation**
+        - `SectionHeading` — a labeled section break (`heading` + `note`; carries an anchor).
+        - `SectionNav` — an in-page table of contents over the SectionHeadings.
+        - `NavGroup` / `NavLink` — site nav (usually via the PublisherKit).
+
+        Slots that name a property (`title`, `subtitle`, `source`, `chips`,
+        `entries`) take a property reference and read its value off the
+        input. Slots ending in `Path` (`metricPath`, `statPath`, `labelPath`)
+        take a `/`-separated path string that reaches into embeddeds.
+
+    - title: Tokens and instance variants (theming and state)
+      body: |
+        **Tokens** (`derivation.tokens`) are the cascading design variables —
+        accent color, background, fonts, spacing. Declare them on a class,
+        package, or publisher; they cascade from the `rdfs.Resource` defaults
+        through the hierarchy (first declarer of a given token key wins), and
+        an instance may override a single key:
+
+        ```yaml
+        ont.Strategy:
+          derivation.tokens:
+            look.accent: "hsl(200, 65%, 55%)"
+            look.fontDisplay: "Georgia, serif"
+        ```
+
+        Token classes and the canonical keys live in
+        `kanonak.org/look-tokens`. Set them high (publisher-wide via the
+        PublisherKit's default tokens) and override sparingly per class.
+
+        **Instance variants** (`look.variants` on a View) swap tokens (or,
+        rarely, the whole look) based on instance state — the one place state
+        legitimately drives presentation:
+
+        ```yaml
+        look.variants:
+          - type: look.InstanceVariant
+            look.when:
+              type: look.WhenCondition
+              look.property: ont.status
+              look.equals: ont.retired
+            derivation.tokens:
+              look.accent: "hsl(0, 0%, 55%)"     # retired theses go gray
+        ```
+
+        v0.1 of WhenCondition supports equality matching. More complex
+        predicates fall through to custom transformations — but reach for
+        those last; almost everything is expressible with bands + tokens +
+        variants.
+
+    - title: A complete worked example
+      body: |
+        A small research publisher, `acme.ai`, with one schema package
+        `strategies` (a `Strategy` class whose display name lives in
+        `strategyName`, with an embedded `estimate`), styled end to end.
+
+        ```yaml
+        strategies:
+          type: Package
+          publisher: acme.ai
+          version: 1.0.0
+          imports:
+            - publisher: kanonak.org
+              packages:
+                - {package: core-rdf, match: ^, version: 1.0.0, alias: rdfs}
+                - {package: core-owl, match: ^, version: 2.0.0, alias: owl}
+                - {package: core-xsd, match: ^, version: 1.0.0, alias: xsd}
+                - {package: core-prose, match: ^, version: 1.0.0, alias: prose}
+                - {package: look, match: ^, version: 1.18.0, alias: look}
+                - {package: derivation, match: ^, version: 1.1.0, alias: derivation}
+
+        strategyName:
+          type: owl.DatatypeProperty
+          domain: Strategy
+          range: xsd.string
+        thesis:
+          type: owl.DatatypeProperty
+          domain: Strategy
+          range: prose.Markdown
+
+        Strategy:
+          type: rdfs.Class
+          look.displayLabel: strategyName
+          look.displaySummary: thesis
+          derivation.tokens:
+            look.accent: "hsl(265, 60%, 55%)"
+          derivation.look:
+            type: look.ResourceView
+            bands:
+              - type: look.Hero
+                look.eyebrow: rdfs.type
+                look.icon: true
+              - type: look.Markdown
+                look.source: thesis
+              - type: look.Details
+        ```
+
+        The package overview (a Timeline of all strategies, then the
+        listing):
+
+        ```yaml
+        ck.Package:
+          derivation.look:
+            type: look.PackageView
+            bands:
+              - type: look.Hero
+              - type: look.ResourceCount
+                look.counts:
+                  - type: look.ResourceCountEntry
+                    look.source: Strategy
+              - type: look.PackageContents
+        ```
+
+        The landing page:
+
+        ```yaml
+        acme-kit:
+          type: look.PublisherKit
+          look.rootView:
+            type: look.PublisherView
+            bands:
+              - type: look.Hero
+              - type: look.PublisherPackages
+        ```
+
+        Then the loop:
+
+        ```bash
+        kanonak validate                       # references resolve; lens in scope
+        kanonak serve --watch                  # open / , /strategies , /strategies/1.0.0/<a-strategy>
+        kanonak derive acme.ai/strategies/1.0.0/<a-strategy> --format html --out ./out
+        ```
+
+        Note what you did NOT write: no HTML, no CSS, no transformation, no
+        per-instance styling. You declared how the *Strategy concept* looks —
+        its name source, its theme, its page, its identity — once, on the
+        class. Every strategy, every grid card, every nav link, every SVG
+        now follows.
+
+    - title: Spirit and pitfalls
+      body: |
+        - **Style the type, not the instance.** If you are tempted to style
+          instances one by one, lift the look onto their class. Instance-level
+          look is a deliberate, rare override.
+        - **Declare at the right abstraction level.** Broad defaults high
+          (domain base class / rdfs.Resource floor), specifics low. Let the
+          cascade do the work; don't repeat a look on every subclass.
+        - **Think in semantic zoom.** Decide chip / icon / card / full-page
+          for each concept. A class that only ever renders as a full page is
+          under-designed for grids and nav.
+        - **Never hand-write HTML or a transformation for presentation.**
+          That is the old way. If a band cannot express what you need, prefer
+          a token, a variant, or a different band before a custom
+          transformation — and only then.
+        - **Don't duplicate display fields into rdfs.label.** Point
+          `look.displayLabel` / `look.displaySummary` at the real property.
+        - **Everything lives in the graph.** A look is data: open, diffable,
+          inherited, and reasoned over. No comments, no hidden config — the
+          bands ARE the documentation of how a type renders.
+        - **Pretty URLs come from package names, not routing.** Want
+          `/timeline`? Name the package `timeline`.
+        - **Preview constantly.** Keep `kanonak serve --watch` open; the page
+          you see is byte-for-byte what `publish` emits. Validate before you
+          ship — it now catches an out-of-scope display lens.
