@@ -1,0 +1,54 @@
+provenance-look:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: Provenance Look
+  comment: >-
+    Presentation for the provenance vocabulary. Gives the Person class a
+    profile-header view: the person's portrait (their SemanticSvg) shown
+    as a card-styled avatar beside the name and bio, with the documentation,
+    links, and the usual detail bands below.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: derivation
+          match: ^
+          version: 1.1.0
+          alias: derivation
+        - package: look
+          match: ^
+          version: 1.19.0
+          alias: look
+        - package: core-prose
+          match: ^
+          version: 1.0.0
+          alias: prose
+        - package: link
+          match: ^
+          version: 1.0.0
+          alias: link
+        - package: provenance
+          match: ^
+          version: 1.0.0
+          alias: prov
+
+prov.Person:
+  derivation.look:
+    type: look.ResourceView
+    bands:
+      - type: look.Hero
+        look.avatar: true
+        look.eyebrow: rdfs.type
+        look.title: rdfs.label
+        look.subtitle: rdfs.comment
+      - type: look.Markdown
+        look.source: prose.documentation
+      - type: look.Links
+        look.source: link.links
+      - type: look.Details
+      - type: look.Instances
+      - type: look.ReferencedBy

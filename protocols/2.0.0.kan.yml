@@ -1,0 +1,251 @@
+protocols:
+  type: Package
+  publisher: kanonak.org
+  version: 2.0.0
+  label: Protocols
+  comment: >-
+    Vocabulary for modeling a protocol as data — the conventions, rules,
+    and worked examples that govern how a system is used or implemented.
+    Vocabulary only; the organizations that steward protocols live in the
+    stewards package.
+  prose.documentation: >-
+    The **protocols** vocabulary treats a specification as a graph rather
+    than prose. A [[Protocol]] groups its concerns into [[Convention]]s;
+    each convention carries [[Rule]]s (what must hold) and [[Example]]s
+    (what conformance looks like). [[ProtocolLayer]] classifies where a
+    convention sits in a layered architecture. This package is
+    deliberately vocabulary-only — Steward instances and the lineage
+    properties that once lived here were moved out so the vocabulary
+    stays free of any particular catalog of organizations.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: core-prose
+          match: ^
+          version: 1.0.0
+          alias: prose
+
+Protocol:
+  type: rdfs.Class
+  label: Protocol
+  comment: A protocol - a named set of conventions governing how a system is used or implemented
+
+Convention:
+  type: rdfs.Class
+  label: Convention
+  comment: A named grouping of rules and examples covering one aspect of a protocol
+
+Rule:
+  type: rdfs.Class
+  label: Rule
+  comment: A statement governing how an aspect of a protocol should be followed
+
+RequiredRule:
+  type: rdfs.Class
+  label: Required Rule
+  comment: A rule that MUST be followed
+  subClassOf: Rule
+
+RecommendedRule:
+  type: rdfs.Class
+  label: Recommended Rule
+  comment: A rule that SHOULD be followed
+  subClassOf: Rule
+
+ForbiddenRule:
+  type: rdfs.Class
+  label: Forbidden Rule
+  comment: A rule that MUST NOT be followed
+  subClassOf: Rule
+
+Example:
+  type: rdfs.Class
+  label: Example
+  comment: A concrete example illustrating a convention
+
+ValidExample:
+  type: rdfs.Class
+  label: Valid Example
+  comment: An example that conforms to a convention
+  subClassOf: Example
+
+InvalidExample:
+  type: rdfs.Class
+  label: Invalid Example
+  comment: An example that violates a convention
+  subClassOf: Example
+
+Steward:
+  type: rdfs.Class
+  label: Steward
+  comment: >-
+    An organization or body that governs, maintains, or sponsors a
+    protocol. Steward instances are open-world reference data and live
+    in the kanonak.org/stewards package, not in this vocabulary.
+
+ProtocolLayer:
+  type: rdfs.Class
+  label: Protocol Layer
+  comment: A layer in the agentic protocol stack describing what role a protocol plays (tool access, agent-to-agent communication, discovery, guidance, governance)
+
+hasConvention:
+  type: owl.ObjectProperty
+  label: Has Convention
+  comment: Links a protocol to a convention it defines
+  domain: Protocol
+  range: Convention
+
+summary:
+  type: owl.DatatypeProperty
+  label: Summary
+  comment: >-
+    Brief description of what this convention covers. May embed
+    [[reference]] links to related Kanonak resources.
+  domain: Convention
+  range: prose.Markdown
+
+hasRequiredRule:
+  type: owl.ObjectProperty
+  label: Has Required Rule
+  comment: A required rule (MUST) that is part of this convention
+  domain: Convention
+  range: RequiredRule
+
+hasRecommendedRule:
+  type: owl.ObjectProperty
+  label: Has Recommended Rule
+  comment: A recommended rule (SHOULD) that is part of this convention
+  domain: Convention
+  range: RecommendedRule
+
+hasForbiddenRule:
+  type: owl.ObjectProperty
+  label: Has Forbidden Rule
+  comment: A forbidden rule (MUST NOT) that is part of this convention
+  domain: Convention
+  range: ForbiddenRule
+
+hasValidExample:
+  type: owl.ObjectProperty
+  label: Has Valid Example
+  comment: A valid example illustrating conformance to this convention
+  domain: Convention
+  range: ValidExample
+
+hasInvalidExample:
+  type: owl.ObjectProperty
+  label: Has Invalid Example
+  comment: An invalid example illustrating a violation of this convention
+  domain: Convention
+  range: InvalidExample
+
+text:
+  type: owl.DatatypeProperty
+  label: Text
+  comment: >-
+    The normative text of the rule. May embed [[reference]] links to
+    the Kanonak resources the rule governs.
+  domain: Rule
+  range: prose.Markdown
+
+rationale:
+  type: owl.DatatypeProperty
+  label: Rationale
+  comment: >-
+    The reasoning behind the rule. May embed [[reference]] links to
+    related resources and to the prior art it draws on.
+  domain: Rule
+  range: prose.Markdown
+
+value:
+  type: owl.DatatypeProperty
+  label: Value
+  comment: The literal value demonstrated by the example
+  domain: Example
+  range: xsd.string
+
+description:
+  type: owl.DatatypeProperty
+  label: Description
+  comment: >-
+    Explanation of what the example demonstrates. May embed
+    [[reference]] links to related Kanonak resources.
+  domain: Example
+  range: prose.Markdown
+
+stewardUrl:
+  type: owl.DatatypeProperty
+  label: Steward URL
+  comment: The primary public URL for a steward organization
+  domain: Steward
+  range: xsd.string
+
+steward:
+  type: owl.ObjectProperty
+  label: Steward
+  comment: >
+    Links a protocol to the organization that governs or maintains it.
+    Accepts either a single Steward reference or a YAML list of Steward
+    references when a protocol is jointly governed - for example, A2A is
+    jointly stewarded by Google and the Linux Foundation, and ACP is
+    jointly stewarded by Zed Industries and JetBrains. Steward instances
+    are published in the kanonak.org/stewards package.
+  domain: Protocol
+  range: Steward
+
+layer:
+  type: owl.ObjectProperty
+  label: Layer
+  comment: Links a protocol to the layer of the agentic stack it occupies
+  domain: Protocol
+  range: ProtocolLayer
+
+specificationUrl:
+  type: owl.DatatypeProperty
+  label: Specification URL
+  comment: A URL pointing to the canonical specification for the protocol
+  domain: Protocol
+  range: xsd.string
+
+createdDate:
+  type: owl.DatatypeProperty
+  label: Created Date
+  comment: ISO date (yyyy-mm-dd) on which the protocol was first published
+  domain: Protocol
+  range: xsd.string
+
+tool-layer:
+  type: ProtocolLayer
+  label: Tool Layer
+
+communication-layer:
+  type: ProtocolLayer
+  label: Communication Layer
+
+discovery-layer:
+  type: ProtocolLayer
+  label: Discovery Layer
+
+integration-layer:
+  type: ProtocolLayer
+  label: Integration Layer
+
+guidance-layer:
+  type: ProtocolLayer
+  label: Guidance Layer
+
+governance-layer:
+  type: ProtocolLayer
+  label: Governance Layer

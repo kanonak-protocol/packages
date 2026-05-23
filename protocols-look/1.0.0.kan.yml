@@ -1,0 +1,97 @@
+protocols-look:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: Protocols Look
+  comment: >-
+    Presentation for the protocols vocabulary. Augments Protocol,
+    Convention, Rule, and Example with views tuned to their embedded,
+    list-heavy structure — section anchors, a contents index, and
+    per-rule and per-example tables — so a specification reads like a
+    document.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: protocols
+          match: ^
+          version: 2.0.0
+          alias: pro
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: derivation
+          match: ^
+          version: 1.1.0
+          alias: derivation
+        - package: look
+          match: ^
+          version: 1.19.0
+          alias: look
+
+pro.Protocol:
+  derivation.look:
+    type: look.ResourceView
+    bands:
+      - type: look.Hero
+        look.title: rdfs.label
+        look.eyebrow: rdfs.type
+        look.subtitle: rdfs.comment
+        look.badges: rdfs.type
+      - type: look.Details
+        look.skip:
+          - pro.hasConvention
+      - type: look.SectionHeading
+        look.heading: Conventions
+      - type: look.EmbeddedViews
+        look.source: pro.hasConvention
+        look.contents: true
+
+pro.Convention:
+  look.displaySummary: pro.summary
+  derivation.look:
+    type: look.ResourceView
+    bands:
+      - type: look.Hero
+        look.eyebrow: rdfs.type
+      - type: look.Markdown
+        look.source: pro.summary
+      - type: look.PropertyTable
+        look.source: pro.hasRequiredRule
+      - type: look.PropertyTable
+        look.source: pro.hasRecommendedRule
+      - type: look.PropertyTable
+        look.source: pro.hasForbiddenRule
+      - type: look.PropertyTable
+        look.source: pro.hasValidExample
+      - type: look.PropertyTable
+        look.source: pro.hasInvalidExample
+      - type: look.Details
+        look.skip:
+          - pro.summary
+          - pro.hasRequiredRule
+          - pro.hasRecommendedRule
+          - pro.hasForbiddenRule
+          - pro.hasValidExample
+          - pro.hasInvalidExample
+
+pro.Rule:
+  look.displaySummary: pro.text
+  derivation.look:
+    type: look.ResourceView
+    bands:
+      - type: look.Hero
+        look.eyebrow: rdfs.type
+      - type: look.Markdown
+        look.source: pro.text
+      - type: look.Markdown
+        look.source: pro.rationale
+
+pro.Example:
+  look.displaySummary: pro.description
+  derivation.look:
+    type: look.ResourceView
+    bands:
+      - type: look.Hero
+        look.eyebrow: rdfs.type
+      - type: look.Details

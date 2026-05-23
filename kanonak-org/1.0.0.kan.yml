@@ -1,0 +1,232 @@
+kanonak-org:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: kanonak.org
+  comment: >-
+    The kanonak.org publisher's own landing content — the Publisher
+    resource that titles and describes the site and curates the headline
+    packages shown on the root page. The page derives entirely from this
+    resource through the look cascade; there is no hand-written HTML.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-kanonak
+          match: ^
+          version: 2.0.0
+          alias: ck
+        - package: core-prose
+          match: ^
+          version: 1.0.0
+          alias: prose
+        - package: derivation
+          match: ^
+          version: 1.1.0
+          alias: derivation
+        - package: look
+          match: ^
+          version: 1.19.0
+          alias: look
+        - package: kanonak-protocol
+          match: ^
+          version: 3.1.0
+          alias: kp
+        - package: protocols
+          match: ^
+          version: 2.0.0
+          alias: protocols
+        - package: provenance
+          match: ^
+          version: 1.0.0
+          alias: provenance
+        - package: transformations
+          match: ^
+          version: 3.13.0
+          alias: tx
+        - package: people
+          match: ^
+          version: 1.0.0
+          alias: people
+
+home:
+  type: ck.Publisher
+  label: Kanonak Protocol
+  comment: >-
+    An open protocol for defining, versioning, and sharing semantic
+    ontologies across distributed publishers.
+  look.nav:
+    - nav-spec
+    - nav-look
+  look.footer:
+    look.text: © 2024–2026 Genval LLC · Kanonak Protocol is open and free to use.
+  prose.documentation: |
+    ## Why Kanonak Protocol?
+
+    Knowledge lives in the heads of domain experts, but there is no
+    standard way to turn that knowledge into durable, machine-readable
+    definitions that others can build on. Kanonak Protocol changes that.
+    The normative rules every document obeys are written down in
+    [[kp.kanonak-protocol-spec|the protocol specification]].
+
+    ### Stable resource identifiers
+
+    Every class, property, and instance gets a persistent, globally
+    unique identifier tied to a publisher domain. These identifiers
+    don't break when systems change — they give people and machines a
+    consistent way to refer to the same concepts.
+
+    ### Distributed publishing
+
+    Anyone with a domain can publish ontologies. There is no central
+    authority deciding what types are valid. Domain experts —
+    biologists, engineers, legal scholars — can develop their knowledge
+    into formal schemas and share them directly from their own
+    infrastructure.
+
+    ### Versioned ontologies
+
+    Ontologies evolve. Kanonak Protocol uses semantic versioning so
+    publishers can improve their schemas without breaking consumers on
+    earlier versions. Import what you need, pin to a version range, and
+    upgrade on your own schedule.
+
+    ### Built for AI agents
+
+    When AI agents work with Kanonak ontologies, they are grounded in a
+    shared vocabulary with formally defined types and relationships. The
+    Kanonak CLI validates that data conforms to its schema — giving you
+    guarantees about the shape of information rather than hoping the
+    model got it right. Structured, validated data reduces ambiguity and
+    gives agents less room to hallucinate.
+
+    ## Example
+
+    A Kanonak package defines classes and properties. This one describes
+    people with addresses:
+
+    ```yaml
+    contacts:
+      type: Package
+      publisher: mycompany.com
+      version: 1.0.0
+      imports:
+        - publisher: kanonak.org
+          packages:
+            - package: core-rdf
+              match: ^
+              version: 1.0.0
+              alias: rdfs
+            - package: core-owl
+              match: ^
+              version: 2.0.0
+              alias: owl
+            - package: core-xsd
+              match: ^
+              version: 1.0.0
+              alias: xsd
+
+    Person:
+      type: rdfs.Class
+      label: Person
+      comment: A person in the contacts directory
+
+    fullName:
+      type: owl.DatatypeProperty
+      domain: Person
+      range: xsd.string
+
+    hasAddress:
+      type: owl.ObjectProperty
+      domain: Person
+      range: Address
+    ```
+
+    A separate package imports the ontology and creates typed instances
+    with embedded resources:
+
+    ```yaml
+    company-directory:
+      type: Package
+      publisher: mycompany.com
+      version: 1.0.0
+      imports:
+        - publisher: mycompany.com
+          packages:
+            - package: contacts
+              match: ^
+              version: 1.0.0
+
+    alice-smith:
+      type: Person
+      fullName: Alice Smith
+      email: alice@mycompany.com
+      hasAddress:
+        street: 742 Evergreen Terrace
+        city: Springfield
+    ```
+
+    ## Tooling
+
+    Install the CLI to validate, install packages, and inspect
+    dependencies:
+
+    ```bash
+    npm install -g @kanonak-protocol/cli
+    kanonak install kanonak.org/core-rdf
+    kanonak validate contacts.kan.yml
+    ```
+
+    The **Kanonak Protocol** [VS Code extension](https://marketplace.visualstudio.com/items?itemName=kanonak-protocol.kanonak)
+    adds real-time validation, an ontology browser, and language features
+    (go-to-definition, hover, document outline) for `.kan.yml` files. The
+    source lives [on GitHub](https://github.com/kanonak-protocol).
+
+    ## See it in action
+
+    [Worldview](https://worldview.genval.ai) uses Kanonak Protocol to
+    publish a daily macro-market *worldview* as versioned snapshots. Each
+    snapshot is a typed ontology of theses (with confidence levels),
+    machine-evaluable invalidation conditions, and citation-backed
+    evidence — well beyond the synthetic Person example above. It's a
+    working illustration of how versioned ontology snapshots compose into
+    a longitudinal record humans and AI agents can both reason over.
+
+    ## About
+
+    The protocol was originally called "Canon", short for *canonical* —
+    the idea that something only needs to be defined once to become the
+    globally referenceable, authoritative form of the thing it describes.
+    The name was changed to **Kanonak** to avoid overlap with existing
+    brand names. Kanonak Protocol was created by
+    [[people.paul-fryer|Paul Fryer]] in 2024, built from scratch when
+    existing schema formats like JSON Schema and RDF fell short on
+    distributed publishing, versioning, and readability.
+  derivation.look:
+    type: look.PublisherView
+    bands:
+      - type: look.Hero
+        look.title: rdfs.label
+        look.subtitle: rdfs.comment
+      - type: look.Markdown
+        look.source: prose.documentation
+      - type: look.SectionHeading
+        look.heading: Explore the packages
+        look.note: The headline packages of the protocol — start here.
+      - type: look.PublisherPackages
+        look.packages:
+          - kp.kanonak-protocol
+          - look.look
+
+nav-spec:
+  type: look.NavLink
+  label: Specification
+  look.target: kp.kanonak-protocol-spec
+
+nav-look:
+  type: look.NavLink
+  label: Look System
+  look.target: look.look

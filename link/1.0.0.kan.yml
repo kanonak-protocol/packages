@@ -1,0 +1,70 @@
+link:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: Link
+  comment: >-
+    A small, universal vocabulary for outbound web links. A Link is a
+    typed (url, label, description) triple, and the links property
+    attaches a list of them to any resource — a person's profile and
+    code-host pages, a project's repository and docs, a steward's site.
+    Replaces flat single-URL properties with something labelled,
+    described, and repeatable.
+  prose.documentation: >-
+    A [[Link]] is the typed form of an HTML anchor: a `url` (where it
+    points), an `rdfs.label` (the human text, e.g. "LinkedIn"), and an
+    optional `rdfs.comment` (a hover description). The universal
+    [[links]] property — no domain, like `rdfs.label` — attaches a list
+    of Links to ANY resource, so the same model serves a person's social
+    profiles, a project's repository, or a publisher's external sites.
+    Each Link is normally an embedded resource of its parent, but the
+    property also accepts a reference to a shared, standalone Link. Links
+    render as a row of real anchors via the look system.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: core-prose
+          match: ^
+          version: 1.0.0
+          alias: prose
+
+Link:
+  type: rdfs.Class
+  label: Link
+  comment: >-
+    An outbound web link: a url plus a human label (rdfs.label) and an
+    optional description (rdfs.comment). The typed, labelled, repeatable
+    replacement for a bare single-URL property.
+
+url:
+  type: owl.DatatypeProperty
+  label: URL
+  comment: >-
+    The destination the link points to. An external URL lives here;
+    never inside a [[reference]] placeholder, which resolves only
+    Kanonak resources.
+  domain: Link
+  range: xsd.string
+
+links:
+  type: owl.ObjectProperty
+  label: Links
+  comment: >-
+    A list of outbound Links for a resource. No domain is asserted: any
+    resource — a person, a steward, a package, a publisher — may carry
+    links, following the convention for broadly-applicable properties
+    (mirrors rdfs.label). Each value is normally an embedded Link, but a
+    reference to a standalone Link is also accepted.
+  range: Link

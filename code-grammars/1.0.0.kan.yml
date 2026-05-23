@@ -1,0 +1,183 @@
+code-grammars:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: Code Grammars
+  comment: >-
+    Declarative syntax-highlighting grammars for fenced code blocks in
+    Markdown prose. A CodeGrammar is an ordered list of token rules
+    (a regex paired with a TokenClass); the SDK ships one generic
+    scanner that applies them, so a publisher adds a new language by
+    authoring a grammar here rather than changing renderer code. Token
+    colors are a theme concern and live in the look stylesheet.
+  prose.documentation: >-
+    Highlighting is split three ways so each layer stays in its proper
+    home. The **mechanism** is a single language-neutral scanner in the
+    SDK: given an ordered rule list it walks the source left to right,
+    first match wins, emitting a `kan-tok-<class>` span per token. The
+    **intent** is declarative and lives here — each [[CodeGrammar]] names
+    a fence `language` and lists [[TokenRule]]s, each pairing a regex
+    `pattern` with a [[TokenClass]] (the shared categories themes target,
+    like [[keyword]] or [[string]]). The **theme** — which color each
+    TokenClass renders in — is CSS in the look stylesheet. Ships grammars
+    for [[yaml]] and [[bash]]; bring another language (C#, SQL, …) by
+    publishing a CodeGrammar in your own package, no SDK change.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: core-prose
+          match: ^
+          version: 1.0.0
+          alias: prose
+
+
+CodeGrammar:
+  type: rdfs.Class
+  label: Code Grammar
+  comment: >-
+    A syntax-highlighting grammar for one fenced-code language: a
+    `language` tag (matched against the fence info string) plus an
+    ordered list of token `rule`s applied first-match-wins.
+
+TokenRule:
+  type: rdfs.Class
+  label: Token Rule
+  comment: >-
+    One highlighting rule — a regex `pattern` and the `tokenClass` it
+    paints when matched at the current scan position. Rules are applied
+    in list order; the first whose pattern matches at a position wins.
+
+TokenClass:
+  type: rdfs.Class
+  label: Token Class
+  comment: >-
+    A token category that themes color. The class's name becomes the CSS
+    class on the emitted span (`kan-tok-<name>`), so the look stylesheet
+    can style all grammars uniformly.
+
+language:
+  type: owl.DatatypeProperty
+  domain: CodeGrammar
+  range: xsd.string
+  label: Language
+  comment: >-
+    The fence info string this grammar highlights, e.g. "yaml" for a
+    ```yaml block. Matched verbatim against the fence's first word.
+
+rule:
+  type: owl.ObjectProperty
+  domain: CodeGrammar
+  range: TokenRule
+  label: Rule
+  comment: The grammar's token rules, applied in list order, first match wins.
+
+tokenClass:
+  type: owl.ObjectProperty
+  domain: TokenRule
+  range: TokenClass
+  label: Token Class
+  comment: The TokenClass a rule paints when its pattern matches.
+
+pattern:
+  type: owl.DatatypeProperty
+  domain: TokenRule
+  range: xsd.string
+  label: Pattern
+  comment: >-
+    A JavaScript-flavored regular expression, applied anchored (sticky)
+    at the current scan position. Plain data, not a Kanonak reference.
+
+
+comments:
+  type: TokenClass
+  label: Comment
+  comment: Comments and documentation.
+
+string:
+  type: TokenClass
+  label: String
+  comment: String and quoted literals.
+
+number:
+  type: TokenClass
+  label: Number
+  comment: Numeric literals (including dotted versions).
+
+boolean:
+  type: TokenClass
+  label: Boolean
+  comment: Boolean / null-like keywords.
+
+key:
+  type: TokenClass
+  label: Key
+  comment: Mapping keys / property names.
+
+keyword:
+  type: TokenClass
+  label: Keyword
+  comment: Language keywords.
+
+punctuation:
+  type: TokenClass
+  label: Punctuation
+  comment: Structural punctuation.
+
+operator:
+  type: TokenClass
+  label: Operator
+  comment: Operators and pipes.
+
+flag:
+  type: TokenClass
+  label: Flag
+  comment: Command-line flags / options.
+
+
+yaml:
+  type: CodeGrammar
+  language: yaml
+  label: YAML
+  rule:
+    - tokenClass: comments
+      pattern: '#.*'
+    - tokenClass: string
+      pattern: '"(?:[^"\\]|\\.)*"'
+    - tokenClass: string
+      pattern: "'[^']*'"
+    - tokenClass: key
+      pattern: '[A-Za-z_][\w.-]*(?=\s*:)'
+    - tokenClass: boolean
+      pattern: '\b(?:true|false|null|yes|no)\b'
+    - tokenClass: number
+      pattern: '\b\d+(?:\.\d+)*\b'
+    - tokenClass: punctuation
+      pattern: '[:\[\]{},-]'
+
+bash:
+  type: CodeGrammar
+  language: bash
+  label: Bash
+  rule:
+    - tokenClass: comments
+      pattern: '#.*'
+    - tokenClass: string
+      pattern: '"(?:[^"\\]|\\.)*"'
+    - tokenClass: string
+      pattern: "'[^']*'"
+    - tokenClass: flag
+      pattern: '\s--?[A-Za-z][\w-]*'
+    - tokenClass: operator
+      pattern: '[|&;><]'

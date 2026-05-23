@@ -1,0 +1,71 @@
+stewards:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: Stewards
+  comment: >-
+    A catalog of organizations that steward protocols and standards —
+    Anthropic, Google, OpenAI, the Linux Foundation, and others. Kept
+    separate from the protocols vocabulary so the vocabulary stays
+    catalog-free and this list can grow independently.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: protocols
+          match: ^
+          version: 2.0.0
+          alias: pro
+
+anthropic:
+  type: pro.Steward
+  label: Anthropic
+  pro.stewardUrl: https://www.anthropic.com
+
+google:
+  type: pro.Steward
+  label: Google
+  pro.stewardUrl: https://ai.google
+
+openai:
+  type: pro.Steward
+  label: OpenAI
+  pro.stewardUrl: https://openai.com
+
+linux-foundation:
+  type: pro.Steward
+  label: Linux Foundation
+  pro.stewardUrl: https://www.linuxfoundation.org
+
+aaif:
+  type: pro.Steward
+  label: Agentic AI Foundation
+  pro.stewardUrl: https://www.linuxfoundation.org/projects/agentic-ai-foundation
+
+w3c-cg:
+  type: pro.Steward
+  label: W3C Community Group
+  pro.stewardUrl: https://www.w3.org/community
+
+cisco:
+  type: pro.Steward
+  label: Cisco
+  pro.stewardUrl: https://www.cisco.com
+
+nist-caisi:
+  type: pro.Steward
+  label: NIST Center for AI Standards and Innovation
+  pro.stewardUrl: https://www.nist.gov/aisi
+
+zed-industries:
+  type: pro.Steward
+  label: Zed Industries
+  pro.stewardUrl: https://zed.dev
+
+jetbrains:
+  type: pro.Steward
+  label: JetBrains
+  pro.stewardUrl: https://www.jetbrains.com

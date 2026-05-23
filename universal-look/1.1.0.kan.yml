@@ -1,0 +1,82 @@
+
+universal-look:
+  type: Package
+  publisher: kanonak.org
+  version: 1.1.0
+  label: Universal Look
+  comment: >-
+    The default presentation floor. Attaches a baseline view to
+    rdfs.Resource so anything renders sensibly with no per-type styling,
+    and a default landing view to a publisher. Read it top to bottom to
+    learn how the look system renders by example.
+  prose.documentation: >-
+    The **universal-look** package is the answer to "what does a resource
+    look like if no one styled it?" It attaches a ResourceView to
+    rdfs.Resource — a Hero, the documentation prose, a generic Details
+    dump, the resource's instances, and what references it — so every
+    resource in the graph has a usable page by default. It also gives a
+    publisher a default landing view: a Hero over the publisher's name and
+    a list of its packages. These defaults are deliberately small and
+    readable: a publisher who wants something richer copies a view here
+    and overrides it on their own type, no SDK changes required.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: derivation
+          match: ^
+          version: 1.1.0
+          alias: derivation
+        - package: look
+          match: ^
+          version: 1.0.0
+          alias: look
+        - package: look-tokens
+          match: ^
+          version: 1.0.0
+          alias: tok
+        - package: core-prose
+          match: ^
+          version: 1.0.0
+          alias: prose
+        - package: core-kanonak
+          match: ^
+          version: 2.0.0
+          alias: ck
+        - package: link
+          match: ^
+          version: 1.0.0
+          alias: link
+
+
+rdfs.Resource:
+  derivation.look:
+    type: look.ResourceView
+    bands:
+      - type: look.Hero
+        look.title: rdfs.label
+        look.eyebrow: rdfs.type
+        look.subtitle: rdfs.comment
+        look.badges: rdfs.type
+      - type: look.Markdown
+        look.source: prose.documentation
+      - type: look.Links
+        look.source: link.links
+      - type: look.Details
+      - type: look.Instances
+      - type: look.ReferencedBy
+
+ck.Publisher:
+  derivation.look:
+    type: look.PublisherView
+    bands:
+      - type: look.Hero
+        look.title: rdfs.label
+      - type: look.PublisherPackages

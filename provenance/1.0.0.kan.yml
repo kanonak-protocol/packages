@@ -1,0 +1,285 @@
+provenance:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: Provenance
+  comment: >-
+    Vocabulary for crediting prior work and recording design history. A
+    resource cites the sources it draws on and the decisions that shaped
+    it, leaving a navigable breadcrumb of reasoning rather than a flat
+    assertion.
+  prose.documentation: >-
+    The **provenance** vocabulary answers "where did this come from?" for
+    any Kanonak resource. A [[Source]] names an external piece of prior
+    work — a [[Standard]], an [[Implementation]], or a [[Discussion]] — and
+    the citation properties relate a resource to it: `buildsOn`,
+    `informedBy`, `divergesFrom`, and `conformsTo` express *how* the prior
+    work bears on the citing resource. Relationships between Kanonak
+    resources themselves — `supersededBy`, `mergedInto`, `complements` —
+    live here too, since they are statements of lineage. Attribution
+    works the same way: [[author]] and [[contributor]] credit the
+    [[Person]]s who wrote and shaped a resource — distinct from a
+    protocol's steward, which names the governing organization. A
+    [[DesignDecision]] records a choice and its [[DecisionStatus]], so the
+    reasoning behind an ontology is part of the graph instead of lost to
+    chat logs.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: core-prose
+          match: ^
+          version: 1.0.0
+          alias: prose
+
+Source:
+  type: rdfs.Class
+  label: Source
+  comment: >-
+    A citeable piece of prior art that a Kanonak resource builds on or
+    responds to - an external standard, an existing implementation, or
+    a design discussion. A Source's display name and description use the
+    conventional rdfs.label / rdfs.comment (and the universal
+    documentation property for long-form prose); sourceUrl is the
+    external URL where it can be read. The typed citation properties
+    (buildsOn, informedBy, divergesFrom, conformsTo) point at it to
+    record why it influenced the citing resource. External links live
+    in sourceUrl, never inside a [[reference]] placeholder - those
+    resolve Kanonak resources through the import closure, not URLs.
+
+Standard:
+  type: rdfs.Class
+  label: Standard
+  comment: >-
+    A formal, normative external specification - an IETF RFC, a W3C
+    Recommendation, a published versioning or interchange standard.
+  subClassOf: Source
+
+Implementation:
+  type: rdfs.Class
+  label: Implementation
+  comment: >-
+    An existing system or tool whose approach is prior art - how others
+    solved the same problem (for example, a package manager's
+    deprecation or retraction model).
+  subClassOf: Source
+
+Discussion:
+  type: rdfs.Class
+  label: Discussion
+  comment: >-
+    A design discussion, issue, or thread that informed a decision - an
+    internal issue, a request for comments, a recorded conversation.
+  subClassOf: Source
+
+sourceUrl:
+  type: owl.DatatypeProperty
+  label: Source URL
+  comment: >-
+    The canonical external URL where the source can be read. External
+    links belong here; [[reference]] placeholders in prose resolve only
+    Kanonak resources and must not carry raw URLs.
+  domain: Source
+  range: xsd.string
+
+sourceDate:
+  type: owl.DatatypeProperty
+  label: Source Date
+  comment: ISO date (yyyy-mm-dd) on which the source was published or last relevant.
+  domain: Source
+  range: xsd.string
+
+buildsOn:
+  type: owl.ObjectProperty
+  label: Builds On
+  comment: >-
+    Links a resource to prior art it directly builds upon. No domain is
+    asserted - any resource (a protocol, a convention, a rule, a design
+    decision) may cite what it builds on, following the convention for
+    broadly-applicable properties whose domain is left open (mirrors
+    rdfs.label).
+  range: Source
+
+informedBy:
+  type: owl.ObjectProperty
+  label: Informed By
+  comment: >-
+    Links a resource to background prior art that informed it without
+    being a direct foundation. No domain is asserted.
+  range: Source
+
+divergesFrom:
+  type: owl.ObjectProperty
+  label: Diverges From
+  comment: >-
+    Links a resource to prior art it deliberately departs from or
+    improves upon - records where this design chose differently and,
+    via sourceDescription or an accompanying decision, why. No domain is
+    asserted.
+  range: Source
+
+conformsTo:
+  type: owl.ObjectProperty
+  label: Conforms To
+  comment: >-
+    Links a resource to a standard it adheres to. No domain is asserted.
+  range: Standard
+
+supersededBy:
+  type: owl.ObjectProperty
+  label: Superseded By
+  comment: >-
+    Links a resource to a successor that replaces it. Generalized from
+    the protocol-specific property in protocols 1.0.0 so that any
+    resource - a package version, a rule, a protocol, a decision - can
+    be superseded. No domain is asserted; range is rdfs.Resource so the
+    successor may be of any kind.
+  range: rdfs.Resource
+
+mergedInto:
+  type: owl.ObjectProperty
+  label: Merged Into
+  comment: >-
+    Links a resource to another that absorbed it. Generalized from
+    protocols 1.0.0. No domain is asserted.
+  range: rdfs.Resource
+
+complements:
+  type: owl.ObjectProperty
+  label: Complements
+  comment: >-
+    Links a resource to another it is designed to work alongside.
+    Generalized from protocols 1.0.0. No domain is asserted.
+  range: rdfs.Resource
+
+Person:
+  type: rdfs.Class
+  label: Person
+  comment: >-
+    A human credited with authoring or contributing to a resource. A
+    Person's display name uses the conventional rdfs.label, with an
+    optional rdfs.comment for a role or one-line bio. Profile and
+    code-host links are attached with the universal links property from
+    the link package (a labelled, repeatable Link each), so a person can
+    point at a LinkedIn, a GitHub, a personal site, and more. Giving each
+    contributor a stable resource (and URI) means the same person is
+    credited consistently wherever they appear. Crediting a governing
+    organization is a different relationship - see the steward property
+    in the protocols vocabulary.
+
+author:
+  type: owl.ObjectProperty
+  label: Author
+  comment: >-
+    Credits the principal author(s) of a resource - who wrote it and
+    should get primary credit. Accepts a single Person reference or a
+    YAML list when there are several. No domain is asserted: a package,
+    an ontology, a protocol, a design decision, or the publisher's own
+    landing page may all name their authors, following the convention
+    for broadly-applicable properties (mirrors rdfs.label).
+  range: Person
+
+contributor:
+  type: owl.ObjectProperty
+  label: Contributor
+  comment: >-
+    Credits additional people who contributed to a resource without
+    being a principal author. Accepts a single Person reference or a
+    YAML list. No domain is asserted.
+  range: Person
+
+DesignDecision:
+  type: rdfs.Class
+  label: Design Decision
+  comment: >-
+    A recorded design decision in the spirit of an Architecture
+    Decision Record: the context that forced a choice, the decision
+    taken, the alternatives weighed, and the consequences accepted.
+    Makes the reasoning behind a resource a first-class, queryable node
+    rather than prose buried in a comment. Cite its influences with
+    buildsOn / informedBy / divergesFrom / conformsTo; track its
+    lifecycle with status and supersededBy.
+
+context:
+  type: owl.DatatypeProperty
+  label: Context
+  comment: >-
+    The situation and forces that made the decision necessary. May
+    embed [[reference]] links.
+  domain: DesignDecision
+  range: prose.Markdown
+
+decision:
+  type: owl.DatatypeProperty
+  label: Decision
+  comment: The choice that was made. May embed [[reference]] links.
+  domain: DesignDecision
+  range: prose.Markdown
+
+alternativesConsidered:
+  type: owl.DatatypeProperty
+  label: Alternatives Considered
+  comment: >-
+    The options that were weighed and set aside, and why. May embed
+    [[reference]] links.
+  domain: DesignDecision
+  range: prose.Markdown
+
+consequences:
+  type: owl.DatatypeProperty
+  label: Consequences
+  comment: >-
+    What follows from the decision - the trade-offs accepted and the
+    obligations it creates. May embed [[reference]] links.
+  domain: DesignDecision
+  range: prose.Markdown
+
+decidedDate:
+  type: owl.DatatypeProperty
+  label: Decided Date
+  comment: ISO date (yyyy-mm-dd) on which the decision was taken.
+  domain: DesignDecision
+  range: xsd.string
+
+status:
+  type: owl.ObjectProperty
+  label: Status
+  comment: The lifecycle state of a design decision.
+  domain: DesignDecision
+  range: DecisionStatus
+
+DecisionStatus:
+  type: rdfs.Class
+  label: Decision Status
+  comment: >-
+    The lifecycle state of a DesignDecision. A closed, intrinsic
+    enumeration: these instances are part of this vocabulary's own
+    semantics, unlike open-world reference data such as named
+    organizations, which belongs in a separate data package.
+
+proposed:
+  type: DecisionStatus
+  label: Proposed
+
+accepted:
+  type: DecisionStatus
+  label: Accepted
+
+superseded:
+  type: DecisionStatus
+  label: Superseded
+
+rejected:
+  type: DecisionStatus
+  label: Rejected
