@@ -1,0 +1,87 @@
+search:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+
+SearchResults:
+  type: rdfs.Class
+  label: Search Results
+  comment: >-
+    The outcome of a search over a Kanonak catalog: the query, the scope it
+    ran against, and an ordered list of scored matches. Constructed at query
+    time by a search-capable origin (e.g. an opt-in `kanonak serve --search`)
+    and rendered through the look system like any other resource — it is not
+    persisted data with a stable URI. Modeling results as a resource means
+    the UI renders them with the same machinery as everything else: each
+    match's own card plus its similarity, declaratively.
+
+SearchResult:
+  type: rdfs.Class
+  label: Search Result
+  comment: >-
+    One match: the resource that matched and how strongly it matched.
+    Embedded within SearchResults.results, ordered by score descending.
+
+query:
+  type: owl.DatatypeProperty
+  domain: SearchResults
+  range: xsd.string
+  label: Query
+  comment: The keyword(s) the user searched for.
+
+scope:
+  type: owl.ObjectProperty
+  domain: SearchResults
+  range: rdfs.Resource
+  label: Scope
+  comment: >-
+    The level the search ran against, matching the URL hierarchy the query
+    was issued at — the publisher, a package, or a single resource. Absent
+    means the whole reachable catalog.
+
+results:
+  type: owl.ObjectProperty
+  domain: SearchResults
+  range: SearchResult
+  label: Results
+  comment: >-
+    The matches, ordered by score descending. Each entry is an embedded
+    SearchResult; list order is the canonical ranking.
+
+resource:
+  type: owl.ObjectProperty
+  domain: SearchResult
+  range: rdfs.Resource
+  label: Resource
+  comment: >-
+    The resource that matched. Range is rdfs.Resource, so a result can point
+    at anything — a class, an instance, a package. The UI renders the match
+    through its own look (SemanticSvg + displayLabel + displaySummary), so a
+    result row is just that resource's card annotated with its score.
+
+score:
+  type: owl.DatatypeProperty
+  domain: SearchResult
+  range: xsd.decimal
+  label: Score
+  comment: >-
+    How strongly the resource matched the query — a similarity, typically a
+    cosine similarity (higher is more similar; normalized embeddings give a
+    value in roughly [-1, 1], in practice [0, 1] for relevant hits). A
+    decimal so the UI can render it as a bar, a percentage, or a badge beside
+    the matched resource, not just sort by it.
