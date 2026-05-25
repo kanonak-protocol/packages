@@ -13,8 +13,12 @@ kanonak-org:
       packages:
         - package: core-rdf
           match: ^
-          version: 1.0.0
+          version: 1.1.0
           alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.1.0
+          alias: owl
         - package: core-kanonak
           match: ^
           version: 2.0.0
@@ -29,7 +33,7 @@ kanonak-org:
           alias: derivation
         - package: look
           match: ^
-          version: 1.19.0
+          version: 1.20.0
           alias: look
         - package: kanonak-protocol
           match: ^
@@ -205,12 +209,27 @@ home:
     [[people.paul-fryer|Paul Fryer]] in 2024, built from scratch when
     existing schema formats like JSON Schema and RDF fell short on
     distributed publishing, versioning, and readability.
+  featuredResources:
+    - rdfs.Resource
+    - rdfs.Class
+    - rdfs.Property
+    - owl.DatatypeProperty
+    - owl.ObjectProperty
   derivation.look:
     type: look.PublisherView
     bands:
       - type: look.Hero
         look.title: rdfs.label
         look.subtitle: rdfs.comment
+      - type: look.Diagram
+        look.placement: floatRight
+        look.width: 340px
+        look.figureTitle: The type system every ontology grounds out in
+        look.facets:
+          - look.relation: featuredResources
+            look.encode: look.connector
+            look.edges: rdfs.subClassOf
+            look.nodeTier: chip
       - type: look.Markdown
         look.source: prose.documentation
       - type: look.SectionHeading
@@ -230,3 +249,146 @@ nav-look:
   type: look.NavLink
   label: Look System
   look.target: look.look
+
+featuredResources:
+  type: rdfs.Property
+  label: Featured resources
+  comment: >-
+    Resources a publisher chooses to feature on its publisher view.
+  domain: ck.Publisher
+  range: rdfs.Resource
+
+rdfs.Resource:
+  look.semanticSvg:
+    tierChip: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="200" cy="200" r="150" fill="none" stroke="var(--kan-accent)" stroke-width="12" opacity="0.4"/>
+      <circle cx="200" cy="200" r="86" fill="var(--kan-accent)"/>
+    tierIcon: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="200" cy="200" r="150" fill="none" stroke="var(--kan-accent)" stroke-width="12" opacity="0.4"/>
+      <circle cx="200" cy="200" r="86" fill="var(--kan-accent)"/>
+    tierCard: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="200" cy="200" r="150" fill="none" stroke="var(--kan-accent)" stroke-width="12" opacity="0.4"/>
+      <circle cx="200" cy="200" r="86" fill="var(--kan-accent)"/>
+    tierFull: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="200" cy="200" r="150" fill="none" stroke="var(--kan-accent)" stroke-width="12" opacity="0.4"/>
+      <circle cx="200" cy="200" r="86" fill="var(--kan-accent)"/>
+
+rdfs.Class:
+  look.semanticSvg:
+    tierChip: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <rect x="108" y="108" width="184" height="184" rx="30" fill="none" stroke="var(--kan-accent)" stroke-width="18"/>
+      <circle cx="162" cy="162" r="22" fill="var(--kan-accent)"/>
+      <circle cx="238" cy="162" r="22" fill="var(--kan-accent)"/>
+      <circle cx="162" cy="238" r="22" fill="var(--kan-accent)"/>
+      <circle cx="238" cy="238" r="22" fill="var(--kan-accent)"/>
+    tierIcon: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <rect x="108" y="108" width="184" height="184" rx="30" fill="none" stroke="var(--kan-accent)" stroke-width="18"/>
+      <circle cx="162" cy="162" r="22" fill="var(--kan-accent)"/>
+      <circle cx="238" cy="162" r="22" fill="var(--kan-accent)"/>
+      <circle cx="162" cy="238" r="22" fill="var(--kan-accent)"/>
+      <circle cx="238" cy="238" r="22" fill="var(--kan-accent)"/>
+    tierCard: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <rect x="108" y="108" width="184" height="184" rx="30" fill="none" stroke="var(--kan-accent)" stroke-width="18"/>
+      <circle cx="162" cy="162" r="22" fill="var(--kan-accent)"/>
+      <circle cx="238" cy="162" r="22" fill="var(--kan-accent)"/>
+      <circle cx="162" cy="238" r="22" fill="var(--kan-accent)"/>
+      <circle cx="238" cy="238" r="22" fill="var(--kan-accent)"/>
+    tierFull: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <rect x="108" y="108" width="184" height="184" rx="30" fill="none" stroke="var(--kan-accent)" stroke-width="18"/>
+      <circle cx="162" cy="162" r="22" fill="var(--kan-accent)"/>
+      <circle cx="238" cy="162" r="22" fill="var(--kan-accent)"/>
+      <circle cx="162" cy="238" r="22" fill="var(--kan-accent)"/>
+      <circle cx="238" cy="238" r="22" fill="var(--kan-accent)"/>
+
+rdfs.Property:
+  look.semanticSvg:
+    tierChip: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="118" cy="200" r="46" fill="var(--kan-accent)"/>
+      <line x1="172" y1="200" x2="270" y2="200" stroke="var(--kan-accent)" stroke-width="20" stroke-linecap="round"/>
+      <path d="M262 162 L320 200 L262 238 Z" fill="var(--kan-accent)"/>
+    tierIcon: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="118" cy="200" r="46" fill="var(--kan-accent)"/>
+      <line x1="172" y1="200" x2="270" y2="200" stroke="var(--kan-accent)" stroke-width="20" stroke-linecap="round"/>
+      <path d="M262 162 L320 200 L262 238 Z" fill="var(--kan-accent)"/>
+    tierCard: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="118" cy="200" r="46" fill="var(--kan-accent)"/>
+      <line x1="172" y1="200" x2="270" y2="200" stroke="var(--kan-accent)" stroke-width="20" stroke-linecap="round"/>
+      <path d="M262 162 L320 200 L262 238 Z" fill="var(--kan-accent)"/>
+    tierFull: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="118" cy="200" r="46" fill="var(--kan-accent)"/>
+      <line x1="172" y1="200" x2="270" y2="200" stroke="var(--kan-accent)" stroke-width="20" stroke-linecap="round"/>
+      <path d="M262 162 L320 200 L262 238 Z" fill="var(--kan-accent)"/>
+
+owl.ObjectProperty:
+  look.semanticSvg:
+    tierChip: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="96" cy="200" r="40" fill="var(--kan-accent)"/>
+      <line x1="142" y1="200" x2="236" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M230 168 L280 200 L230 232 Z" fill="var(--kan-accent)"/>
+      <circle cx="324" cy="200" r="40" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+    tierIcon: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="96" cy="200" r="40" fill="var(--kan-accent)"/>
+      <line x1="142" y1="200" x2="236" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M230 168 L280 200 L230 232 Z" fill="var(--kan-accent)"/>
+      <circle cx="324" cy="200" r="40" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+    tierCard: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="96" cy="200" r="40" fill="var(--kan-accent)"/>
+      <line x1="142" y1="200" x2="236" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M230 168 L280 200 L230 232 Z" fill="var(--kan-accent)"/>
+      <circle cx="324" cy="200" r="40" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+    tierFull: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="96" cy="200" r="40" fill="var(--kan-accent)"/>
+      <line x1="142" y1="200" x2="236" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M230 168 L280 200 L230 232 Z" fill="var(--kan-accent)"/>
+      <circle cx="324" cy="200" r="40" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+
+owl.DatatypeProperty:
+  look.semanticSvg:
+    tierChip: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="92" cy="200" r="38" fill="var(--kan-accent)"/>
+      <line x1="136" y1="200" x2="224" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M218 168 L268 200 L218 232 Z" fill="var(--kan-accent)"/>
+      <rect x="280" y="158" width="92" height="84" rx="14" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+      <line x1="300" y1="190" x2="352" y2="190" stroke="var(--kan-accent)" stroke-width="9"/>
+      <line x1="300" y1="212" x2="338" y2="212" stroke="var(--kan-accent)" stroke-width="9"/>
+    tierIcon: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="92" cy="200" r="38" fill="var(--kan-accent)"/>
+      <line x1="136" y1="200" x2="224" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M218 168 L268 200 L218 232 Z" fill="var(--kan-accent)"/>
+      <rect x="280" y="158" width="92" height="84" rx="14" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+      <line x1="300" y1="190" x2="352" y2="190" stroke="var(--kan-accent)" stroke-width="9"/>
+      <line x1="300" y1="212" x2="338" y2="212" stroke="var(--kan-accent)" stroke-width="9"/>
+    tierCard: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="92" cy="200" r="38" fill="var(--kan-accent)"/>
+      <line x1="136" y1="200" x2="224" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M218 168 L268 200 L218 232 Z" fill="var(--kan-accent)"/>
+      <rect x="280" y="158" width="92" height="84" rx="14" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+      <line x1="300" y1="190" x2="352" y2="190" stroke="var(--kan-accent)" stroke-width="9"/>
+      <line x1="300" y1="212" x2="338" y2="212" stroke="var(--kan-accent)" stroke-width="9"/>
+    tierFull: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="92" cy="200" r="38" fill="var(--kan-accent)"/>
+      <line x1="136" y1="200" x2="224" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M218 168 L268 200 L218 232 Z" fill="var(--kan-accent)"/>
+      <rect x="280" y="158" width="92" height="84" rx="14" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+      <line x1="300" y1="190" x2="352" y2="190" stroke="var(--kan-accent)" stroke-width="9"/>
+      <line x1="300" y1="212" x2="338" y2="212" stroke="var(--kan-accent)" stroke-width="9"/>
