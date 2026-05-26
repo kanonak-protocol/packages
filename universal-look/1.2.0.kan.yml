@@ -1,0 +1,260 @@
+
+universal-look:
+  type: Package
+  publisher: kanonak.org
+  version: 1.2.0
+  label: Universal Look
+  comment: >-
+    The default presentation floor. Attaches a baseline view to
+    rdfs.Resource so anything renders sensibly with no per-type styling,
+    a default landing view to a publisher, and the identity glyphs for the
+    core ontology vocabulary — rdfs.Class, rdfs.Property,
+    owl.ObjectProperty and owl.DatatypeProperty — so a class or property
+    shows its kind at any zoom in any publisher's render. Read it top to
+    bottom to learn how the look system renders by example.
+  prose.documentation: >-
+    The **universal-look** package is the answer to "what does a resource
+    look like if no one styled it?" It attaches a ResourceView to
+    rdfs.Resource — a Hero, the documentation prose, a generic Details
+    dump, the resource's instances, and what references it — so every
+    resource in the graph has a usable page by default. It also gives a
+    publisher a default landing view: a Hero over the publisher's name and
+    a list of its packages, and it carries the semantic-zoom glyphs for the
+    core ontology terms (Class, Property, ObjectProperty,
+    DatatypeProperty) so the schema reads visually everywhere it renders.
+    These defaults are deliberately small and readable: a publisher who
+    wants something richer copies a view here and overrides it on their own
+    type, no SDK changes required.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: derivation
+          match: ^
+          version: 1.1.0
+          alias: derivation
+        - package: look
+          match: ^
+          version: 1.0.0
+          alias: look
+        - package: look-tokens
+          match: ^
+          version: 1.0.0
+          alias: tok
+        - package: core-prose
+          match: ^
+          version: 1.0.0
+          alias: prose
+        - package: core-kanonak
+          match: ^
+          version: 2.0.0
+          alias: ck
+        - package: link
+          match: ^
+          version: 1.0.0
+          alias: link
+
+
+rdfs.Resource:
+  derivation.look:
+    type: look.ResourceView
+    bands:
+      - type: look.Hero
+        look.title: rdfs.label
+        look.eyebrow: rdfs.type
+        look.subtitle: rdfs.comment
+        look.badges: rdfs.type
+      - type: look.Markdown
+        look.source: prose.documentation
+      - type: look.Links
+        look.source: link.links
+      - type: look.Details
+      - type: look.Instances
+      - type: look.ReferencedBy
+
+ck.Publisher:
+  derivation.look:
+    type: look.PublisherView
+    bands:
+      - type: look.Hero
+        look.title: rdfs.label
+      - type: look.PublisherPackages
+
+rdfs.Class:
+  look.semanticSvg:
+    tierChip: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <rect x="108" y="108" width="184" height="184" rx="30" fill="none" stroke="var(--kan-accent)" stroke-width="18"/>
+      <circle cx="162" cy="162" r="22" fill="var(--kan-accent)"/>
+      <circle cx="238" cy="162" r="22" fill="var(--kan-accent)"/>
+      <circle cx="162" cy="238" r="22" fill="var(--kan-accent)"/>
+      <circle cx="238" cy="238" r="22" fill="var(--kan-accent)"/>
+    tierIcon: |
+      <g transform="translate(100,4) scale(0.5)">
+        <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+        <rect x="108" y="108" width="184" height="184" rx="30" fill="none" stroke="var(--kan-accent)" stroke-width="18"/>
+        <circle cx="162" cy="162" r="22" fill="var(--kan-accent)"/>
+        <circle cx="238" cy="162" r="22" fill="var(--kan-accent)"/>
+        <circle cx="162" cy="238" r="22" fill="var(--kan-accent)"/>
+        <circle cx="238" cy="238" r="22" fill="var(--kan-accent)"/>
+      </g>
+      <text x="200" y="296" text-anchor="middle" font-size="42" font-weight="700" fill="var(--kan-text)" font-family="var(--kan-font-display)">{{label}}</text>
+    tierCard: |
+      <rect x="0" y="0" width="400" height="400" rx="20" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="2"/>
+      <g transform="translate(120,24) scale(0.4)">
+        <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+        <rect x="108" y="108" width="184" height="184" rx="30" fill="none" stroke="var(--kan-accent)" stroke-width="18"/>
+        <circle cx="162" cy="162" r="22" fill="var(--kan-accent)"/>
+        <circle cx="238" cy="162" r="22" fill="var(--kan-accent)"/>
+        <circle cx="162" cy="238" r="22" fill="var(--kan-accent)"/>
+        <circle cx="238" cy="238" r="22" fill="var(--kan-accent)"/>
+      </g>
+      <text x="200" y="250" text-anchor="middle" font-size="34" font-weight="700" fill="var(--kan-text)" font-family="var(--kan-font-display)">{{label}}</text>
+      {{#subClassOf}}<text x="200" y="292" text-anchor="middle" font-size="20" fill="var(--kan-text-dim)" font-family="var(--kan-font-display)">&#8849; {{subClassOf}}</text>{{/subClassOf}}
+    tierFull: |
+      <rect x="0" y="0" width="400" height="400" rx="20" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="2"/>
+      <g transform="translate(120,18) scale(0.4)">
+        <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+        <rect x="108" y="108" width="184" height="184" rx="30" fill="none" stroke="var(--kan-accent)" stroke-width="18"/>
+        <circle cx="162" cy="162" r="22" fill="var(--kan-accent)"/>
+        <circle cx="238" cy="162" r="22" fill="var(--kan-accent)"/>
+        <circle cx="162" cy="238" r="22" fill="var(--kan-accent)"/>
+        <circle cx="238" cy="238" r="22" fill="var(--kan-accent)"/>
+      </g>
+      <text x="200" y="236" text-anchor="middle" font-size="34" font-weight="700" fill="var(--kan-text)" font-family="var(--kan-font-display)">{{label}}</text>
+      {{#subClassOf}}<text x="200" y="276" text-anchor="middle" font-size="20" fill="var(--kan-text-dim)" font-family="var(--kan-font-display)">&#8849; {{subClassOf}}</text>{{/subClassOf}}
+      <text x="200" y="374" text-anchor="middle" font-size="13" fill="var(--kan-text-dim)" font-family="var(--kan-font-mono)">{{uri}}</text>
+
+rdfs.Property:
+  look.semanticSvg:
+    tierChip: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="118" cy="200" r="46" fill="var(--kan-accent)"/>
+      <line x1="172" y1="200" x2="270" y2="200" stroke="var(--kan-accent)" stroke-width="20" stroke-linecap="round"/>
+      <path d="M262 162 L320 200 L262 238 Z" fill="var(--kan-accent)"/>
+    tierIcon: |
+      <g transform="translate(100,4) scale(0.5)">
+        <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+        <circle cx="118" cy="200" r="46" fill="var(--kan-accent)"/>
+        <line x1="172" y1="200" x2="270" y2="200" stroke="var(--kan-accent)" stroke-width="20" stroke-linecap="round"/>
+        <path d="M262 162 L320 200 L262 238 Z" fill="var(--kan-accent)"/>
+      </g>
+      <text x="200" y="296" text-anchor="middle" font-size="42" font-weight="700" fill="var(--kan-text)" font-family="var(--kan-font-display)">{{label}}</text>
+    tierCard: |
+      <rect x="0" y="0" width="400" height="400" rx="20" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="2"/>
+      <g transform="translate(120,24) scale(0.4)">
+        <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+        <circle cx="118" cy="200" r="46" fill="var(--kan-accent)"/>
+        <line x1="172" y1="200" x2="270" y2="200" stroke="var(--kan-accent)" stroke-width="20" stroke-linecap="round"/>
+        <path d="M262 162 L320 200 L262 238 Z" fill="var(--kan-accent)"/>
+      </g>
+      <text x="200" y="250" text-anchor="middle" font-size="34" font-weight="700" fill="var(--kan-text)" font-family="var(--kan-font-display)">{{label}}</text>
+      {{#subClassOf}}<text x="200" y="292" text-anchor="middle" font-size="20" fill="var(--kan-text-dim)" font-family="var(--kan-font-display)">&#8849; {{subClassOf}}</text>{{/subClassOf}}
+    tierFull: |
+      <rect x="0" y="0" width="400" height="400" rx="20" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="2"/>
+      <g transform="translate(120,18) scale(0.4)">
+        <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+        <circle cx="118" cy="200" r="46" fill="var(--kan-accent)"/>
+        <line x1="172" y1="200" x2="270" y2="200" stroke="var(--kan-accent)" stroke-width="20" stroke-linecap="round"/>
+        <path d="M262 162 L320 200 L262 238 Z" fill="var(--kan-accent)"/>
+      </g>
+      <text x="200" y="236" text-anchor="middle" font-size="34" font-weight="700" fill="var(--kan-text)" font-family="var(--kan-font-display)">{{label}}</text>
+      {{#subClassOf}}<text x="200" y="276" text-anchor="middle" font-size="20" fill="var(--kan-text-dim)" font-family="var(--kan-font-display)">&#8849; {{subClassOf}}</text>{{/subClassOf}}
+      <text x="200" y="374" text-anchor="middle" font-size="13" fill="var(--kan-text-dim)" font-family="var(--kan-font-mono)">{{uri}}</text>
+
+owl.ObjectProperty:
+  look.semanticSvg:
+    tierChip: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="96" cy="200" r="40" fill="var(--kan-accent)"/>
+      <line x1="142" y1="200" x2="236" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M230 168 L280 200 L230 232 Z" fill="var(--kan-accent)"/>
+      <circle cx="324" cy="200" r="40" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+    tierIcon: |
+      <g transform="translate(100,4) scale(0.5)">
+        <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+        <circle cx="96" cy="200" r="40" fill="var(--kan-accent)"/>
+        <line x1="142" y1="200" x2="236" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+        <path d="M230 168 L280 200 L230 232 Z" fill="var(--kan-accent)"/>
+        <circle cx="324" cy="200" r="40" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+      </g>
+      <text x="200" y="296" text-anchor="middle" font-size="42" font-weight="700" fill="var(--kan-text)" font-family="var(--kan-font-display)">{{label}}</text>
+    tierCard: |
+      <rect x="0" y="0" width="400" height="400" rx="20" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="2"/>
+      <g transform="translate(120,24) scale(0.4)">
+        <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+        <circle cx="96" cy="200" r="40" fill="var(--kan-accent)"/>
+        <line x1="142" y1="200" x2="236" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+        <path d="M230 168 L280 200 L230 232 Z" fill="var(--kan-accent)"/>
+        <circle cx="324" cy="200" r="40" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+      </g>
+      <text x="200" y="250" text-anchor="middle" font-size="34" font-weight="700" fill="var(--kan-text)" font-family="var(--kan-font-display)">{{label}}</text>
+      {{#subClassOf}}<text x="200" y="292" text-anchor="middle" font-size="20" fill="var(--kan-text-dim)" font-family="var(--kan-font-display)">&#8849; {{subClassOf}}</text>{{/subClassOf}}
+    tierFull: |
+      <rect x="0" y="0" width="400" height="400" rx="20" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="2"/>
+      <g transform="translate(120,18) scale(0.4)">
+        <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+        <circle cx="96" cy="200" r="40" fill="var(--kan-accent)"/>
+        <line x1="142" y1="200" x2="236" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+        <path d="M230 168 L280 200 L230 232 Z" fill="var(--kan-accent)"/>
+        <circle cx="324" cy="200" r="40" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+      </g>
+      <text x="200" y="236" text-anchor="middle" font-size="34" font-weight="700" fill="var(--kan-text)" font-family="var(--kan-font-display)">{{label}}</text>
+      {{#subClassOf}}<text x="200" y="276" text-anchor="middle" font-size="20" fill="var(--kan-text-dim)" font-family="var(--kan-font-display)">&#8849; {{subClassOf}}</text>{{/subClassOf}}
+      <text x="200" y="374" text-anchor="middle" font-size="13" fill="var(--kan-text-dim)" font-family="var(--kan-font-mono)">{{uri}}</text>
+
+owl.DatatypeProperty:
+  look.semanticSvg:
+    tierChip: |
+      <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+      <circle cx="92" cy="200" r="38" fill="var(--kan-accent)"/>
+      <line x1="136" y1="200" x2="224" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M218 168 L268 200 L218 232 Z" fill="var(--kan-accent)"/>
+      <rect x="280" y="158" width="92" height="84" rx="14" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+      <line x1="300" y1="190" x2="352" y2="190" stroke="var(--kan-accent)" stroke-width="9"/>
+      <line x1="300" y1="212" x2="338" y2="212" stroke="var(--kan-accent)" stroke-width="9"/>
+    tierIcon: |
+      <g transform="translate(100,4) scale(0.5)">
+        <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+        <circle cx="92" cy="200" r="38" fill="var(--kan-accent)"/>
+        <line x1="136" y1="200" x2="224" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+        <path d="M218 168 L268 200 L218 232 Z" fill="var(--kan-accent)"/>
+        <rect x="280" y="158" width="92" height="84" rx="14" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+        <line x1="300" y1="190" x2="352" y2="190" stroke="var(--kan-accent)" stroke-width="9"/>
+        <line x1="300" y1="212" x2="338" y2="212" stroke="var(--kan-accent)" stroke-width="9"/>
+      </g>
+      <text x="200" y="296" text-anchor="middle" font-size="38" font-weight="700" fill="var(--kan-text)" font-family="var(--kan-font-display)">{{label}}</text>
+    tierCard: |
+      <rect x="0" y="0" width="400" height="400" rx="20" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="2"/>
+      <g transform="translate(120,24) scale(0.4)">
+        <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+        <circle cx="92" cy="200" r="38" fill="var(--kan-accent)"/>
+        <line x1="136" y1="200" x2="224" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+        <path d="M218 168 L268 200 L218 232 Z" fill="var(--kan-accent)"/>
+        <rect x="280" y="158" width="92" height="84" rx="14" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+        <line x1="300" y1="190" x2="352" y2="190" stroke="var(--kan-accent)" stroke-width="9"/>
+        <line x1="300" y1="212" x2="338" y2="212" stroke="var(--kan-accent)" stroke-width="9"/>
+      </g>
+      <text x="200" y="250" text-anchor="middle" font-size="30" font-weight="700" fill="var(--kan-text)" font-family="var(--kan-font-display)">{{label}}</text>
+      {{#subClassOf}}<text x="200" y="292" text-anchor="middle" font-size="20" fill="var(--kan-text-dim)" font-family="var(--kan-font-display)">&#8849; {{subClassOf}}</text>{{/subClassOf}}
+    tierFull: |
+      <rect x="0" y="0" width="400" height="400" rx="20" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="2"/>
+      <g transform="translate(120,18) scale(0.4)">
+        <rect x="28" y="28" width="344" height="344" rx="76" fill="var(--kan-bg-card)" stroke="var(--kan-border)" stroke-width="8"/>
+        <circle cx="92" cy="200" r="38" fill="var(--kan-accent)"/>
+        <line x1="136" y1="200" x2="224" y2="200" stroke="var(--kan-accent)" stroke-width="18" stroke-linecap="round"/>
+        <path d="M218 168 L268 200 L218 232 Z" fill="var(--kan-accent)"/>
+        <rect x="280" y="158" width="92" height="84" rx="14" fill="none" stroke="var(--kan-accent)" stroke-width="14"/>
+        <line x1="300" y1="190" x2="352" y2="190" stroke="var(--kan-accent)" stroke-width="9"/>
+        <line x1="300" y1="212" x2="338" y2="212" stroke="var(--kan-accent)" stroke-width="9"/>
+      </g>
+      <text x="200" y="236" text-anchor="middle" font-size="30" font-weight="700" fill="var(--kan-text)" font-family="var(--kan-font-display)">{{label}}</text>
+      {{#subClassOf}}<text x="200" y="276" text-anchor="middle" font-size="20" fill="var(--kan-text-dim)" font-family="var(--kan-font-display)">&#8849; {{subClassOf}}</text>{{/subClassOf}}
+      <text x="200" y="374" text-anchor="middle" font-size="13" fill="var(--kan-text-dim)" font-family="var(--kan-font-mono)">{{uri}}</text>
