@@ -695,8 +695,11 @@ tierChip:
     Raw SVG fragment shown when the resource's SVG is rendered at <60px
     wide — favicon, tree node, breadcrumb dot. Placed inside the
     `<g class="tier-chip">` group. Supports placeholders `{{label}}`,
-    `{{firstLetter}}`, `{{uri}}` (substituted per-instance). CSS variables
-    like `var(--kan-accent)` work directly inside the fragment.
+    `{{firstLetter}}`, `{{uri}}`, `{{resourceKey}}` (substituted per-instance;
+    `{{resourceKey}}` is the URI's final segment — the YAML top-level key of
+    the instance — useful for instance-driven classes whose key IS the
+    canonical short code, e.g. environments, regions, status codes). CSS
+    variables like `var(--kan-accent)` work directly inside the fragment.
 
 tierIcon:
   type: owl.DatatypeProperty
