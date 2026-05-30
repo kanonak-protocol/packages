@@ -1,0 +1,254 @@
+look-conventions:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: Look Conventions
+  comment: >-
+    The canonical guide to styling a Kanonak ontology — how to make a class,
+    package, or publisher render as a page, and when to reach for a look
+    versus a transformation versus a view. The single source of truth for
+    the look authoring surface; read this to learn where to start.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - { package: core-rdf,        match: ^, version: 1.0.0,  alias: rdfs }
+        - { package: protocols,       match: ^, version: 2.0.0,  alias: pro }
+        - { package: core-prose,      match: ^, version: 1.1.0,  alias: prose }
+        - { package: look,            match: ^, version: 1.21.0, alias: look }
+        - { package: derivation,      match: ^, version: 1.1.0,  alias: deriv }
+        - { package: transformations, match: ^, version: 3.14.0, alias: tx }
+        - { package: view,            match: ^, version: 1.0.0,  alias: v }
+        - { package: core-kanonak,    match: ^, version: 2.1.0,  alias: ck }
+        - { package: provenance,      match: ^, version: 1.0.0,  alias: prov }
+        - { package: people,          match: ^, version: 1.0.0,  alias: people }
+
+look-conventions-spec:
+  type: pro.Protocol
+  rdfs.label: Look Conventions
+  rdfs.comment: >-
+    The one canonical way to style a Kanonak ontology, and a decision guide
+    for when to use a look, a transformation, or a view.
+  layer: pro.guidance-layer
+  prov.author: people.paul-fryer
+  pro.createdDate: 2026-05-29
+  prose.documentation: |
+    The look system turns a class into a rendered page with no hand-written
+    HTML or CSS: you attach a **look** to a *type*, and every instance of
+    that type renders through it. Whatever a type does not declare, it
+    inherits from its superclass and ultimately from the universal floor on
+    [[rdfs.Resource]] — so every resource has a sane page even before you
+    style anything. This package is the single source of truth for that
+    system; the conventions below are the whole of it.
+
+    **Start here — what are you trying to produce?**
+
+    ```text
+    A readable PAGE for a resource (its HTML page + SVG identity)
+       -> a LOOK.  Declare derivation.look on the CLASS: a ResourceView of bands.
+            - want the resource's icon / glyph?            add look.semanticSvg
+            - display name or summary is not the default
+              rdfs.label / rdfs.comment?                   add look.displayLabel / displaySummary
+            - want to theme its colors?                    add derivation.tokens
+
+    A NON-page artifact (JSON, YAML, generated code) -- or a visual the
+    band catalogue genuinely cannot express (a bespoke chart or matrix)
+       -> a TRANSFORMATION.  A tx.Transformation bound via derivation.derivations.
+
+    A QUERY that selects, filters, or reshapes instances into a result set
+       -> a VIEW.  A view.View, materialized into an EphemeralPackage.
+    ```
+
+    In one line: **[[deriv.look]] for pages, [[deriv.derivations]] + a
+    [[tx.Transformation]] for non-page artifacts and novel visuals, and a
+    [[v.View]] for queries.** The look is the default for presentation; the
+    other two are for when you are not rendering a resource's own page. Most
+    publishers only ever need looks.
+  pro.hasConvention:
+
+    choosing-an-approach:
+      rdfs.label: Choosing an Approach
+      pro.summary: |
+        Three tools present or derive data, and they do not overlap. A
+        **look** ([[deriv.look]]) renders a resource as a page — the default,
+        and almost always what you want. A **transformation**
+        ([[tx.Transformation]], bound via [[deriv.derivations]]) produces a
+        non-page artifact (JSON, YAML, generated code) or a visual the band
+        catalogue cannot express. A **view** ([[v.View]]) is a query that
+        selects and reshapes instances into a result set. Reach for the
+        look first; only drop to a transformation or a view when you are not
+        rendering a resource's own page.
+      pro.hasRecommendedRule:
+        look-for-pages-rule:
+          pro.text: >-
+            To render a resource as a readable page, you SHOULD declare a
+            [[deriv.look]] and let the universal renderer produce the HTML,
+            CSS, and SVG. Do NOT hand-author a [[tx.Transformation]] that
+            emits page HTML.
+          pro.rationale: >-
+            Declarative bands express the common page (hero + properties +
+            cross-references) in a fraction of the YAML, with built-in
+            cascade semantics for multi-publisher styling. Hand-rolled HTML
+            transformations diverge across publishers and rot.
+        transformation-for-artifacts-rule:
+          pro.text: >-
+            Author a [[tx.Transformation]] (bound via [[deriv.derivations]])
+            only for output that is NOT a resource page — a data format, a
+            generated file, or a bespoke visualization the band catalogue
+            cannot produce.
+          pro.rationale: >-
+            Transformations are the escape hatch for genuinely novel output.
+            Using one where a look would do throws away the cascade and the
+            shared band library.
+        view-for-queries-rule:
+          pro.text: >-
+            Use a [[v.View]] when you need to select, filter, or aggregate
+            instances into a NEW result shape — not to style an existing
+            resource. A view materializes into a [[ck.EphemeralPackage]].
+          pro.rationale: >-
+            A view is a query; a look is presentation. Conflating them leads
+            to looks that try to compute and views that try to render.
+
+    style-types-not-instances:
+      rdfs.label: Style Types, Not Instances
+      pro.summary: |
+        You attach a look to a **class** (or a package, or a publisher), and
+        every instance of that type renders through it. You almost never
+        style a single resource — you style the *concept*, and all its
+        instances follow. Styling one instance directly is a rare, deliberate
+        override, not the default move.
+      pro.hasRequiredRule:
+        attach-to-type-rule:
+          pro.text: >-
+            A [[deriv.look]] declaration SHOULD live on a class (or a
+            [[ck.Package]] / publisher), so it applies to every instance.
+            Declaring it on an individual instance MUST be a deliberate
+            override, not the way you style a kind of thing.
+          pro.rationale: >-
+            Styling the type is what makes the system scale: one declaration
+            styles a thousand instances, and the class hierarchy carries it
+            to subtypes. Per-instance looks are duplication waiting to drift.
+      pro.hasInvalidExample:
+        per-instance-styling:
+          pro.value: |
+            my-publisher.org/widgets/widget-0042:
+              derivation.look:
+                type: look.ResourceView
+                bands: [ { type: look.Hero, look.title: rdfs.label } ]
+          pro.description: >-
+            Avoid — styling one widget instance. Pull the look up onto the
+            `Widget` class so every widget renders the same way.
+
+    the-resource-view:
+      rdfs.label: The Resource View
+      pro.summary: |
+        The core pattern: a class declares [[deriv.look]] whose value is a
+        [[look.ResourceView]] — an ordered list of **bands**, each rendering
+        one region of the page from the resource's own properties. The band
+        catalogue covers the common page: [[look.Hero]] (title + subtitle +
+        type badges), [[look.PropertyList]] and [[look.PropertyTable]]
+        (property values), [[look.ReferenceList]] / [[look.ReferencedBy]]
+        (cross-references), [[look.Markdown]] (prose), [[look.EmbeddedViews]]
+        (nested resources rendered through their own class looks), and more.
+        Bands read existing properties — they do not carry content.
+      pro.hasRequiredRule:
+        resourceview-of-bands-rule:
+          pro.text: >-
+            A class's page look MUST be a [[look.ResourceView]] whose
+            `bands` is an ordered list of band instances, each pointing (via
+            `look.source` or a band-specific slot) at a property of the
+            resource. Render order follows list order.
+          pro.rationale: >-
+            An ordered list of declarative bands reading real properties is
+            what lets the renderer produce a page with no per-class code, and
+            keeps labels and values sourced from the graph (DRY).
+      pro.hasValidExample:
+        styled-class:
+          pro.value: |
+            my-publisher.org/catalog/Author:
+              derivation.look:
+                type: look.ResourceView
+                bands:
+                  - { type: look.Hero, look.title: rdfs.label, look.subtitle: rdfs.comment, look.badges: rdfs.type }
+                  - { type: look.PropertyList, look.source: catalog.wrote }
+                  - { type: look.ReferencedBy }
+          pro.description: >-
+            A complete `Author` page — a hero from `rdfs.label` / `rdfs.comment`,
+            the list of works from `catalog.wrote`, and an incoming-reference
+            grid — every region derived from existing properties.
+
+    visual-identity:
+      rdfs.label: Visual Identity
+      pro.summary: |
+        A resource's icon is declared with [[look.semanticSvg]]: one
+        responsive SVG with four visibility tiers — chip, icon, card, full —
+        so the same concept reads as a favicon, a sidebar tile, a grid card,
+        and a hero figure without per-context variants. Each tier is a
+        [[tx.Expression]] (typically a [[tx.Concat]] over SVG string literals
+        interleaved with [[tx.PropertyRead]] / [[tx.DisplayLabel]]), so every
+        substitution resolves through the object model and is validated at
+        author time. The floor on [[rdfs.Resource]] supplies a first-letter
+        glyph, so a class needs this only to override the default.
+      pro.hasRecommendedRule:
+        semantic-svg-tiers-rule:
+          pro.text: >-
+            A custom [[look.semanticSvg]] SHOULD author its tiers as
+            [[tx.Expression]] values, never as raw string templates, so each
+            embedded property reference is resolved and validated rather than
+            leaking unrendered.
+          pro.rationale: >-
+            A typed expression fails at `kanonak validate` time when a
+            referenced property is wrong; a string template fails silently at
+            render time, leaking an unsubstituted placeholder.
+
+    display-lenses:
+      rdfs.label: Display Lenses
+      pro.summary: |
+        Cards, nav links, hero titles, and SVG glyphs all read a resource's
+        display name and summary through two lenses: [[look.displayLabel]]
+        and [[look.displaySummary]]. The defaults on [[rdfs.Resource]] are
+        [[rdfs.label]] and [[rdfs.comment]]. A class whose name or summary
+        lives in a domain-specific property (say `teamName`) declares the
+        lens once, and every renderer reads the right value — no need to
+        duplicate the value into `rdfs.label`.
+      pro.hasRecommendedRule:
+        display-lens-rule:
+          pro.text: >-
+            When a class's display name or one-line summary is NOT in
+            [[rdfs.label]] / [[rdfs.comment]], it SHOULD declare
+            [[look.displayLabel]] / [[look.displaySummary]] pointing at the
+            property that holds it, rather than duplicating the value.
+          pro.rationale: >-
+            The lens keeps one value in one place and teaches every renderer
+            to find it; duplicating into rdfs.label invites the two copies to
+            drift apart.
+      pro.hasValidExample:
+        team-name-lens:
+          pro.value: |
+            my-publisher.org/org/Team:
+              look.displayLabel: org.teamName
+              look.displaySummary: org.teamCharter
+          pro.description: >-
+            The `Team` class tells every renderer that a team's display name
+            comes from `teamName` and its summary from `teamCharter`.
+
+    the-cascade-and-floor:
+      rdfs.label: The Cascade and the Floor
+      pro.summary: |
+        Looks cascade. A resource's look, semanticSvg, display lenses, and
+        tokens each resolve by walking the type hierarchy — the closest
+        declaration wins — and bottoming out at the **universal floor** on
+        [[rdfs.Resource]] (published as `kanonak.org/universal-look`). So you
+        only declare what differs from your superclass, and a class that
+        declares nothing still renders a sensible page. Class-hierarchy
+        overrides merge per facet; a per-instance override replaces.
+      pro.hasRequiredRule:
+        floor-guarantees-a-render-rule:
+          pro.text: >-
+            Every resource MUST render even when its class declares no look:
+            the universal floor on [[rdfs.Resource]] provides the default
+            page, glyph, and lenses. A class declares a look only to refine
+            that default.
+          pro.rationale: >-
+            A guaranteed floor is what makes the system safe to adopt
+            incrementally — you style what matters and inherit the rest,
+            rather than authoring a full page for every class up front.

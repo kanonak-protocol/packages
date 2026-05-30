@@ -1,0 +1,1830 @@
+
+kanonak-protocol:
+  type: Package
+  publisher: kanonak.org
+  version: 3.2.0
+  label: Kanonak Protocol
+  comment: >-
+    The foundational specification of the Kanonak Protocol — the
+    conventions, rules, and examples every Kanonak document obeys
+    regardless of which vocabulary it uses. The protocol itself is
+    modeled as the kanonak-protocol-spec resource within this package.
+  prose.documentation: >-
+    The **Kanonak Protocol** is an open protocol for defining,
+    versioning, and sharing semantic ontologies across distributed
+    publishers — no central registry required. The normative
+    specification lives in [[kanonak-protocol-spec]], whose conventions
+    are grouped by concern: how URIs identify entities and map to
+    canonical URLs, how fragments and query strings address embedded
+    resources and view state, how publishers and packages are named,
+    how a representation-independent canonical hash establishes package
+    identity (conforming to [[rfc-8785-jcs]]), and how the look
+    authoring surface declares presentation. Vocabulary-specific
+    guidance lives in sibling `*-conventions` packages.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: protocols
+          match: ^
+          version: 2.0.0
+          alias: pro
+        - package: provenance
+          match: ^
+          version: 1.0.0
+          alias: prov
+        - package: people
+          match: ^
+          version: 1.0.0
+          alias: people
+        - package: core-prose
+          match: ^
+          version: 1.0.0
+          alias: prose
+
+kanonak-protocol-spec:
+  type: Protocol
+  label: Kanonak Protocol
+  comment: >-
+    The Kanonak Protocol — an open protocol for defining, versioning,
+    and sharing semantic ontologies across distributed publishers, with
+    no central registry required. This package documents the
+    foundational rules every Kanonak document obeys regardless of which
+    vocabulary it uses: how URIs identify entities and map bijectively
+    to canonical https URLs, how fragments address embedded resources
+    while query strings carry view state, how publishers and packages
+    are named, and how a representation-independent canonical hash
+    establishes package identity. Vocabulary-specific guidance — including
+    how the look authoring surface styles classes (see the look-conventions
+    package) — lives in sibling *-conventions packages alongside each
+    vocabulary; the per-convention summaries and rules below carry the
+    detail.
+  prov.author: people.paul-fryer
+  hasConvention:
+
+    uri-structure:
+      label: URI Structure
+      pro.summary: Kanonak URIs uniquely identify entities using the format publisher/package@version/name
+      hasRequiredRule:
+        uri-format-rule:
+          pro.text: Kanonak URIs MUST follow the format publisher/package@version/name where all components are required
+          rationale: Standardized URI format ensures global uniqueness and enables automatic resolution across namespaces and package registries
+        uri-uniqueness-rule:
+          pro.text: Each Kanonak URI MUST uniquely identify exactly one entity across the entire Kanonak ecosystem
+          rationale: Guarantees unambiguous entity references and prevents naming conflicts through publisher namespacing
+      hasValidExample:
+        core-rdf-class-uri:
+          pro.value: kanonak.org/core-rdf@1.0.0/Class
+          description: Valid Kanonak URI referencing the Class entity from the core-rdf package
+      hasInvalidExample:
+        missing-publisher-and-version:
+          pro.value: mypackage/Entity
+          description: Invalid - missing publisher domain and version components
+
+    canonical-url-form:
+      label: Canonical URL Form
+      pro.summary: >-
+        Every Kanonak URI deterministically maps to a canonical https URL of
+        the form `https://publisher/package/version/name` (no trailing slash).
+        The URL is the public-web representation; the URI is the protocol-
+        native form. Both forms round-trip via structural pattern matching;
+        tools interconvert without consulting publisher infrastructure or
+        any per-publisher routing tables.
+      hasRequiredRule:
+        bijective-mapping-rule:
+          pro.text: >-
+            The canonical URL MUST be derivable from any Kanonak URI by
+            structural substitution: the URI `publisher/package@version/name`
+            maps to the URL `https://publisher/package/version/name`.
+            Inversely, any URL matching this structural pattern MUST parse
+            back to its source URI without consulting any publisher
+            infrastructure.
+          rationale: >-
+            Bijective URI/URL mapping is what lets the same content serve a
+            traditional web browser AND a Kanonak Browser from one source: a
+            link emitted as `https://...` works in a web browser by following
+            the URL to the published static rendering, AND in a Kanonak Browser
+            by parsing the URL back to a URI and navigating internally. No
+            per-tool link form, no scheme registration, no publisher-side
+            routing config — just the protocol's structural guarantee.
+        no-trailing-slash-rule:
+          pro.text: >-
+            The canonical URL MUST NOT include a trailing slash. Fragments
+            (see uri-fragments) append directly: `https://publisher/package/version/name#path`.
+          rationale: >-
+            Trailing slash + fragment composes awkwardly
+            (`.../name/#path` reads as if the fragment lives inside a
+            directory). Without the slash, `.../name#path` reads as the
+            embedded thing inside `name` — which is the actual semantic.
+            Static-site hosting handles the no-slash form via extension
+            stripping, extensionless routing, or server-side rewrites; that's
+            a deployment choice, not a protocol decision.
+      hasForbiddenRule:
+        custom-routing-rule:
+          pro.text: >-
+            Publishers MUST NOT introduce non-canonical URL paths that
+            require per-publisher routing tables to map back to URIs.
+            Pretty paths come from THOUGHTFUL PACKAGE NAMING, not from
+            custom routing — a publisher who wants `/timeline` names their
+            package `timeline` and addresses the canonical URL
+            `/timeline/<version>/<name>`.
+          rationale: >-
+            Non-canonical paths break URL → URI deterministic mapping. Any
+            tool that would navigate via such a URL has to either guess
+            (wrong) or fetch and interpret the publisher's routing config
+            (slow and brittle). The constraint is generative — it forces
+            publishers to model their site shape into their package names,
+            which is exactly the modeling discipline the protocol exists to
+            enable. Custom-routing escape hatches were considered and
+            explicitly deferred during the original URL-convention design.
+      hasValidExample:
+        direct-mapping:
+          pro.value: |
+            URI: worldview.genval.ai/snapshot@1.0.6/view
+            URL: https://worldview.genval.ai/snapshot/1.0.6/view
+          description: >-
+            Direct structural mapping. The URL is web-portable (works in
+            any browser); the URI is compact for in-protocol references.
+        with-fragment:
+          pro.value: |
+            URL: https://worldview.genval.ai/snapshot/1.0.6/view#header.title
+          description: >-
+            With no trailing slash, the fragment appends directly. See
+            uri-fragments for the fragment grammar.
+      hasInvalidExample:
+        trailing-slash:
+          pro.value: |
+            https://worldview.genval.ai/snapshot/1.0.6/view/
+          description: >-
+            Wrong - trailing slash conflicts with fragment composition and
+            introduces directory semantics not native to Kanonak's resource
+            model.
+        custom-routing:
+          pro.value: |
+            https://worldview.genval.ai/snapshots/latest/
+          description: >-
+            Wrong - non-canonical paths break URL → URI deterministic
+            mapping. Pretty paths come from thoughtful package naming, not
+            custom routing tables.
+
+    uri-fragments:
+      label: URI Fragments
+      pro.summary: >-
+        URI fragments (after `#`) address embedded resources within a
+        parent. The fragment payload is a path expressed in dot-bracket
+        notation: dot for dict-keyed (named) embedded properties,
+        `[N]` for positional list items by 0-based index. Tools resolve
+        fragments by traversing the parent's parsed graph
+        (SubjectKanonak.statement[]).
+      prov.informedBy: jsonpath-rfc-9535
+      hasRequiredRule:
+        fragment-grammar-rule:
+          pro.text: >-
+            Fragment payloads MUST follow dot-bracket path notation with
+            two traversal mechanisms:
+              - `name`: traverse by dict-key name (for dict-keyed embeddeds)
+                or by property name (for properties on a subject or embedded).
+              - `[N]`: index into a list value by 0-based position. Works
+                for ANY list value, whether items are dict-keyed or positional.
+              - `.`: separates path segments.
+            The two mechanisms compose freely. For lists where items have
+            dict-key names, BOTH `name` and `[N]` resolve to the same item;
+            the name form is preferred for stability (an index shifts when
+            items reorder; a dict-key name does not).
+          rationale: >-
+            Mirrors JSONPath / jq-style addressing, which is familiar to
+            anyone who's worked with structured-data tools. Supporting both
+            traversal mechanisms gives consumers the right tool for the
+            situation: name-based addressing for stability when sharing
+            and bookmarking, position-based addressing when the user knows
+            "the first item" but not its name (or when items have no
+            names at all).
+        fragment-traversal-rule:
+          pro.text: >-
+            Tools resolving a fragment MUST traverse the parent resource's
+            parsed graph (`SubjectKanonak.statement[]`) following the
+            fragment's path segments to locate the target EmbeddedKanonak.
+            UI tools that highlight or scroll-to embedded content SHOULD
+            support prefix-based parent-highlighting — a parent container
+            with fragment path `address` highlights when the user navigates
+            to `address.city`.
+          rationale: >-
+            Fragment navigation is meaningful only if it surfaces visually:
+            scrolling to the right place, highlighting it, expanding any
+            collapsed parents. Prefix-based parent matching makes the
+            highlight follow the path naturally as users drill in.
+      hasForbiddenRule:
+        no-state-in-fragments-rule:
+          pro.text: >-
+            Fragments MUST NOT carry UI / consumer state (view selectors,
+            filter state, pagination, locale). All such state belongs in
+            the query string (see uri-query-strings). The fragment IS the
+            protocol-level resource address — nothing else.
+          rationale: >-
+            Mixing state into the fragment would break the addressing
+            invariant: stripping the fragment must always leave the URL
+            pointing at the parent resource, never at a different resource
+            or a different sub-address. Keeping state in `?...` and
+            addressing in `#...` makes both round-trip cleanly through
+            sharing, copying, and bookmarking.
+      hasValidExample:
+        simple-property:
+          pro.value: |
+            https://acme.com/employees/1.0.0/alice#address
+          description: >-
+            Fragment "address" addresses the embedded address resource
+            within the alice top-level resource.
+        nested-named:
+          pro.value: |
+            https://acme.com/employees/1.0.0/alice#address.city
+          description: >-
+            Two-level traversal: alice's address embedded, then its city
+            property within.
+        positional-then-named:
+          pro.value: |
+            https://acme.com/teams/1.0.0/engineering#members[0].name
+          description: >-
+            First member positionally, then their name property. Mixed
+            positional + named composition.
+        deep-named:
+          pro.value: |
+            https://portfolio.genval.ai/strategies/1.0.0/managed-futures-trend#hasFitnessScore.fit-quiet.scoreValue
+          description: >-
+            Three-level dict-keyed traversal — typical of property-bag
+            ontologies with nested named embeddeds.
+        equivalent-name-and-index:
+          pro.value: |
+            https://portfolio.genval.ai/strategies/1.0.0/managed-futures-trend#hasFitnessScore.fit-quiet.scoreValue
+            https://portfolio.genval.ai/strategies/1.0.0/managed-futures-trend#hasFitnessScore[0].scoreValue
+          description: >-
+            Both URLs resolve to the same scoreValue. The first form
+            traverses by dict-key name (`fit-quiet`), the second by
+            positional index (`[0]`). Either is valid; the name form
+            survives item reordering, the index form is useful when
+            the consumer knows position but not name.
+      hasInvalidExample:
+        state-in-fragment:
+          pro.value: |
+            https://worldview.genval.ai/snapshot/1.0.6/view#view=html
+          description: >-
+            Wrong - "view=html" is UI state, not a resource address.
+            Belongs in the query string (`?view=html`), not the fragment.
+
+    uri-query-strings:
+      label: URI Query Strings
+      pro.summary: >-
+        Query strings (after `?`) carry UI and consumer state — Browser
+        tab selector, derivation variant, pagination, filter state,
+        locale, theme. They MUST NOT carry resource addressing; the URI
+        plus its fragment is the complete resource address.
+      hasRequiredRule:
+        query-state-only-rule:
+          pro.text: >-
+            Query string keys MUST express UI / consumer state, never
+            resource addressing. Stripping the query string MUST leave
+            the URL pointing at the same resource at the same level of
+            detail.
+          rationale: >-
+            Resource identity belongs in the path + fragment so URIs and
+            URLs round-trip cleanly and so deep links survive when
+            consumers strip `?...` state for canonical sharing. Mixing
+            addressing into the query (e.g. `?id=...`) would re-introduce
+            per-publisher routing tables that canonical-url-form's
+            forbidden rule explicitly rules out.
+      hasValidExample:
+        view-selector:
+          pro.value: |
+            https://worldview.genval.ai/snapshot/1.0.6/view?view=markdown
+          description: >-
+            `?view=markdown` selects which Browser tab to open (HTML,
+            Markdown, Source, etc.). Same resource, different consumer
+            rendering.
+        variant-selector:
+          pro.value: |
+            https://worldview.genval.ai/snapshot/1.0.6/view?variant=compact
+          description: >-
+            `?variant=compact` selects a different derivation variant for
+            the same (resource, format) pair. Resource identity unchanged.
+        fragment-plus-query:
+          pro.value: |
+            https://acme.com/employees/1.0.0/alice#address.city?view=html
+          description: >-
+            Both fragment (resource sub-address) and query (UI state)
+            compose cleanly. Stripping the query leaves a valid resource
+            URL; stripping the fragment leaves a valid parent URL.
+      hasInvalidExample:
+        addressing-in-query:
+          pro.value: |
+            https://worldview.genval.ai/?resource=snapshot@1.0.6/view
+          description: >-
+            Wrong - resource addressing in the query string. Everything
+            that identifies WHICH resource MUST live in the URL path +
+            fragment. The query string is for state ABOUT the consumer's
+            view, not WHICH resource is being viewed.
+
+    publisher-naming:
+      label: Publisher Naming
+      pro.summary: Publishers must be domain-based identifiers to establish ownership and enable registry discovery
+      hasRequiredRule:
+        publisher-domain-rule:
+          pro.text: Publisher identifiers MUST be valid domain names containing at least one dot character
+          rationale: Domain-based publishers establish clear organizational ownership, enable automatic registry discovery via .well-known endpoints, and prevent naming conflicts through DNS
+        publisher-ownership-rule:
+          pro.text: Publishers MUST control the domain name used in their publisher identifier
+          rationale: Ensures authenticity and prevents namespace squatting by requiring verifiable domain ownership
+      hasValidExample:
+        kanonak-org:
+          pro.value: kanonak.org
+          description: Official Kanonak Protocol publisher using a .org domain
+        acme-com:
+          pro.value: acme.com
+          description: Company publisher using a .com domain
+      hasInvalidExample:
+        not-a-domain:
+          pro.value: myproject
+          description: Invalid - not a domain name. Must use domain-based identifier like myproject.org or myproject.dev
+
+    package-naming:
+      label: Package Naming
+      pro.summary: Package names are lowercase-hyphen identifiers that describe the domain of entities they contain, with plural forms reserved for category packages so the singular form is available for instances inside them
+      hasRequiredRule:
+        package-format-rule:
+          pro.text: Package names MUST start with a lowercase letter and contain only lowercase letters, numbers, and hyphens (no periods)
+          rationale: Lowercase with hyphens ensures compatibility with file systems, URLs, and OCI registries while maintaining readability. Periods are reserved for alias.resource reference syntax.
+      hasRecommendedRule:
+        package-hyphenation-rule:
+          pro.text: Use hyphen notation to create descriptive package names for related ontologies
+          rationale: Hyphen notation enables logical grouping of related packages while avoiding conflicts with alias.resource reference syntax
+        category-package-is-plural-rule:
+          pro.text: >-
+            Packages that define a class or are expected to contain multiple
+            related instances SHOULD use a plural kebab-case noun (protocols,
+            agent-skills, agents, capabilities, github-skills), so the
+            singular form stays available for the instances inside them
+          rationale: >-
+            A category package is a namespace for a family of things; naming
+            it after the family rather than a single member leaves the
+            singular name free to identify one member without a YAML duplicate
+            key collision with the package declaration. This is how the
+            package "protocols" can contain an instance named "mcp" without
+            either the document having a duplicate top-level key or forcing
+            the instance into a non-conforming PascalCase name.
+        instance-package-may-be-singular-rule:
+          pro.text: >-
+            A package that exists specifically to describe one concrete entity
+            MAY use a singular name that matches the entity it describes
+            (e.g., mcp, a2a, kanonak-protocol), provided the singleton instance
+            inside uses a different kebab-case name so the package declaration
+            and the instance do not collide on the same top-level YAML key
+          rationale: >-
+            Instance packages are named after the thing they describe, which
+            makes the obvious instance name collide with the package name.
+            Resolving the collision by giving the instance a longer,
+            descriptive kebab-case name (model-context-protocol,
+            agent-to-agent-protocol, kanonak-protocol-spec) keeps the package
+            name short and recognizable while still following the
+            kebab-case-for-instances rule.
+      hasForbiddenRule:
+        singular-category-package-rule:
+          pro.text: >-
+            Category packages MUST NOT use a singular name that shadows the
+            class or instance they host - for example, a package named
+            "protocol" that defines the Protocol class, or a package named
+            "skill" that holds a single Skill instance
+          rationale: >-
+            A singular category package name forces every consuming instance
+            to either rename itself or fight the YAML duplicate-key error.
+            Pluralizing the package eliminates the conflict at the source and
+            makes it obvious from the name that the package is a namespace,
+            not a single thing.
+      hasValidExample:
+        plural-category-packages:
+          pro.value: protocols, agent-skills, agents, capabilities, skill-capabilities, agent-capabilities, github-skills, github-agents
+          description: Category packages using plural kebab-case names, leaving the singular form free for the classes and instances they host
+        singular-instance-package:
+          pro.value: mcp (package) + model-context-protocol (instance)
+          description: A specific-instance package named after its abbreviation, with a longer descriptive kebab-case instance name to avoid the duplicate-key collision
+        core-rdf-package:
+          pro.value: core-rdf
+          description: Core RDF vocabulary using hyphen notation
+      hasInvalidExample:
+        uppercase-package:
+          pro.value: MyPackage
+          description: Invalid - contains uppercase letters. Must use lowercase only
+        singular-category-package:
+          pro.value: protocol (package that defines the Protocol class)
+          description: Invalid - singular category package shadows the class and forces every consuming instance to work around a name collision
+        colliding-instance-name:
+          pro.value: mcp package + mcp instance
+          description: Invalid - the package declaration and the instance both parse as the top-level YAML key "mcp", which is a duplicate key error
+
+    resource-naming:
+      label: Resource Naming
+      pro.summary: Distinct casing conventions per entity role make role immediately obvious and align with code generation
+      hasRecommendedRule:
+        resource-casing-rule:
+          pro.text: >-
+            Kanonak uses three naming conventions based on entity role: classes
+            use PascalCase (Person, OrderStatus), instances use kebab-case
+            (romeo-montague, key-2026-03), and properties use camelCase
+            (subClassOf, hasAddress). This casing rule applies to every
+            instance, including inline dict-keyed embedded instances such as
+            the Convention, Rule, and Example entries inside a Protocol.
+          rationale: Distinct casing per role makes it immediately obvious whether an entity is a type definition (PascalCase), a data instance (kebab-case), or a property (camelCase). This improves readability, prevents confusion, and aligns with code generation conventions in target languages. Applying the rule to embedded keys too keeps the rule absolute rather than contextual, so the same entity type always looks the same in YAML no matter how it is authored.
+        embedded-instance-casing-rule:
+          pro.text: >-
+            Inline dict-keyed embedded instances MUST follow the same
+            kebab-case rule as top-level instances. A Convention key inside
+            hasConvention, a Rule key inside hasRequiredRule, an Example key
+            inside hasValidExample, a CapabilityCommand key inside hasCommand,
+            and so on are all instances of their respective classes - they
+            just happen to be authored inline rather than as top-level
+            SubjectKanonaks - and the casing rule applies identically.
+          rationale: >-
+            Embedded instances have the same semantic status as top-level
+            instances - the SDK parses them into EmbeddedKanonak nodes that
+            carry statements just like SubjectKanonaks do. Treating them as a
+            stylistic label rather than an instance muddies the casing rule
+            and leads to inconsistent documents where top-level and embedded
+            instances of the same class look different. Holding the line on
+            kebab-case for all instance keys keeps the authoring surface
+            predictable.
+        resource-charset-rule:
+          pro.text: Resource names SHOULD start with a letter and contain only letters, numbers, hyphens, and underscores
+          rationale: Following naming conventions ensures compatibility with code generation targets and URI construction. Names that violate conventions generate warnings to encourage consistency.
+      hasForbiddenRule:
+        no-reserved-prefix-rule:
+          pro.text: Resource names MUST NOT use reserved RDF/OWL prefixes like 'rdfs:', 'xsd:', 'owl:' - use imports and qualified references instead
+          rationale: Prefixed names (rdfs:Class) are RDF/Turtle syntax, not Kanonak YAML syntax. Kanonak uses imports with aliases for namespace qualification. Prefixes in resource names cause parser errors and violate Kanonak conventions.
+      hasValidExample:
+        pascal-case-classes:
+          pro.value: Person, OrderStatus, SigningKey, BlogPost
+          description: PascalCase - used for class (type) definitions
+        kebab-case-instances:
+          pro.value: romeo-montague, key-2026-03, commercial-use, alice-johnson
+          description: kebab-case - used for instances (data entities), including inline dict-keyed embedded instances
+        camel-case-properties:
+          pro.value: subClassOf, hasAddress, signingKeyId, characterName
+          description: camelCase - used for property definitions
+        embedded-convention-key:
+          pro.value: |
+            hasConvention:
+              uri-structure:
+                pro.summary: ...
+          description: Inline dict-keyed Convention instance uses kebab-case exactly like a top-level instance would
+      hasInvalidExample:
+        reserved-rdfs-prefix:
+          pro.value: rdfs-colon-Class
+          description: Invalid - uses RDF colon prefix syntax (as in rdfs followed by colon followed by Class). Use plain Class with imports, then reference it as rdfs.Class when disambiguation is needed.
+        pascal-case-embedded-instance:
+          pro.value: |
+            hasConvention:
+              UriStructure:
+                pro.summary: ...
+          description: Invalid - embedded Convention instance keys must be kebab-case. Rename to uri-structure.
+
+    versioning:
+      label: Versioning
+      pro.summary: Versions follow semantic versioning to communicate compatibility and breaking changes
+      hasRequiredRule:
+        semantic-versioning-rule:
+          pro.text: Versions MUST follow semantic versioning format major.minor.patch where each component is a non-negative integer
+          rationale: Semantic versioning provides a standard way to communicate backward compatibility and breaking changes to package consumers
+        major-version-breaking-rule:
+          pro.text: Increment major version when making backward-incompatible changes to the package
+          rationale: Major version increments signal to consumers that manual migration may be required due to breaking changes
+        minor-version-compatible-rule:
+          pro.text: Increment minor version when adding backward-compatible functionality and patch version for backward-compatible bug fixes
+          rationale: Allows consumers to safely update within the same major version while preventing unexpected breaking changes
+      hasValidExample:
+        standard-semver:
+          pro.value: 2.1.3
+          description: Valid semantic version with major 2, minor 1, patch 3
+      hasInvalidExample:
+        missing-patch-with-v-prefix:
+          pro.value: v1.0
+          description: Invalid - missing patch component and has v prefix. Must be 1.0.0
+
+    file-naming:
+      label: File Naming
+      pro.summary: Kanonak documents follow a standard file naming pattern for discoverability
+      hasRequiredRule:
+        canonical-file-name-rule:
+          pro.text: Kanonak document files MUST be named using the pattern package@version.kan.yml
+          rationale: Standardized file naming enables automatic discovery, prevents conflicts, and makes the namespace structure visible in the file system. The .kan.yml extension distinguishes Kanonak files from other YAML files.
+      hasRecommendedRule:
+        directory-structure-rule:
+          pro.text: Kanonak documents SHOULD be organized in directories matching the publisher name
+          rationale: Directory structure mirrors namespace organization making it easy to locate packages and understand ownership. Publisher directories prevent naming conflicts and enable per-publisher configuration.
+      hasValidExample:
+        core-rdf-file:
+          pro.value: kanonak.org/core-rdf@1.0.0.kan.yml
+          description: Correct file naming with publisher directory and version
+        company-products-file:
+          pro.value: mycompany.com/products@2.1.3.kan.yml
+          description: Company package with semantic version
+
+    import-operators:
+      label: Import Operators
+      pro.summary: Import operators, existence, and cycle constraints for package dependencies
+      hasRequiredRule:
+        exact-operator-rule:
+          pro.text: Use exact version operator (=) to lock imports to a specific version for reproducible builds
+          rationale: Exact version matching guarantees reproducible builds and prevents unexpected breaking changes from dependency updates
+        import-existence-rule:
+          pro.text: All declared imports MUST resolve to existing packages in the repository or package cache
+          rationale: Missing imports break transitive resolution and prevent entity lookup. All dependencies must be available either in local workspace or installed package cache.
+        import-cycle-rule:
+          pro.text: Package imports MUST NOT create circular dependency chains between published packages
+          rationale: Circular package dependencies (A imports B, B imports A) create unresolvable import cycles that prevent package managers from building dependency graphs. Kanonak handles cycles gracefully at runtime but published packages cannot have circular dependencies.
+      hasRecommendedRule:
+        compatible-operator-rule:
+          pro.text: Use compatible version operator (~) to allow patch updates within the same minor version
+          rationale: Enables bug fixes and security patches while preventing breaking changes from minor version updates
+        major-operator-rule:
+          pro.text: Use major version operator (^) to allow minor and patch updates within the same major version
+          rationale: Follows semantic versioning conventions where breaking changes only occur in major version increments
+      hasForbiddenRule:
+        any-operator-rule:
+          pro.text: Avoid any version operator (*) in production packages as it allows all future versions including breaking changes
+          rationale: Creates unpredictable behavior and can introduce breaking changes without warning or control
+      hasValidExample:
+        exact-operator-example:
+          pro.value: core-rdf = 1.0.0
+          description: Locks to exactly version 1.0.0 of core-rdf
+        compatible-operator-example:
+          pro.value: core-xsd ~ 1.2.3
+          description: Allows versions 1.2.3 through 1.2.x (patch updates only)
+        major-operator-example:
+          pro.value: core-owl ^ 2.0.0
+          description: Allows versions 2.0.0 through 2.x.x (minor and patch updates within major version 2)
+        one-way-dependency:
+          pro.value: |
+            package-a:
+              type: Package
+              publisher: example.com
+              version: 1.0.0
+            package-b:
+              type: Package
+              publisher: example.com
+              version: 1.0.0
+              imports:
+                - publisher: example.com
+                  packages:
+                    - package: package-a
+                      match: ^
+                      version: 1.0.0
+          description: One-way dependency chain - package-b imports package-a; package-a has no imports referencing package-b. No cycle exists.
+      hasInvalidExample:
+        circular-dependency:
+          pro.value: |
+            package-a:
+              type: Package
+              publisher: example.com
+              version: 1.0.0
+              imports:
+                - publisher: example.com
+                  packages:
+                    - package: package-b
+                      match: ^
+                      version: 1.0.0
+            package-b:
+              type: Package
+              publisher: example.com
+              version: 1.0.0
+              imports:
+                - publisher: example.com
+                  packages:
+                    - package: package-a
+                      match: ^
+                      version: 1.0.0
+          description: Invalid - package-a imports package-b and package-b imports package-a. The import graph contains a cycle the resolver cannot break.
+
+    version-resolution:
+      label: Version Resolution
+      pro.summary: Version resolution selects the highest compatible version from available packages
+      hasRequiredRule:
+        highest-compatible-rule:
+          pro.text: When resolving an import, Kanonak MUST select the highest version that satisfies the version operator constraints
+          rationale: Automatic version resolution ensures packages get the latest compatible updates while respecting semantic versioning constraints. This enables bug fixes and patches without manual intervention while preventing breaking changes.
+        major-zero-special-case-rule:
+          pro.text: For major version 0 (pre-1.0), the caret operator (^) MUST behave like tilde (~), allowing only patch updates
+          rationale: Semantic versioning treats 0.x.y as unstable where breaking changes can occur in minor versions. Caret operator for ^0.x.y allows only patches (0.x.z) to prevent unexpected breaking changes during pre-release development.
+      hasValidExample:
+        tilde-resolution:
+          pro.value: |
+            Import:      "core-xsd ~ 1.2.3"
+            Available:   1.2.1, 1.2.5, 1.3.0, 2.0.0
+            Constraints: MinVersion=1.2.3, MaxVersion=1.2.999
+            Selected:    1.2.5 (highest in compatible range)
+          description: Version resolution selects 1.2.5 as the highest version satisfying the tilde constraint - patch updates only within minor version 1.2
+
+    yaml-parsing:
+      label: YAML Parsing
+      pro.summary: Kanonak YAML parsing preserves types and detects structural errors
+      hasRequiredRule:
+        type-preservation-rule:
+          pro.text: Kanonak YAML parsers MUST preserve primitive types (integer, boolean, string) from YAML into the Kanonak object model
+          rationale: Type preservation ensures that integer values remain integers, booleans remain booleans, and strings remain strings through the parse-serialize round-trip. This maintains semantic meaning and enables accurate code generation.
+        duplicate-key-detection-rule:
+          pro.text: Kanonak YAML parsers MUST detect and report duplicate keys with line and column information
+          rationale: Duplicate keys in YAML are ambiguous and indicate authoring errors. Early detection with precise location information helps users quickly fix structural problems before semantic validation.
+        utf8-bom-handling-rule:
+          pro.text: Kanonak YAML parsers MUST strip UTF-8 BOM (Byte Order Mark) if present for cross-platform compatibility
+          rationale: Windows editors may add UTF-8 BOM at file start. Stripping BOM ensures files created on Windows parse correctly on Linux/Mac and vice versa, enabling seamless cross-platform collaboration.
+      hasValidExample:
+        primitive-types-preserved:
+          pro.value: |
+            age: 30
+            isActive: true
+            name: "Alice"
+          description: After parsing, age remains an integer (not the string "30"), isActive remains a boolean (not the string "true"), and name is a string. Primitive types round-trip through the Kanonak object model without coercion.
+      hasInvalidExample:
+        duplicate-key:
+          pro.value: |
+            Person:
+              name: "Alice"
+              name: "Bob"
+          description: Invalid - the key 'name' is declared twice on Person. The parser reports a duplicate-key error with the line and column of the second declaration.
+
+    package-structure:
+      label: Package Structure
+      pro.summary: Every Kanonak document declares exactly one package with required metadata
+      hasRequiredRule:
+        package-required-rule:
+          pro.text: Every Kanonak document MUST contain exactly one Package declaration (a resource with type Package)
+          rationale: The Package declaration provides essential metadata (publisher, version) needed for namespace resolution and dependency management. Without it, the document cannot participate in the Kanonak ecosystem.
+        package-properties-rule:
+          pro.text: Package declarations MUST include 'publisher' and 'version' properties, and import entries MUST have valid publisher, package, match, and version fields
+          rationale: Publisher and version are required to construct the namespace URI. Import entries must be well-formed to enable dependency resolution.
+      hasValidExample:
+        minimal-package:
+          pro.value: |
+            core-rdf:
+              type: Package
+              publisher: kanonak.org
+              version: 1.0.0
+          description: Correct package declaration with type, publisher, and version
+      hasInvalidExample:
+        no-package-declaration:
+          pro.value: |
+            Person:
+              type: Class
+          description: Invalid - the document declares a Person Class but no Package resource. Without a Package declaration the document has no namespace URI and cannot participate in the Kanonak ecosystem.
+
+    type-system:
+      label: Type System
+      pro.summary: Rules governing how entities declare their type and how properties declare their range
+      hasRequiredRule:
+        subject-type-required-rule:
+          pro.text: Top-level entities MUST have a 'type' property declaring what kind of entity they are
+          rationale: Top-level entities need explicit type declaration to enable type checking, validation, and code generation. Unlike embedded objects, top-level entities have no parent property whose range can supply a type.
+        property-range-required-rule:
+          pro.text: ObjectProperty and DatatypeProperty declarations MUST declare a 'range' specifying the type of values
+          rationale: The range defines what values are valid for a property. Without range, type checking is impossible and the property's purpose is unclear. Range is required for both datatype properties (e.g., string, integer) and object properties (e.g., Person, Address).
+        xsd-import-rule:
+          pro.text: When using XSD datatypes (string, integer, boolean, etc.) as property ranges, the core-xsd package MUST be imported
+          rationale: XSD datatypes are defined in the core-xsd package. Without importing it, the type resolver cannot verify that range references point to valid datatypes.
+        class-definition-rule:
+          pro.text: All classes referenced in 'type' properties MUST be defined in the current namespace or imported packages
+          rationale: Using an undefined class as a type creates entities with unknown structure. The validator ensures every type reference resolves to an actual Class definition.
+      hasRecommendedRule:
+        property-type-specificity-rule:
+          pro.text: Properties SHOULD use specific types (DatatypeProperty or ObjectProperty) instead of generic 'Property'
+          rationale: Generic Property type provides no semantic information about whether the property holds literal values or entity references. Using specific types enables better validation, code generation, and tooling support.
+      hasValidExample:
+        top-level-with-type:
+          pro.value: |
+            romeo-montague:
+              type: Character
+              characterName: "Romeo"
+          description: Top-level entity with explicit type declaration
+        datatype-property-with-range:
+          pro.value: |
+            name:
+              type: DatatypeProperty
+              domain: Person
+              range: string
+          description: Property with specific DatatypeProperty type and declared range
+      hasInvalidExample:
+        top-level-missing-type:
+          pro.value: |
+            romeo-montague:
+              characterName: "Romeo"
+          description: Invalid - top-level entity has no type property
+        property-missing-range:
+          pro.value: |
+            name:
+              type: DatatypeProperty
+              domain: Person
+          description: Invalid - property has no range declaration
+
+    embedding:
+      label: Embedding
+      pro.summary: When to model data as an embedded object versus a named top-level entity
+      hasRecommendedRule:
+        embedded-for-coupled-rule:
+          pro.text: Use embedded objects for data that is tightly coupled to its parent, has no need for independent identity, and is not referenced from anywhere else
+          rationale: Embedding reduces naming overhead, makes the ownership relationship explicit in the structure, and accurately maps to RDF blank nodes - which represent resources without global identity. Promoting such data to a named top-level entity creates URIs that will never be referenced, cluttering the namespace.
+        named-for-identity-rule:
+          pro.text: Use named top-level entities for data that needs a stable identity, is referenced from multiple places, or represents a significant concept with an independent lifecycle
+          rationale: Named entities receive a globally unique URI (publisher/package@version/name) that enables cross-document references, stable citation, and independent versioning. Any data that tooling or other entities need to point to must be named so that the pointer is well-defined.
+        prefer-implicit-embedded-type-rule:
+          pro.text: An embedded object SHOULD NOT declare an explicit 'type' property when the type would equal the parent property's range — let the range supply the type implicitly
+          rationale: When the embedded type matches what the parent property's range already specifies, the explicit type adds nothing beyond visual noise. Omitting it keeps documents shorter, makes the common case the default, and signals that explicit type declarations on embeddeds carry meaning - they only appear when narrowing the range to a more specific subclass. A reader who sees 'type:' on an embedded immediately knows it's communicating a non-default subtype.
+      hasForbiddenRule:
+        embedded-type-must-narrow-range-rule:
+          pro.text: When an embedded object declares an explicit 'type' property, that type MUST be a subclass of (or equal to) the parent property's range
+          rationale: >-
+            A declared type that is not a subclass of the parent's range is a
+            contradiction - the parent property says "this slot holds Conditions"
+            and the declared type says "this is not a Condition." Permitting it
+            would silently break range-based reasoning, type checking, and code
+            generation. Restricting declared types to range subclasses preserves
+            the inference model while still allowing tagged-union /
+            discriminated-union authoring with proper OWL subclass semantics
+            (for example, declaring 'type' as 'OrCondition' on an embedded
+            under a property whose range is 'Condition').
+      hasValidExample:
+        embedded-coupled-address:
+          pro.value: |
+            alice:
+              type: Person
+              hasAddress:
+                street: "123 Main St"
+                city: "Springfield"
+          description: Address is embedded because it is owned by alice and never referenced elsewhere - becomes an RDF blank node. The embedded inherits its type from the parent property's range, so no 'type:' is needed.
+        embedded-with-narrowing-type:
+          pro.value: |
+            wrapper:
+              type: Wrapper
+              condition:
+                type: OrCondition
+                operands:
+                  - type: ThresholdCondition
+                    observable: temperature
+                    threshold: 90
+                  - type: EventCondition
+                    event: sensor-fault
+          description: The 'condition' property's range is 'Condition'. Each embedded declares a type that is a strict subclass of 'Condition' (OrCondition, ThresholdCondition, EventCondition all subClassOf Condition), which narrows the range to a specific variant. This is the canonical tagged-union authoring form - explicit types appear precisely where the variant matters.
+        named-shared-address:
+          pro.value: |
+            acme-headquarters:
+              type: Address
+              street: "1 Acme Plaza"
+              city: "Metropolis"
+
+            alice:
+              type: Employee
+              worksAt: acme-headquarters
+
+            bob:
+              type: Employee
+              worksAt: acme-headquarters
+          description: Headquarters is named because multiple employees reference the same address and the entity has identity beyond any single parent
+      hasInvalidExample:
+        non-subclass-embedded-type:
+          pro.value: |
+            wrapper:
+              type: Wrapper
+              condition:
+                type: Person
+                name: Alice
+          description: Forbidden - the 'condition' property's range is 'Condition', so the embedded's declared type must be Condition or a subclass thereof. Person is unrelated to the Condition hierarchy, so this is a range violation that breaks type checking.
+        redundant-embedded-type:
+          pro.value: |
+            alice:
+              type: Person
+              hasAddress:
+                type: Address
+                street: "123 Main St"
+          description: >-
+            Discouraged - the 'hasAddress' property's range is already
+            'Address', so declaring 'type' as 'Address' on the embedded is
+            redundant. Not a hard error - the document is still semantically
+            valid - but a reader is left wondering what the type was meant
+            to communicate. Drop the line so the type is inferred implicitly.
+
+    references:
+      label: References
+      pro.summary: Rules for resolving entity references across namespaces, including shadowing and disambiguation
+      hasRequiredRule:
+        resolvable-reference-rule:
+          pro.text: ObjectProperty values MUST reference entities that exist in the current namespace or imports (including transitive imports)
+          rationale: Broken references create semantic gaps where data points to non-existent entities. This prevents typos, missing imports, and data integrity issues. All references must resolve to actual entities.
+        local-shadowing-rule:
+          pro.text: When the same name exists in both the local namespace and an imported namespace, unqualified references MUST resolve to the local definition (local shadowing)
+          rationale: Local shadowing allows intentional overriding, enables namespace-specific customizations, and prevents breaking changes when dependencies add new entities with colliding names.
+        qualified-disambiguation-rule:
+          pro.text: When multiple imported packages define entities with the same name, references MUST use qualified syntax (alias.name) to disambiguate
+          rationale: Ambiguous references make it impossible to determine which entity is intended. Qualified references (pkg.Entity) explicitly specify the source package, preventing confusion and ensuring correct type resolution.
+      hasValidExample:
+        local-reference:
+          pro.value: |
+            verona-city:
+              type: City
+
+            romeo:
+              type: Character
+              livesIn: verona-city
+          description: Reference to a locally defined entity
+        qualified-reference:
+          pro.value: |
+            myEntity:
+              type: pkgA.Resource
+          description: Qualified reference disambiguates between packages that both define Resource
+      hasInvalidExample:
+        broken-reference:
+          pro.value: |
+            romeo:
+              type: Character
+              livesIn: verona-city
+          description: Invalid - romeo.livesIn references verona-city, but no entity named verona-city is defined in this document or any imported package. The validator reports an unresolved-reference error.
+
+    hierarchy:
+      label: Hierarchy
+      pro.summary: Class and property hierarchies must be acyclic and reference their own kind
+      hasRequiredRule:
+        class-hierarchy-acyclic-rule:
+          pro.text: Class inheritance (subClassOf) MUST NOT create circular chains
+          rationale: Circular inheritance (A subClassOf B subClassOf A) is logically impossible and breaks reasoning systems. Class hierarchies must form directed acyclic graphs where every class has a finite path to the root Resource class.
+        sub-class-of-class-rule:
+          pro.text: The subClassOf property MUST reference an entity that is itself a Class
+          rationale: subClassOf establishes inheritance between classes. Referencing a non-class entity (like a property or instance) is semantically invalid and breaks type system integrity.
+        property-hierarchy-acyclic-rule:
+          pro.text: Property inheritance (subPropertyOf) MUST NOT create circular chains
+          rationale: Circular property inheritance (A subPropertyOf B subPropertyOf A) is logically impossible. Property hierarchies must form directed acyclic graphs.
+        sub-property-of-property-rule:
+          pro.text: The subPropertyOf property MUST reference an entity that is itself a Property
+          rationale: subPropertyOf establishes inheritance between properties. Referencing a non-property entity (like a Class or instance) is semantically invalid.
+      hasValidExample:
+        linear-class-hierarchy:
+          pro.value: |
+            Person:
+              type: Class
+            Character:
+              type: Class
+              subClassOf: Person
+          description: Correct linear class hierarchy with no cycles
+      hasInvalidExample:
+        circular-class-hierarchy:
+          pro.value: |
+            Character:
+              type: Class
+              subClassOf: Hero
+            Hero:
+              type: Class
+              subClassOf: Character
+          description: Invalid - Character and Hero reference each other creating a cycle
+        sub-class-of-property:
+          pro.value: |
+            name:
+              type: DatatypeProperty
+            Character:
+              type: Class
+              subClassOf: name
+          description: Invalid - subClassOf must reference a Class, not a Property
+
+    open-world-augmentation:
+      label: Open-World Augmentation
+      pro.summary: >-
+        Any Kanonak package may assert statements about any entity
+        defined in any other package, by referencing the entity through
+        an aliased name in the augmenting document's body. The parser
+        merges all statements about the same canonical URI into one
+        Subject, just as RDF specifies for IRI assertions across
+        documents.
+      hasRequiredRule:
+        canonical-uri-merge-rule:
+          pro.text: >-
+            When two or more packages declare entities whose canonical
+            URI (publisher + package + version + local name) is the
+            same, the parser MUST merge their statements into a single
+            SubjectKanonak. Conflicting statements (different objects
+            for the same predicate) MUST coexist; consumers handle
+            precedence by load order or explicit declaration.
+          rationale: >-
+            RDF semantics are open-world by design. Forcing all
+            statements about a class to live in its defining package
+            would make publisher augmentation impossible and force
+            every cross-cutting concern (universal renderers, peer
+            observations, federated annotations) into a fork-and-bump
+            of the upstream package. Open-world merge unblocks the
+            polymorphic-derivation pattern where universal defaults
+            live in their own package without touching core.
+      hasRecommendedRule:
+        prefer-augmentation-over-fork-rule:
+          pro.text: >-
+            When you need to add statements to an upstream class
+            (e.g. attaching a default renderer, a peer annotation, a
+            commercial extension), prefer declaring those statements
+            in your own package by referencing the class via an
+            aliased name (rdfs.Resource, skill.Skill) rather than
+            forking the upstream package and editing it.
+          rationale: >-
+            Augmentation keeps your concerns in your namespace,
+            preserves upstream version pinning, and composes with
+            other publishers' augmentations. Forking decouples you
+            from upstream updates and forces coordination on every
+            release.
+      hasValidExample:
+        augment-rdfs-resource:
+          pro.value: |
+            universal-derivations:
+              type: Package
+              publisher: kanonak.org
+              version: 1.0.0
+              imports:
+                - publisher: kanonak.org
+                  packages:
+                    - package: core-rdf
+                      match: ^
+                      version: 1.0.0
+                      alias: rdfs
+                    - package: derivation
+                      match: ^
+                      version: 1.0.0
+                      alias: derivation
+
+            rdfs.Resource:
+              derivation.derivations:
+                - format: html
+                  transformation: any-resource-to-html
+          description: >-
+            Augmenting rdfs.Resource (defined in core-rdf) with a
+            derivations property from a separate package. No 'type:'
+            is asserted on rdfs.Resource here — this is augmentation,
+            not redefinition. The parser merges these statements with
+            the original definition in core-rdf because both resolve
+            to the same canonical URI:
+            kanonak.org/core-rdf@1.0.0/Resource. The alias prefix
+            rdfs. resolves through the document's imports; the
+            entity name rdfs.Resource canonicalizes to the same
+            URI as core-rdf's own declaration; merge happens at
+            parse time.
+
+    package-partitioning:
+      label: Package Partitioning
+      pro.summary: >-
+        Large datasets SHOULD be partitioned across multiple packages
+        along a stable, immutable axis (alphabetic bucket of an
+        immutable identifier, year, geographic region of origin)
+        rather than published as a single oversized package or
+        accessed through any runtime paging / query primitive. A
+        dedicated schema package holds class definitions; separate
+        partition packages hold instance data. The open-world parser
+        merges them into one logical graph at load time, so consumers
+        load only the partitions they need without losing the schema
+        contract.
+      hasRecommendedRule:
+        schema-vs-data-separation-rule:
+          pro.text: >-
+            Class definitions (the ontology — Class, ObjectProperty,
+            DatatypeProperty declarations) SHOULD live in a dedicated
+            schema package. Instance data SHOULD live in separate
+            partition packages that import the schema and assert
+            instances of its classes. The two have very different
+            lifecycles and SHOULD version independently.
+          rationale: >-
+            A class definition changes when the model evolves (rare);
+            instance data churns continuously as the world it
+            describes changes. Bundling them forces every data update
+            to ship a new schema version too, which is noisy and
+            breaks consumer pinning. Separating them lets each evolve
+            at its own pace, lets multiple partition packages coexist
+            against the same schema, and aligns with the open-world
+            model — the schema is the contract; partitions are
+            participants. The pattern composes with derivation
+            bindings: derivations declared on the schema's classes
+            apply automatically to every instance in every partition.
+            A package may legitimately mix both (e.g. a vocabulary
+            that defines classes plus a small set of canonical
+            instances), but at scale the separation pays off.
+        partition-large-datasets-rule:
+          pro.text: >-
+            When a dataset would exceed roughly a few thousand
+            instances or a few megabytes as a single package,
+            partition it across multiple packages named after the
+            partition value (employees-a, employees-b, ...;
+            stocks-2024, stocks-2025; customers-us, customers-eu).
+            Consumers load only the partitions they need; partitioning
+            at the package layer replaces any need for runtime
+            pagination, filtering, or query primitives.
+          rationale: >-
+            Static hosting (GitHub Pages, S3, IPFS) cannot execute
+            runtime queries; any pagination scheme requiring
+            server-side execution would foreclose those publishers
+            from the protocol. Partitioning at the package level is
+            the protocol's pagination — each partition is
+            addressable by URL via the canonical convention,
+            cacheable independently, and version-bumpable on its own
+            cadence. Consumers traverse the graph by loading
+            partitions as the navigation crosses them, never by
+            issuing queries against publisher infrastructure.
+        partition-axis-stability-rule:
+          pro.text: >-
+            The partition axis SHOULD be an immutable attribute of
+            the data (alphabetic bucket of an immutable identifier,
+            year of creation, geographic region of origin, hash
+            bucket of a stable ID). Do NOT partition on attributes
+            that change over the data's lifetime (current employer,
+            current owner, current status, current team).
+          rationale: >-
+            URI stability is the protocol's foundational guarantee
+            (see uri-structure). A resource's URI includes its
+            package name; moving an instance between partitions
+            changes its URI; downstream references break. Stable
+            axes prevent this. For datasets without any naturally
+            stable axis, partition by an immutable surrogate — hash
+            bucket of a stable identifier, year of creation,
+            immutable region of origin. The cost of choosing the
+            wrong axis is paid forever in broken cross-package
+            references.
+        optional-partition-manifest-rule:
+          pro.text: >-
+            A publisher MAY ship a small index package
+            (e.g. employees-index@1.0.0) that enumerates the
+            partition packages comprising a logical dataset. Consumers
+            and the Kanonak Browser can use the manifest for
+            partition discovery and faceted navigation. The manifest
+            is purely additive — partitions remain self-contained
+            and usable without it.
+          rationale: >-
+            Partitions work standalone (a consumer who knows which
+            partition contains the data they want loads it directly).
+            But cross-partition discovery — "what partitions of the
+            employees dataset exist?" — requires either a directory
+            listing convention (publisher cooperation, not always
+            available) or an explicit manifest. Manifests are the
+            cleaner answer and stay an opt-in publisher curation
+            choice rather than a protocol requirement.
+      hasForbiddenRule:
+        no-runtime-query-primitive-rule:
+          pro.text: >-
+            The Kanonak protocol MUST NOT introduce a runtime
+            query, paging, or filtering primitive — no Collection
+            class with pageSize, no $filter URL convention, no
+            built-in SPARQL endpoint contract. Cross-resource access
+            at scale is solved by package partitioning, which works
+            on dumb static hosting.
+          rationale: >-
+            A runtime query primitive would couple the protocol to
+            publisher-side execution, foreclose static hosting, and
+            introduce every server-side complexity (rate limiting,
+            federation, indexing, search) the protocol exists to
+            avoid. Static partitioning solves the same access pattern
+            with zero server requirements. Individual publishers MAY
+            offer query layers ON TOP of Kanonak as opt-in services
+            (their own SPARQL or GraphQL endpoint over their data,
+            for example), but those are publisher infrastructure
+            decisions, not protocol contracts. Tools across the
+            ecosystem can rely on packages being addressable as
+            static files forever.
+      hasValidExample:
+        schema-package:
+          pro.value: |
+            employees:
+              type: Package
+              publisher: acme.com
+              version: 1.0.0
+              imports:
+                - publisher: kanonak.org
+                  packages:
+                    - package: core-rdf
+                      match: ^
+                      version: 1.0.0
+                      alias: rdfs
+                    - package: core-xsd
+                      match: ^
+                      version: 1.0.0
+                      alias: xsd
+                    - package: core-owl
+                      match: ^
+                      version: 2.0.0
+                      alias: owl
+
+            Employee:
+              type: rdfs.Class
+
+            name:
+              type: owl.DatatypeProperty
+              domain: Employee
+              range: xsd.string
+          description: >-
+            Schema package — defines the Employee class and its
+            properties. Bumped only when the model evolves
+            (rarely). A reader sees that the body declares a Class
+            and DatatypeProperty with no instances, so the
+            package's role as the schema/ontology layer is
+            self-evident.
+        partition-package:
+          pro.value: |
+            employees-a:
+              type: Package
+              publisher: acme.com
+              version: 1.0.0
+              imports:
+                - publisher: acme.com
+                  packages:
+                    - package: employees
+                      match: ^
+                      version: 1.0.0
+                      alias: e
+
+            alice-anderson:
+              type: e.Employee
+              e.name: "Alice Anderson"
+
+            adrian-aoki:
+              type: e.Employee
+              e.name: "Adrian Aoki"
+          description: >-
+            Partition package — instance data only, surnames
+            starting A. Imports the schema package and asserts
+            instances of e.Employee. A reader sees the import +
+            instance assertions and the role as a partition is
+            self-evident. Bumped as employees in this bucket
+            join, leave, or get edited; independent of the
+            schema's lifecycle and of other partitions
+            (employees-b, employees-c, ...).
+        time-axis-partitioning:
+          pro.value: |
+            stocks:
+              type: Package
+              publisher: acme.com
+              version: 1.0.0
+            stocks-2024:
+              type: Package
+              publisher: acme.com
+              version: 1.0.0
+              imports:
+                - publisher: acme.com
+                  packages:
+                    - package: stocks
+                      match: ^
+                      version: 1.0.0
+                      alias: s
+            stocks-2025:
+              type: Package
+              publisher: acme.com
+              version: 1.0.0
+              imports:
+                - publisher: acme.com
+                  packages:
+                    - package: stocks
+                      match: ^
+                      version: 1.0.0
+                      alias: s
+          description: >-
+            Time-axis partitioning along year-of-occurrence. Year
+            is immutable, so URIs are stable forever. Older
+            partitions stop bumping once their year closes; only
+            the current partition churns. A consumer viewing 2025
+            data loads stocks@1.0.0 + stocks-2025@1.0.0; nothing
+            else needs to be present. Body of each partition
+            (omitted) holds the year's stock instance data.
+      hasInvalidExample:
+        monolithic-large-dataset:
+          pro.value: |
+            employees:
+              type: Package
+              publisher: acme.com
+              version: 1.0.0
+
+            Employee:
+              type: rdfs.Class
+
+            alice-anderson: { type: Employee, name: "Alice Anderson" }
+            bob-anderson:   { type: Employee, name: "Bob Anderson" }
+            carlos-cruz:    { type: Employee, name: "Carlos Cruz" }
+          description: >-
+            Wrong at scale - one package mixing the schema (the
+            Employee class) and tens or hundreds of thousands of
+            instances. Forces every consumer to download all
+            instances to read any one. Browsers struggle to load;
+            parsers slow; every change requires republishing the
+            whole graph. Lift the Employee class into a separate
+            schema package and partition the instances into
+            employees-a, employees-b, etc. (Three instances are
+            shown for brevity; the smell appears as N grows.)
+        partition-by-mutable-attribute:
+          pro.value: |
+            employees-engineering:
+              type: Package
+              publisher: acme.com
+              version: 1.0.0
+
+            employees-marketing:
+              type: Package
+              publisher: acme.com
+              version: 1.0.0
+
+            employees-sales:
+              type: Package
+              publisher: acme.com
+              version: 1.0.0
+          description: >-
+            Wrong - department membership changes when employees
+            move between teams. Re-partitioning means changing
+            canonical URIs (alice moves from employees-engineering
+            to employees-marketing → her URI changes → every
+            reference to her elsewhere in the graph breaks).
+            Partition by an immutable attribute (surname-bucket,
+            hire-year, employee-id-hash-bucket) instead; treat
+            current-department as a property on each Employee, not
+            as a partition axis.
+        runtime-query-primitive-proposal:
+          pro.value: |
+            Employee:
+              type: rdfs.Class
+              collection:
+                pageSize: 100
+                queryEndpoint: https://acme.com/employees/query
+          description: >-
+            Wrong at the protocol level - this would couple every
+            consumer of the Employee class to acme.com's runtime
+            infrastructure. Partition the data into static packages
+            instead. If acme.com wants to offer a faster
+            faceted-query experience over their employees, they
+            can run that as opt-in publisher infrastructure layered
+            ABOVE the partitioned packages, not as a property of
+            the protocol.
+
+    documentation-in-the-graph:
+      label: Documentation in the Graph
+      pro.summary: >-
+        YAML comments are invisible to every consumer downstream of
+        the parser — the reasoner, the SDK, transformations, the
+        Kanonak Browser, AI agents querying the graph, derivations.
+        If a Kanonak document needs a comment to explain something,
+        the explanation belongs in the graph instead. Treat the urge
+        to comment as a discipline signal: structure first, then
+        existing annotation properties, then new vocabulary as a
+        last resort.
+      hasRecommendedRule:
+        avoid-yaml-comments-rule:
+          pro.text: >-
+            Avoid YAML comments (lines starting with #) in Kanonak
+            documents. When you reach for one, work down this list
+            and stop at the first answer that fits:
+            (1) Trust the structure. Is the information already
+            visible in what you authored — type relationships,
+            naming conventions, imports, statement structure? If
+            yes, delete the comment; the reader can see it.
+            (2) Use existing annotation properties. rdfs.comment,
+            rdfs.label, rdfs.seeAlso, the entity's description
+            field if it has one. The vocabulary for in-graph
+            documentation already exists.
+            (3) Propose new vocabulary — only when (1) and (2)
+            genuinely don't fit. New ontology is the rarest
+            answer, not the first reflex.
+          rationale: >-
+            Comments leak knowledge into a layer no consumer can
+            see. Every Kanonak tool — validator, reasoner, browser,
+            derivation engine, AI agent, SDK — operates on the
+            parsed graph, not the source YAML. Information left as
+            a comment cannot be validated, reasoned over, derived
+            from, indexed, surfaced in any rendered artifact, or
+            queried by any consumer. The recurring urge to comment
+            is one of the most reliable ontology-gap signals
+            authors have access to; treat it as a prompt to
+            extend the model or trust the structure, not a prompt
+            to write prose the parser will discard.
+      hasValidExample:
+        annotation-on-class:
+          pro.value: |
+            Person:
+              type: rdfs.Class
+              rdfs.comment: A human being.
+              rdfs.label: Person
+          description: >-
+            The intended meaning lives on the entity itself via
+            rdfs.comment and rdfs.label. Every consumer of the
+            graph can read these annotations; the SDK exposes them;
+            the Kanonak Browser surfaces them in renderings; AI
+            agents can reason over them.
+        structure-speaks-for-itself:
+          pro.value: |
+            employees:
+              type: Package
+              publisher: acme.com
+              version: 1.0.0
+
+            Employee:
+              type: rdfs.Class
+          description: >-
+            A package that declares only a Class and no instances
+            is evidently the schema layer for a dataset. No
+            comment is needed to label it as such — the structure
+            already says it. A reader who knows the partitioning
+            convention recognizes the role on sight.
+      hasInvalidExample:
+        comment-as-class-documentation:
+          pro.value: |
+            Person:
+              type: rdfs.Class
+          description: >-
+            The author wrote a YAML comment above this declaration
+            saying "Person represents a human being." That comment
+            is invisible after parsing — no Kanonak tool can see
+            it. The same information belongs on the entity as
+            rdfs.comment so it lives in the graph.
+        comment-labels-package-role:
+          pro.value: |
+            employees-a:
+              type: Package
+              publisher: acme.com
+              version: 1.0.0
+          description: >-
+            The author preceded this with a comment saying
+            "PARTITION package - alphabetic bucket A." That label
+            is exactly what the structure already conveys (the
+            package name is employees-a; the body would import a
+            schema and assert instances). The urge to label
+            reveals laziness, not missing vocabulary; trust the
+            structure.
+
+    derivation-bindings:
+      label: Derivation Bindings
+      pro.summary: >-
+        A class declares the transformations that produce its derived
+        artifacts via a `derivations` list. Each Derivation entry binds
+        a (format, variant) pair to a TransformationReference. Discovery
+        walks the class hierarchy bottom-up to find the first matching
+        binding.
+      hasRecommendedRule:
+        derivations-on-class-rule:
+          pro.text: >-
+            Declare derivation.derivations on the class whose
+            instances should be derivable into a given format. Use
+            named instances of formats.Format and derivation.Variant
+            for the format and variant fields — never magic strings.
+          rationale: >-
+            Magic strings drift (js vs javascript, csharp vs
+            c-sharp). Named instances are URI-comparable, validate
+            in the type system, and let publishers extend the
+            vocabulary by defining their own format / variant
+            instances without coordinating with anyone.
+        prefer-class-level-over-instance-level-rule:
+          pro.text: >-
+            Prefer declaring derivations on the class. Only declare
+            them on a specific instance when that instance needs a
+            shape no other instance of the class wants — a one-off
+            override.
+          rationale: >-
+            Class-level bindings inherit through subclasses and apply
+            to every instance for free. Per-instance bindings are
+            full replacements (not merges with the class), so an
+            instance that overrides loses access to all the class's
+            other bindings unless it re-declares them.
+
+    derivation-override-semantics:
+      label: Derivation Override Semantics
+      pro.summary: >-
+        Override semantics differ by level. Class-hierarchy override
+        merges by (format, variant) key — a subclass overriding
+        html/default keeps its parent's markdown/summary. Per-instance
+        override replaces entirely — an instance that declares its
+        own derivations sees no class-level bindings.
+      hasRequiredRule:
+        class-merge-by-format-variant-rule:
+          pro.text: >-
+            When discovery walks the class hierarchy, statements at
+            DIFFERENT classes for the SAME (format, variant) pair
+            are resolved by closest-class-wins (subclass takes
+            precedence over superclass). Statements at DIFFERENT
+            classes for DIFFERENT (format, variant) pairs ALL
+            apply — they merge.
+          rationale: >-
+            Authors expect inheritance to behave like CSS specificity
+            or method override in OO: a subclass override replaces
+            the specific binding while inheriting the others. The
+            merge-by-key behavior is what makes universal defaults
+            useful — you override what you want to customize, inherit
+            the rest.
+        instance-override-replaces-rule:
+          pro.text: >-
+            When an instance declares its own derivations, those
+            REPLACE all class-level bindings for that instance — no
+            merge. Instances that override take full ownership of
+            all (format, variant) pairs they want available.
+          rationale: >-
+            Instance-level overrides are deliberate "this resource is
+            special" statements. Merging them with class bindings
+            would re-introduce silent fallback behavior and mask
+            which fields the author intended to override at the leaf.
+            Replace semantics align with the no-mocks/no-fallbacks
+            rule — failure to declare a binding is visible, not
+            silently filled.
+
+    universal-default-derivations:
+      label: Universal Default Derivations
+      pro.summary: >-
+        The kanonak.org/universal-derivations@1.0.0 package augments
+        rdfs.Resource with default derivations so EVERY Kanonak
+        resource has at least HTML / Markdown / JSON artifacts
+        available out of the box, without per-publisher action.
+        Publisher classes override per (format, variant) only where
+        they have something domain-specific to say.
+      hasRecommendedRule:
+        rely-on-universal-defaults-rule:
+          pro.text: >-
+            Authors of new classes SHOULD NOT declare derivations for
+            formats covered by universal-derivations (html, markdown,
+            json) unless they have a publisher-specific shape to
+            render. Letting the universal default apply is the path
+            of least surprise — consumers get consistent rendering
+            across publishers.
+          rationale: >-
+            The Kanonak Browser model is the consumer story: point it
+            at any URI, walk the class hierarchy, find the right
+            derivation, render. Per-class redeclaration of
+            already-universal bindings is noise and divergence;
+            override only when the publisher has earned the right to
+            differ.
+        ship-publisher-vocab-without-derivations-rule:
+          pro.text: >-
+            New publisher vocabulary packages MAY ship without any
+            derivations declarations. Their instances will still
+            render via the universal defaults inherited from
+            rdfs.Resource. Add publisher-specific derivations later
+            as the rendering needs of those instances become clear.
+          rationale: >-
+            Removes the adoption tax. A publisher who declares a new
+            class today gets HTML / Markdown / JSON renderings for
+            free; they can add domain-specific transformations as a
+            later iteration without blocking initial usability.
+
+    canonical-structural-hash:
+      label: Canonical Structural Hash
+      pro.summary: >-
+        A representation-independent SHA-256 hash that identifies a
+        Kanonak package by its semantic content, invariant under YAML
+        styling, resource ordering, comment additions, and any
+        round-trip through alternative serializations. The hash is
+        computed over a deterministic JSON canonicalization of the
+        package's parsed object form — `subjects[]` sorted by
+        canonical URI, `statements[]` within each subject sorted by
+        predicate canonical URI, lists preserved in source order,
+        scalars rendered in a canonical decimal form.
+      prov.conformsTo: rfc-8785-jcs
+      hasRequiredRule:
+        deterministic-subject-ordering-rule:
+          pro.text: >-
+            The canonical form MUST emit a package's subjects in
+            alphabetical order of their canonical URI
+            `publisher/package@major.minor.patch/name`. Authored order
+            in the source file is not part of the hash input.
+          rationale: >-
+            Two YAMLs that author the same logical package in
+            different declaration order must hash identically. Stable
+            sort by canonical URI is the simplest representation-
+            independent ordering that round-trips across YAML / JSON /
+            DynamoDB without per-format knowledge.
+        deterministic-statement-ordering-rule:
+          pro.text: >-
+            Within each subject, the canonical form MUST emit
+            statements in alphabetical order of the predicate's full
+            canonical URI. The local-name portion alone is NOT
+            sufficient — predicates sharing a local name across
+            packages would collide.
+          rationale: >-
+            Statement order in a Kanonak document carries no semantic
+            weight (statements are unordered triples), so the hash
+            must be invariant under reordering. Sorting by full URI
+            preserves identity uniqueness across the package boundary.
+        list-order-preserved-rule:
+          pro.text: >-
+            List-valued statements (`ListStatement.object`) MUST be
+            emitted in source order. Lists are the ONLY position in
+            the canonical form where authored order is part of the
+            hash input.
+          rationale: >-
+            Lists in Kanonak DO carry semantic order — import lists,
+            ordered timeline entries, imports, derivation cascades,
+            authored sequences. Reordering a list IS a semantic
+            change and must change the hash. Sorting list members
+            would conflate semantically-different packages.
+        canonical-scalar-representation-rule:
+          pro.text: >-
+            Numbers MUST emit in canonical decimal form (no leading
+            zeros except `0` itself, no trailing zeros, no negative
+            zero, no scientific notation for magnitudes in the band
+            [10^-6, 10^21)). Booleans MUST emit as `true` / `false`.
+            Strings MUST emit as UTF-8 with standard JSON escaping.
+            References MUST emit as the full canonical URI form
+            `publisher/package@major.minor.patch/name`.
+          rationale: >-
+            Scalar representations are where cross-implementation
+            divergence is easiest to slip in (locale-dependent number
+            formatting, alternative JSON escape sequences, abbreviated
+            URI forms). Pinning each scalar to one form makes the
+            hash byte-portable across implementations.
+        comments-not-in-hash-rule:
+          pro.text: >-
+            YAML `#` comments are not part of the canonical form and
+            therefore not part of the hash. Documentation that needs
+            to survive the hash MUST live in `rdfs.comment` (or
+            another statement on the relevant resource).
+          rationale: >-
+            Comments are invisible to every consumer downstream of
+            the parser. A hash that changed when a comment was added
+            would be unstable under the existing
+            documentation-in-the-graph convention (which already
+            asks authors to lift in-file comments into
+            `rdfs.comment`). The two conventions reinforce each
+            other: comments don't survive tooling and don't affect
+            identity.
+      hasForbiddenRule:
+        no-yaml-byte-hash-for-cross-format-rule:
+          pro.text: >-
+            Implementations MUST NOT use a raw-byte hash of the
+            source YAML as a substitute for the canonical structural
+            hash in any context that crosses representation
+            boundaries (e.g. `kanonak.lock` integrity for a package
+            reconstructed from DynamoDB, OCI-style content
+            addressing, cross-publisher signature verification).
+          rationale: >-
+            Raw-byte hashing ties identity to authoring choices that
+            don't affect meaning, which silently breaks identity the
+            moment a package is round-tripped through a different
+            serialization. The 2.2.0 hash exists to decouple
+            identity from byte representation; reverting to byte
+            hashing reintroduces the problem.
+      hasValidExample:
+        same-package-two-yamls-same-hash:
+          pro.value: |-
+            A package authored with resources in alphabetical order
+            and a package authored with the same resources in reverse
+            order produce the same `sha256:…` value. Tested in the
+            SDK's canonical-hash test suite ("canonical hash is
+            stable across resource order, statement order, quoting
+            choices, and YAML comments").
+          description: Demonstrates the representation-independence guarantee.
+        list-reordering-changes-hash:
+          pro.value: |-
+            A package with `items: [alpha, beta, gamma]` and a package
+            with `items: [gamma, beta, alpha]` produce DIFFERENT
+            hashes — list reordering is a semantic change.
+          description: Demonstrates that list order is preserved (not normalized).
+      hasInvalidExample:
+        yaml-bytes-as-package-hash:
+          pro.value: |-
+            `sha256(readFileSync('contacts.kan.yml'))` — the raw byte
+            digest of the source. Diverges immediately when the
+            package is re-emitted by any tool: a YAML reformat, a
+            DynamoDB seed, even reordering imports for readability.
+          description: >-
+            The pre-2.2.0 hashing approach in kanonak.lock. Migrated
+            on the next `kanonak install` after consumers adopt
+            2.2.0.
+
+    url-hierarchy:
+      label: URL Hierarchy
+      pro.summary: >-
+        Five canonical HTTP URL forms address every browse target on
+        a Kanonak publisher's site. The second path segment's shape
+        determines whether it encodes a version-or-range (semver
+        shape) or a resource name (anything else). The number of
+        digits.parts in a version segment encodes the
+        version-compatibility operator.
+      hasRequiredRule:
+        five-url-forms-rule:
+          pro.text: >-
+            A Kanonak server MUST recognize and route exactly five
+            URL forms:
+              /                              → publisher view
+              /{package}                     → package, any version
+              /{package}/{version-or-range}  → package, version-pinned
+              /{package}/{name}              → resource, any version
+              /{package}/{version-or-range}/{name} → resource, version-pinned
+            Any other URL shape is a 404 or out-of-scope for the
+            Kanonak content layer (consumers may serve other content
+            at non-Kanonak paths).
+          rationale: >-
+            The five-form hierarchy mirrors the protocol's three
+            addressable levels (publisher / package / resource)
+            crossed with the two version-handling options (any /
+            pinned). Restricting to these forms gives consumers a
+            deterministic URL parser and prevents publisher-invented
+            routing schemes from diverging across sites.
+        operator-from-segment-shape-rule:
+          pro.text: >-
+            A second path segment whose shape matches
+            `^\d+(\.\d+){0,2}$` is a version-or-range; the operator is
+            determined by the number of digits parts:
+              one part   (e.g. `2`)      → operator `^` (major-pinned)
+              two parts  (e.g. `2.4`)    → operator `~` (minor-pinned)
+              three parts (e.g. `2.4.6`) → operator `=` (exact)
+            A segment not matching that shape is a resource name.
+            Absent version segment (single-segment package URL,
+            two-segment resource URL) means operator `*` (any).
+          rationale: >-
+            Reuses the same four version-compatibility operators
+            publishers already learn for `imports.match` — one
+            vocabulary across imports and URL rendering. Segment
+            shape encodes intent deterministically so any server's
+            URL parser arrives at the same answer.
+      hasValidExample:
+        package-any-version-example:
+          pro.value: /snapshot
+          description: Package at latest version (operator *)
+        package-major-pinned-example:
+          pro.value: /snapshot/2
+          description: Latest 2.x.y version of snapshot (operator ^)
+        package-minor-pinned-example:
+          pro.value: /snapshot/2.4
+          description: Latest 2.4.x version of snapshot (operator ~)
+        package-exact-example:
+          pro.value: /snapshot/2.4.6
+          description: Exact version (operator =)
+        resource-any-version-example:
+          pro.value: /snapshot/view
+          description: Resource at latest version of snapshot
+        resource-major-pinned-example:
+          pro.value: /snapshot/2/view
+          description: Resource at latest 2.x.y version
+
+    resource-name-not-purely-numeric:
+      label: Resource Name Not Purely Numeric
+      pro.summary: >-
+        Resource names MUST NOT be purely numeric. Required for the
+        URL hierarchy's disambiguation between `/package/2` (a
+        major-pinned package URL) and `/package/some-name` (a
+        resource at latest). Combined with the existing rule that
+        resource names cannot contain periods, all version-shape
+        segments are reserved for the version-or-range role and
+        cannot collide with resource names.
+      hasRequiredRule:
+        no-pure-digit-names-rule:
+          pro.text: >-
+            A resource's local name (the part after the trailing `/`
+            in a Kanonak URI) MUST NOT match the regex `^\d+$`. Names
+            must contain at least one non-digit character.
+          rationale: >-
+            The URL hierarchy uses single-digit segments to mean
+            "latest of this major version" (e.g. `/snapshot/2`).
+            Allowing a resource named `2` would create ambiguity
+            with no canonical resolution.
+      hasValidExample:
+        kebab-name-example:
+          pro.value: stagflation-risk
+          description: Kebab-case name (typical convention)
+        camel-name-example:
+          pro.value: WorldviewSnapshot
+          description: PascalCase class name
+        suffix-digits-example:
+          pro.value: snapshot-v2
+          description: Name containing digits — allowed; only purely-numeric names are rejected
+      hasInvalidExample:
+        pure-digit-name-example:
+          pro.value: "42"
+          description: Rejected — matches `^\d+$`
+        multi-digit-name-example:
+          pro.value: "2024"
+          description: Rejected — year-as-name collides with major-version URL shape
+
+    format-latest-url-behavior:
+      label: Format Latest-URL Behavior
+      pro.summary: >-
+        Every Format declares whether a server should `serve` the
+        latest content directly at a latest-form URL or `redirect`
+        (302) to the pinned URL. Human-facing formats (HTML, SVG,
+        stylesheet) serve directly so users can bookmark and share;
+        machine-facing formats (Markdown, JSON, YAML, programming
+        languages) redirect so automated consumers know exactly which
+        version they fetched.
+      hasRequiredRule:
+        format-declares-behavior-rule:
+          pro.text: >-
+            Every Format instance MUST declare a `latestUrlBehavior`
+            value of either `formats.serve` or `formats.redirect`.
+            New publisher-defined Format instances must choose one;
+            there is no implicit default.
+          rationale: >-
+            Content-aware URL behavior is the protocol's
+            responsibility — each publisher reinventing it leads to
+            inconsistent client experience. Forcing every Format to
+            declare its behavior keeps the policy in the ontology
+            where it belongs.
+        server-honors-latest-url-behavior-rule:
+          pro.text: >-
+            A Kanonak-serving runtime (CLI publisher, dynamic server,
+            CDN edge worker) MUST honor each Format's declared
+            `latestUrlBehavior`. For `serve`: return the latest content
+            at the latest-form URL. For `redirect`: return HTTP 302
+            (or static-host equivalent) to the pinned URL.
+          rationale: >-
+            Servers that ignore `latestUrlBehavior` break the protocol's
+            content-vs-handle contract — automated consumers can't trust
+            that a redirect will surface the version they received.
+
+    protocol-evolution:
+      label: Protocol Evolution
+      pro.summary: >-
+        Substantive design rationale for the kanonak-protocol@2.0.0
+        major version. Captures the decisions worth preserving in
+        the graph rather than trapping them in commit messages or
+        external changelogs that no Kanonak tool can read.
+      hasRecommendedRule:
+        consult-vocab-conventions-for-vocab-guidance-rule:
+          pro.text: >-
+            For idiomatic guidance about a specific vocabulary,
+            consult the sibling *-conventions package alongside
+            that vocabulary (e.g.
+            kanonak.org/transformations-conventions for the
+            transformations vocabulary,
+            kanonak.org/derivation-conventions for derivation
+            authoring patterns including DRY stylesheet styling and
+            override cascade, kanonak.org/site-conventions for the
+            site vocabulary). The kanonak-protocol package documents
+            only foundational protocol concerns that apply regardless
+            of which vocabulary a document uses.
+          rationale: >-
+            Vocabulary-specific guidance evolves at the cadence of
+            the vocabulary itself. Bundling it with the protocol
+            in 1.x meant kanonak-protocol had to bump every time a
+            new transformation primitive shipped, blurring the
+            distinction between fundamental protocol changes and
+            vocabulary additions. 2.0.0 separated them: the
+            protocol bumps when the protocol itself learns
+            something new; vocabulary conventions bump
+            independently with their respective vocabularies.
+        partition-not-paginate-rule:
+          pro.text: >-
+            For datasets too large to publish as one package,
+            partition along a stable axis into multiple packages
+            (see package-partitioning) rather than expecting any
+            runtime paging, filtering, or query primitive in the
+            protocol. The protocol contract is "every package is
+            addressable as a static file"; partitioning is the
+            pagination.
+          rationale: >-
+            A runtime query primitive would couple every consumer
+            to publisher-side execution, foreclose static hosting
+            (GitHub Pages, S3, IPFS), and introduce every
+            server-side complexity (rate limiting, federation,
+            indexing, search) the protocol exists to avoid. The
+            partition-as-pagination decision was made deliberately
+            in 2.0.0 and is preserved as a forbidden rule in
+            package-partitioning to keep future extensions from
+            silently re-introducing the coupling.
+        comment-urge-is-ontology-signal-rule:
+          pro.text: >-
+            The recurring urge to add a YAML comment to a Kanonak
+            document is a discipline signal — not a comfort to
+            indulge. See documentation-in-the-graph for the ordered
+            response (trust structure → existing annotation → new
+            vocabulary as last resort).
+          rationale: >-
+            Comments are invisible to every consumer downstream of
+            the parser. The 1.x protocol package itself accumulated
+            many examples whose meaning was carried in YAML
+            comments; the 2.0.0 sweep moved that meaning into
+            example description fields where it lives in the graph.
+            The convention exists because authors (including the
+            protocol's own authors) reach for comments under
+            pressure; recognizing the urge as an ontology-gap
+            signal redirects the energy productively.
+        breaking-changes-require-major-bump-rule:
+          pro.text: >-
+            Removing or renaming a public Convention, Rule, or
+            Example from a published kanonak-protocol version is a
+            breaking change and REQUIRES a major version bump.
+            Earlier versions remain on disk archivally and continue
+            to satisfy consumers pinned to them.
+          rationale: >-
+            The 1.x → 2.0.0 transition exemplifies this. Six
+            sections were extracted to vocabulary-conventions
+            packages; that removal is breaking even if no
+            programmatic consumer existed (consumers reading the
+            human guidance lose surface area; consumers walking
+            hasConvention via the SDK see fewer entries). Editing
+            an existing version's content in place would have
+            violated both the protocol's own semver convention and
+            the standing operational rule that published packages
+            are immutable. The protocol's authority comes from
+            visibly holding itself to its own rules, including
+            under self-imposed pressure to "just clean it up."
+
+rfc-8785-jcs:
+  type: prov.Standard
+  label: 'RFC 8785: JSON Canonicalization Scheme (JCS)'
+  comment: >-
+    A deterministic serialization of JSON data so that independent
+    implementations produce byte-identical output suitable for hashing
+    and signing. The canonical structural hash adopts this approach but
+    applies it over the parsed Kanonak object model rather than over
+    JSON text, so identity survives a round-trip through YAML, DynamoDB
+    rows, or other serializations.
+  prov.sourceUrl: https://www.rfc-editor.org/rfc/rfc8785
+  prov.sourceDate: '2020-06-01'
+
+jsonpath-rfc-9535:
+  type: prov.Standard
+  label: 'RFC 9535: JSONPath - Query Expressions for JSON'
+  comment: >-
+    Standardizes path expressions that select values within a JSON
+    document. Kanonak's URI fragment grammar mirrors this dot-and-
+    bracket addressing style for traversing a resource's parsed graph.
+  prov.sourceUrl: https://www.rfc-editor.org/rfc/rfc9535
+  prov.sourceDate: '2024-02-01'
