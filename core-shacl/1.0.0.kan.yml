@@ -1,0 +1,163 @@
+core-shacl:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: Core SHACL
+  comment: >-
+    A scoped Shapes Constraint Language vocabulary. It carries exactly the
+    constraints a code generator and schema-aware tools consume — cardinality,
+    closed value sets, and string/number facets — over a single-predicate path.
+    Logical combinators, shape composition, SPARQL constraints, and multi-step
+    paths are intentionally out of scope. Shapes are read by buildOntologyModel
+    to enrich the resolved type-model and validated by the ShaclShape rule.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+
+Shape:
+  type: rdfs.Class
+  label: Shape
+  comment: >-
+    The base class of shapes. A shape carries constraints; concrete shapes are
+    either a NodeShape (constraining a node/class) or a PropertyShape
+    (constraining the values of one property on a node).
+  subClassOf: rdfs.Resource
+
+NodeShape:
+  type: rdfs.Class
+  label: Node Shape
+  comment: >-
+    A shape that targets a class (via targetClass) and groups the
+    PropertyShapes that constrain that class's properties.
+  subClassOf: Shape
+
+PropertyShape:
+  type: rdfs.Class
+  label: Property Shape
+  comment: >-
+    A shape that constrains the values of a single property (named by path) on
+    the nodes its enclosing NodeShape targets.
+  subClassOf: Shape
+
+targetClass:
+  type: rdfs.Property
+  label: Target Class
+  comment: The class that a NodeShape applies to.
+  domain: NodeShape
+  range: rdfs.Class
+
+property:
+  type: rdfs.Property
+  label: Property
+  comment: A PropertyShape that constrains one of the target class's properties.
+  domain: NodeShape
+  range: PropertyShape
+
+path:
+  type: rdfs.Property
+  label: Path
+  comment: >-
+    The property whose values this PropertyShape constrains. Scoped here to a
+    single predicate (no SHACL path expressions).
+  domain: PropertyShape
+  range: rdfs.Property
+
+minCount:
+  type: rdfs.Property
+  label: Min Count
+  comment: >-
+    Minimum number of values for the property. minCount >= 1 makes the property
+    required (generated as non-optional); 0 or unspecified means optional.
+  domain: PropertyShape
+  range: xsd.nonNegativeInteger
+
+maxCount:
+  type: rdfs.Property
+  label: Max Count
+  comment: >-
+    Maximum number of values for the property. maxCount = 1 makes the property
+    single-valued; greater than 1 or unspecified means a list.
+  domain: PropertyShape
+  range: xsd.nonNegativeInteger
+
+datatype:
+  type: rdfs.Property
+  label: Datatype
+  comment: The datatype that each value of the property must carry (e.g. xsd:string).
+  domain: PropertyShape
+  range: rdfs.Datatype
+
+class:
+  type: rdfs.Property
+  label: Class
+  comment: The class that each value of the property must be an instance of.
+  domain: PropertyShape
+  range: rdfs.Class
+
+in:
+  type: rdfs.Property
+  label: In
+  comment: >-
+    The closed set of permitted values for the property, as an rdf:List.
+    Generated as a literal union type.
+  domain: PropertyShape
+  range: rdfs.List
+
+pattern:
+  type: rdfs.Property
+  label: Pattern
+  comment: A regular expression every value of the property must match.
+  domain: PropertyShape
+  range: xsd.string
+
+flags:
+  type: rdfs.Property
+  label: Flags
+  comment: Optional regular-expression flags applied to pattern (e.g. "i").
+  domain: PropertyShape
+  range: xsd.string
+
+minLength:
+  type: rdfs.Property
+  label: Min Length
+  comment: Minimum string length of each value.
+  domain: PropertyShape
+  range: xsd.nonNegativeInteger
+
+maxLength:
+  type: rdfs.Property
+  label: Max Length
+  comment: Maximum string length of each value.
+  domain: PropertyShape
+  range: xsd.nonNegativeInteger
+
+minInclusive:
+  type: rdfs.Property
+  label: Min Inclusive
+  comment: Inclusive lower bound for numeric values.
+  domain: PropertyShape
+  range: rdfs.Literal
+
+maxInclusive:
+  type: rdfs.Property
+  label: Max Inclusive
+  comment: Inclusive upper bound for numeric values.
+  domain: PropertyShape
+  range: rdfs.Literal
+
+message:
+  type: rdfs.Property
+  label: Message
+  comment: >-
+    Human-readable text used as the validation error when a constraint on this
+    shape is violated. Emitted into generated validators.
+  domain: Shape
+  range: xsd.string

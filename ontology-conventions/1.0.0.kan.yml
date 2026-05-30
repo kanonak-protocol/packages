@@ -1,0 +1,363 @@
+ontology-conventions:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: Ontology Conventions
+  comment: >-
+    The canonical guide to MODELING a Kanonak ontology — how to choose between
+    classes, properties, and individuals; when a property is a datatype
+    property versus an object property; how subClassOf and multiple inheritance
+    work and the one conflict they must avoid; and how the protocol decides
+    which individuals are part of the schema (enumerations) versus data. The
+    single source of truth for ontology modeling discipline, separate from the
+    foundational wire-format rules in the kanonak-protocol spec and from the
+    vocabulary-specific authoring guides (look, transformations, view).
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - { package: core-rdf,    match: ^, version: 1.0.0, alias: rdfs }
+        - { package: core-owl,    match: ^, version: 2.1.0, alias: owl }
+        - { package: core-xsd,    match: ^, version: 1.0.0, alias: xsd }
+        - { package: core-shacl,  match: ^, version: 1.0.0, alias: sh }
+        - { package: protocols,   match: ^, version: 2.0.0, alias: pro }
+        - { package: core-prose,  match: ^, version: 1.1.0, alias: prose }
+        - { package: provenance,  match: ^, version: 1.0.0, alias: prov }
+        - { package: people,      match: ^, version: 2.0.0, alias: people }
+
+ontology-conventions-spec:
+  type: pro.Protocol
+  rdfs.label: Ontology Conventions
+  rdfs.comment: >-
+    How to model a domain in Kanonak — classes vs properties vs individuals,
+    datatype vs object properties, subClassOf and multiple inheritance, and the
+    explicit markers that promote individuals into the schema as enumerations.
+  layer: pro.guidance-layer
+  prov.author: people.paul-fryer
+  pro.createdDate: 2026-05-30
+  prose.documentation: |
+    A Kanonak ontology is built from three kinds of resource, and good
+    modeling starts with knowing which one you are creating:
+
+    - a **class** ([[rdfs.Class]]) — a *kind* of thing, a contract its
+      instances satisfy (`Person`, `Invoice`, `OperationCategory`);
+    - a **property** ([[owl.DatatypeProperty]] or [[owl.ObjectProperty]]) —
+      a relationship from a subject to a value, scoped by its
+      [[rdfs.domain]] and [[rdfs.range]];
+    - an **individual** — an *instance* of a class (`alice`, `invoice-2026-04`).
+
+    Everything else in this guide follows from getting those three right.
+
+    **A decision guide — what are you adding?**
+
+    ```text
+    A KIND of thing, with its own properties and instances
+       -> a CLASS.  type: rdfs.Class. Relate it to others with subClassOf.
+
+    A RELATIONSHIP or attribute of a class
+       -> a PROPERTY.  Value is a literal (a date, a count, text)?
+            -> owl.DatatypeProperty, range an xsd datatype.
+          Value is another resource (a reference)?
+            -> owl.ObjectProperty, range the target class.
+
+    A specific INSTANCE
+       -> an INDIVIDUAL.  type: <SomeClass>.
+          Is it a fixed, named member of the model (a category, a status)?
+            -> mark the class owl.oneOf -> it is an ENUMERATION (schema).
+          Is it content that changes over time (a record, a row, a snapshot)?
+            -> leave it unmarked -> it is DATA, not schema.
+    ```
+
+    The protocol never *guesses* which individuals are schema. Promotion is
+    driven by explicit markers ([[owl.oneOf]], [[sh.in]]) — the
+    enumerations-vs-data convention below is the heart of this guide.
+  pro.hasConvention:
+
+    classes-properties-individuals:
+      rdfs.label: Classes, Properties, and Individuals
+      pro.summary: |
+        Model *kinds* as classes, *relationships and attributes* as properties,
+        and *specific things* as individuals. A class is a contract: it says
+        what properties its instances may carry (via each property's
+        [[rdfs.domain]]). A property is first-class — it has its own URI, a
+        domain, and a range — not a field buried in a class. An individual is
+        an instance typed by a class. Name classes as singular nouns
+        (`Invoice`, not `Invoices`); name properties as the relationship they
+        express (`hasAuthor`, `publishedOn`).
+      pro.hasRequiredRule:
+        properties-are-first-class-rule:
+          pro.text: >-
+            A property MUST be declared as its own resource with a
+            [[rdfs.domain]] and [[rdfs.range]], not implied by appearing on an
+            instance. The domain says which class(es) the property applies to;
+            the range says what its values are.
+          pro.rationale: >-
+            First-class properties are what make the graph self-describing and
+            validatable: a tool can ask "what may a Person carry?" and resolve
+            it through domains, rather than discovering fields by scanning
+            instances. It is also what lets one property be shared and refined
+            across classes.
+      pro.hasValidExample:
+        class-with-properties:
+          pro.value: |
+            Person:
+              type: rdfs.Class
+              rdfs.comment: A human being in the directory.
+            fullName:
+              type: owl.DatatypeProperty
+              rdfs.domain: Person
+              rdfs.range: xsd.string
+            employer:
+              type: owl.ObjectProperty
+              rdfs.domain: Person
+              rdfs.range: Organization
+          pro.description: >-
+            `Person` is the kind; `fullName` carries a literal value, `employer`
+            references another resource. Both properties name their domain and
+            range explicitly.
+
+    datatype-vs-object-properties:
+      rdfs.label: Datatype vs Object Properties
+      pro.summary: |
+        The single most important property distinction. A
+        [[owl.DatatypeProperty]] holds a **literal** — a value that *is* its
+        content: a string, a number, a date, a boolean. Its [[rdfs.range]] is
+        an xsd datatype (or [[rdfs.Literal]]). An [[owl.ObjectProperty]] holds
+        a **reference** — a link to another resource. Its range is a
+        [[rdfs.Class]], and its values resolve to other entities by URI. The
+        range is what decides it: a datatype range means a value, a class range
+        means a reference. Choosing wrong makes the graph either un-navigable
+        (a reference flattened to a string) or un-renderable (a literal treated
+        as a broken link).
+      pro.hasRequiredRule:
+        range-matches-kind-rule:
+          pro.text: >-
+            A [[owl.DatatypeProperty]]'s [[rdfs.range]] MUST be a datatype (an
+            `xsd` type or [[rdfs.Literal]]); a [[owl.ObjectProperty]]'s range
+            MUST be a [[rdfs.Class]]. Use a datatype property when the value is
+            content; use an object property when the value is a reference to
+            another resource.
+          pro.rationale: >-
+            The protocol reads a property's kind and range together: an object
+            property's values are resolved as references across the import
+            closure, a datatype property's values are kept as literals. A
+            mismatch (a class range on a datatype property, or a literal range
+            on an object property) makes resolution and rendering wrong, and is
+            reported at validate time.
+      pro.hasValidExample:
+        both-kinds:
+          pro.value: |
+            dueDate:
+              type: owl.DatatypeProperty
+              rdfs.domain: Invoice
+              rdfs.range: xsd.date          # a literal value
+            billedTo:
+              type: owl.ObjectProperty
+              rdfs.domain: Invoice
+              rdfs.range: Customer          # a reference to a resource
+          pro.description: >-
+            `dueDate` is a literal date; `billedTo` points at a `Customer`
+            resource. Range type follows kind in both cases.
+      pro.hasInvalidExample:
+        reference-as-string:
+          pro.value: |
+            billedTo:
+              type: owl.DatatypeProperty   # WRONG: a reference modeled as a literal
+              rdfs.domain: Invoice
+              rdfs.range: xsd.string
+          pro.description: >-
+            Avoid — modeling a relationship as a string. The link to the
+            customer becomes opaque text that cannot be navigated, rendered as
+            a reference, or validated. Use an `owl.ObjectProperty` with range
+            `Customer`.
+
+    subclass-and-multiple-inheritance:
+      rdfs.label: subClassOf and Multiple Inheritance
+      pro.summary: |
+        [[rdfs.subClassOf]] says "every instance of this class is also an
+        instance of that one," so the subclass inherits the parent's
+        properties. A class is a **contract**, and [[rdfs.subClassOf]] is a
+        **list** — a class may have several parents, and an instance may be
+        typed by several classes (multiple inheritance is first-class, faithful
+        to RDF). Inherited properties merge openly: a subclass carries every
+        property whose domain is the class, any ancestor, or [[rdfs.Resource]].
+        The one thing multiple inheritance must not do is inherit two
+        *different* properties that share a name but contradict each other.
+      pro.hasRequiredRule:
+        subclass-is-a-list-rule:
+          pro.text: >-
+            [[rdfs.subClassOf]] MAY name more than one parent; model a class
+            that genuinely satisfies several contracts by listing all of them.
+            Properties accumulate down every branch of the hierarchy.
+          pro.rationale: >-
+            A class is a contract, not a slot in a single-parent tree. Allowing
+            several parents lets a `Manager` be both an `Employee` and a
+            `Stakeholder` without duplicating either contract.
+      pro.hasForbiddenRule:
+        no-incompatible-name-clash-rule:
+          pro.text: >-
+            A class MUST NOT inherit, through two or more parents, two
+            *distinct* properties (different URIs) that share a local name but
+            have incompatible [[rdfs.range]] or cardinality. Resolve the clash
+            by renaming one property, re-scoping its [[rdfs.domain]] so it is
+            not inherited, restructuring the hierarchy, or making the two
+            genuinely identical.
+          pro.rationale: >-
+            A class is a single coherent contract. Two same-named properties
+            with conflicting types are two contradictory obligations for one
+            name — there is no consistent value the instance could carry, and
+            no consumer could agree on the property's shape. The protocol
+            reports this "diamond name-clash" as an error at validate time so it
+            is fixed in the model, not discovered downstream. (A single property
+            reached through several inheritance paths is fine — it is one
+            property; so are two same-named properties whose range and
+            cardinality already agree.)
+      pro.hasValidExample:
+        multiple-parents:
+          pro.value: |
+            Employee:    { type: rdfs.Class }
+            Stakeholder: { type: rdfs.Class }
+            Manager:
+              type: rdfs.Class
+              rdfs.subClassOf: [ Employee, Stakeholder ]
+          pro.description: >-
+            `Manager` satisfies both contracts and inherits the properties of
+            each. No clash, because the inherited property sets are disjoint (or
+            identical where they overlap).
+      pro.hasInvalidExample:
+        diamond-name-clash:
+          pro.value: |
+            # pkg A
+            A: { type: rdfs.Class }
+            code: { type: owl.DatatypeProperty, rdfs.domain: A, rdfs.range: xsd.string }
+            # pkg B
+            B: { type: rdfs.Class }
+            code: { type: owl.DatatypeProperty, rdfs.domain: B, rdfs.range: xsd.integer }
+            # pkg C
+            C:
+              type: rdfs.Class
+              rdfs.subClassOf: [ a.A, b.B ]   # inherits a.code (string) AND b.code (integer)
+          pro.description: >-
+            Invalid — `C` inherits two distinct `code` properties with
+            incompatible ranges (string vs integer). There is no single
+            contract for `code`. Rename one, re-domain it, or restructure so
+            `C` inherits only one `code`.
+
+    enumerations-vs-data-individuals:
+      rdfs.label: Enumerations vs Data Individuals
+      pro.summary: |
+        Individuals fall into two groups that look identical in the graph — both
+        are instances of a class — so the protocol tells them apart only by an
+        **explicit marker**, never by a heuristic. A **closed set of named
+        members** that is part of the model (a fixed list of categories,
+        statuses, operation kinds) is an **enumeration**: mark the class with
+        [[owl.oneOf]] listing exactly its individuals. A **closed set of literal
+        values** allowed on one property is a property enumeration: constrain
+        the property with [[sh.in]] (see the shapes convention). Everything
+        else — instances whose values are content that changes over time
+        (records, rows, snapshots) — is **data**, not schema, and is never
+        promoted. "This class happens to have some individuals" is explicitly
+        NOT a marker.
+      pro.hasRequiredRule:
+        explicit-marker-rule:
+          pro.text: >-
+            An individual becomes part of the schema ONLY through an explicit
+            marker: [[owl.oneOf]] on its class (a closed set of named
+            individuals) or [[sh.in]] on a property (a closed set of literal
+            values). A class that merely has declared individuals MUST NOT be
+            treated as an enumeration — its individuals are data.
+          pro.rationale: >-
+            Enumerable categories and content records are indistinguishable at
+            the graph level — both are typed instances. Without an explicit
+            marker, a tool would have to guess, and would either bake changing
+            data into the schema or miss a genuine enumeration. The marker makes
+            the author's intent unambiguous and stable.
+        oneof-members-are-individuals-rule:
+          pro.text: >-
+            The members of an [[owl.oneOf]] MUST be named individuals (resolved
+            references), not literals. Each member's local name identifies it
+            within the enumeration. For a closed set of literal *values*, do not
+            use [[owl.oneOf]] on a class — constrain a property with [[sh.in]].
+          pro.rationale: >-
+            The [[owl.oneOf]] marker defines a class extensionally as exactly
+            those individuals, so its members are resources with identity. A
+            literal in that list is a category error (and, because an unresolved
+            name reads as a literal, it is how a misspelled or unimported member
+            surfaces) — reported at validate time. Literal value sets are a
+            property-level concern, which is what [[sh.in]] expresses.
+      pro.hasValidExample:
+        closed-enumeration:
+          pro.value: |
+            OperationCategory:
+              type: rdfs.Class
+              owl.oneOf: [ FileOperations, ShellOperations, NetworkOperations ]
+            FileOperations:    { type: OperationCategory, rdfs.label: File Operations }
+            ShellOperations:   { type: OperationCategory, rdfs.label: Shell Operations }
+            NetworkOperations: { type: OperationCategory, rdfs.label: Network Operations }
+          pro.description: >-
+            `OperationCategory` is a closed enumeration of exactly three named
+            individuals — part of the schema. Each member is a resource with its
+            own label and URI.
+      pro.hasInvalidExample:
+        data-as-enumeration:
+          pro.value: |
+            Server:
+              type: rdfs.Class
+              owl.oneOf: [ prod-server-1, prod-server-2 ]   # WRONG: these are data
+          pro.description: >-
+            Avoid — servers are operational data that change over time, not a
+            fixed part of the model. Leave `Server` unmarked and let its
+            instances be data. Reserve [[owl.oneOf]] for genuinely fixed sets
+            (statuses, categories, units).
+
+    constraining-properties-with-shapes:
+      rdfs.label: Constraining Properties with Shapes
+      pro.summary: |
+        The bare class/property graph says a property *exists* on a class; it
+        does not say how many values are allowed, which literals are permitted,
+        or what a string must look like. Express those obligations with scoped
+        SHACL shapes ([[sh.NodeShape]] / [[sh.PropertyShape]]). A
+        [[sh.PropertyShape]] (named by [[sh.path]]) on a shape targeting a class
+        ([[sh.targetClass]]) refines one property: [[sh.minCount]] /
+        [[sh.maxCount]] give cardinality (minCount ≥ 1 is required; maxCount = 1
+        is single-valued, otherwise a list); [[sh.in]] gives a closed set of
+        permitted literal values; [[sh.pattern]] / [[sh.minLength]] /
+        [[sh.maxLength]] constrain strings. Shapes refine the contract — they do
+        not redefine the property.
+      pro.hasRecommendedRule:
+        constrain-with-shapes-rule:
+          pro.text: >-
+            To say a property is required, single-valued, drawn from a closed
+            set of values, or pattern-constrained, declare a [[sh.PropertyShape]]
+            on a [[sh.NodeShape]] whose [[sh.targetClass]] is the class — rather
+            than inventing ad-hoc conventions or encoding the constraint in a
+            comment.
+          pro.rationale: >-
+            Shapes put the constraint in the graph where it is validated and can
+            be read by any consumer, instead of in prose a tool cannot enforce.
+            Cardinality and value sets become first-class, checkable facts about
+            the model.
+        value-set-with-in-rule:
+          pro.text: >-
+            For a property whose values are a fixed set of *literals* (not
+            references), use [[sh.in]] on its [[sh.PropertyShape]]. Use
+            [[owl.oneOf]] on a class only for a fixed set of *individuals*.
+          pro.rationale: >-
+            The two enumeration markers — [[sh.in]] and [[owl.oneOf]] — are not
+            interchangeable: [[sh.in]] constrains a property's literal values,
+            while [[owl.oneOf]] defines a class's individual membership. Matching
+            the marker to what is actually closed keeps the model honest.
+      pro.hasValidExample:
+        shape-constraints:
+          pro.value: |
+            WorkflowShape:
+              type: sh.NodeShape
+              sh.targetClass: Workflow
+              sh.property:
+                - { sh.path: steps, sh.minCount: 1 }                       # required, a list
+                - { sh.path: status, sh.maxCount: 1, sh.in: [ draft, active, done ] }
+                - { sh.path: slug, sh.maxCount: 1, sh.pattern: "^[a-z][a-z0-9-]*$" }
+          pro.description: >-
+            `steps` is required and may repeat; `status` is single-valued and
+            limited to three literal values; `slug` is a single string matching
+            a pattern. Each constraint refines an existing property of
+            `Workflow`.

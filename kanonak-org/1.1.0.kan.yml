@@ -43,6 +43,10 @@ kanonak-org:
           match: ^
           version: 1.1.0
           alias: lookc
+        - package: ontology-conventions
+          match: ^
+          version: 1.0.0
+          alias: oc
         - package: protocols
           match: ^
           version: 2.0.0
@@ -68,6 +72,7 @@ home:
     ontologies across distributed publishers.
   look.nav:
     - nav-spec
+    - nav-ontology
     - nav-look
   look.footer:
     look.text: © 2024–2026 Genval LLC · Kanonak Protocol is open and free to use.
@@ -110,6 +115,15 @@ home:
     guarantees about the shape of information rather than hoping the
     model got it right. Structured, validated data reduces ambiguity and
     gives agents less room to hallucinate.
+
+    ### Modeling conventions
+
+    Designing an ontology well comes down to a small set of conventions:
+    choosing classes versus properties, datatype versus object properties,
+    how `subClassOf` composes under multiple inheritance, and the explicit
+    markers that turn a closed set of individuals into an enumeration. The
+    guide to modeling a domain in Kanonak is
+    [[oc.ontology-conventions-spec|the Ontology conventions]].
 
     ### The Look system
 
@@ -251,6 +265,11 @@ nav-spec:
   type: look.NavLink
   label: Protocol Spec
   look.target: kp.kanonak-protocol-spec
+
+nav-ontology:
+  type: look.NavLink
+  label: Ontology Conventions
+  look.target: oc.ontology-conventions-spec
 
 nav-look:
   type: look.NavLink
