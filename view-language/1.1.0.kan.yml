@@ -1,0 +1,444 @@
+view-language:
+  type: Package
+  publisher: kanonak.org
+  version: 1.1.0
+  label: View Language
+  comment: >-
+    The View Language documented as a protocol — the conventions, rules,
+    and worked examples for authoring DATA Views (queries that reshape a
+    class into an output shape) and consuming the EphemeralPackages they
+    materialize into. Opens by routing the author: view.View is one base
+    with two specializations — a DATA view (here) or a VISUAL look view
+    (kanonak.org/look-conventions) — chosen by intent, so an agent gets one
+    clear way in rather than a menu of options.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - { package: core-rdf,        match: ^, version: 1.0.0,  alias: rdfs }
+        - { package: protocols,       match: ^, version: 2.0.0,  alias: pro }
+        - { package: core-prose,      match: ^, version: 1.1.0,  alias: prose }
+        - { package: view,            match: ^, version: 1.1.0,  alias: v }
+        - { package: core-kanonak,    match: ^, version: 2.1.0,  alias: ck }
+        - { package: transformations, match: ^, version: 3.14.0, alias: tx }
+        - { package: derivation,      match: ^, version: 1.1.0,  alias: deriv }
+        - { package: look,            match: ^, version: 2.0.0,  alias: look }
+        - { package: provenance,      match: ^, version: 1.0.0,  alias: prov }
+        - { package: people,          match: ^, version: 2.0.0,  alias: people }
+
+view-language-spec:
+  type: pro.Protocol
+  rdfs.label: View Language
+  rdfs.comment: >-
+    A protocol for authoring queries as data. A View is a producer-agnostic
+    request — select instances of a class, filter them, reshape them into an
+    output class — and running one yields an EphemeralPackage: a versionless,
+    content-addressed result that describes its own shape through its imports.
+  layer: pro.integration-layer
+  prov.author: people.paul-fryer
+  pro.createdDate: 2026-05-29
+  prose.documentation: |
+    **Start here — which View do you want?** [[v.View]] is the one base
+    abstraction: *a shape over a context class*. It has exactly two
+    specializations, and you choose by **intent**, not by weighing options:
+
+    - **You want computed data back** — a query result you can address, cache,
+      or hand to another system. Author a **data View** (a plain [[v.View]])
+      and run it; you get a [[ck.EphemeralPackage]]. **This guide covers that.**
+    - **You want a rendered page or figure** for a resource. Author a **visual
+      View** — a `look.ResourceView` / `PackageView` / `PublisherView` (a
+      subclass of `view.View`) attached with `deriv.look`. That is the
+      `kanonak.org/look-conventions` guide; do not author projections there.
+
+    One base, one decision. The rest of this guide is the data-View path only —
+    if you are styling a resource, stop here and follow look-conventions.
+
+    ---
+
+    A **View** is a query expressed as data. Instead of asking *how* to fetch
+    something, you declare *what shape* you want over *which class*, and a
+    producer answers it. The request is a [[v.View]]; the answer is a
+    [[ck.EphemeralPackage]]. The producer in between is pluggable — the
+    in-graph materializer answers from the local catalog today, and the same
+    View could be answered by a database or an API binding tomorrow without
+    the author changing a line.
+
+    A View has two class-level anchors. [[v.bind]] is the **input** class —
+    the instances the View iterates. [[v.produces]] is the **output** class —
+    what each result is typed as. A [[v.Projection]] bridges them: it computes
+    a [[v.value]] against a bound instance and stores it under the [[v.as]]
+    property of a produces instance.
+
+    ```yaml
+    AuthorView:
+      type: v.View
+      v.bind: Author                 # iterate every Author (subclass-aware)
+      v.produces: AuthorSummary      # each result is an AuthorSummary
+      v.projections:
+        - v.as: summaryName          # store under AuthorSummary.summaryName
+          v.value:                   # read penName off the bound Author
+            type: tx.PropertyRead
+            tx.readSource: { type: tx.VarRef, tx.varName: input }
+            tx.readProp: penName
+    ```
+
+    Run it and you get back the answer as instances of `AuthorSummary`, each
+    referencing the stable author it came from:
+
+    ```bash
+    kanonak view run example.org/bib/AuthorView
+    ```
+
+    Because the View is computed entirely from the
+    [[tx.Expression]] vocabulary — the same one the rest of the protocol uses —
+    a View introduces no new function language. It is a *use* of `tx.*`, not a
+    parallel grammar.
+  pro.hasConvention:
+
+    view-by-intent:
+      rdfs.label: Pick Your View by Intent
+      pro.summary: |
+        [[v.View]] is one base — *a shape over a context class* — with two
+        specializations. Choose by what you WANT, then follow only that path:
+        a **data View** when you want computed data back (a query result), or a
+        **visual View** (a look view) when you want a rendered page. They are
+        not interchangeable styles of the same task; they answer different
+        questions, so there is never a decision about "which option is better."
+        A data View declares [[v.bind]] + [[v.produces]] + [[v.projections]]
+        and is RUN to yield a [[ck.EphemeralPackage]]. A visual View is a
+        `look.ResourceView` / `PackageView` / `PublisherView` (each a subclass
+        of `view.View`), attached to a class with `deriv.look`, declaring
+        `look.bands`; it is RENDERED, not run, and its context comes from the
+        attachment rather than an authored `bind`. The visual path is the
+        `kanonak.org/look-conventions` guide — this guide is the data path.
+      pro.hasRequiredRule:
+        no-mixing-rule:
+          pro.text: >-
+            A data [[v.View]] MUST express its output through
+            [[v.projections]] and MUST NOT carry `look.bands`; a visual look
+            view MUST express its output through `look.bands` and MUST NOT
+            carry [[v.projections]] or [[v.produces]]. One View serves one
+            intent.
+          pro.rationale: >-
+            The two specializations share the `view.View` base and its
+            `bind`/path-validation machinery, but their output surfaces are
+            disjoint: projections compute addressable data cells, bands render
+            regions. Mixing them in one View is the "menu of options" confusion
+            this convention exists to remove — an authoring tool, or an agent,
+            picks the surface from the intent and never has both in play.
+        data-view-here-rule:
+          pro.text: >-
+            Author a data [[v.View]] (the subject of this guide) only when the
+            goal is a computed, addressable RESULT. When the goal is presenting
+            a resource, author a visual look view per
+            `kanonak.org/look-conventions` instead — do not reach for
+            `v.projections`.
+          pro.rationale: >-
+            Routing by intent at the very first step is what gives an agent one
+            way in. The most common confusion is treating a page layout as a
+            query (or vice versa); naming the fork up front, with one canonical
+            home per branch, prevents it.
+      pro.hasValidExample:
+        intent-routing:
+          pro.value: |
+            # WANT DATA BACK → data View (this guide), run it:
+            AuthorView:
+              type: v.View
+              v.bind: Author
+              v.produces: AuthorSummary
+              v.projections:
+                - v.as: summaryName
+                  v.value:
+                    type: tx.PropertyRead
+                    tx.readSource: { type: tx.VarRef, tx.varName: input }
+                    tx.readProp: penName
+
+            # WANT A RENDERED PAGE → visual look view (look-conventions),
+            # attached to the class, rendered (no bind, no projections):
+            Author:
+              deriv.look:
+                type: look.ResourceView
+                look.bands:
+                  - { type: look.Hero, look.title: penName }
+          pro.description: >-
+            The same domain class answered two ways by intent: a data View that
+            RESHAPES Author into an addressable AuthorSummary result, and a
+            visual look view that RENDERS an Author page. Each uses only its own
+            surface.
+      pro.hasInvalidExample:
+        mixed-surfaces:
+          pro.value: |
+            MixedView:
+              type: v.View
+              v.bind: Author
+              v.projections:
+                - v.as: summaryName
+                  v.value: { type: tx.PropertyRead, tx.readSource: { type: tx.VarRef, tx.varName: input }, tx.readProp: penName }
+              look.bands:
+                - { type: look.Hero, look.title: penName }
+          pro.description: >-
+            Invalid — one View carrying both a data surface (`v.projections`)
+            and a visual surface (`look.bands`). Split it: a data View to
+            produce the result, and a visual look view (on the produces class)
+            to style it.
+
+    two-anchor-shape:
+      rdfs.label: Two-Anchor Shape
+      pro.summary: |
+        A View separates the class it reads from the class it writes.
+        [[v.bind]] is the input context — the instances selected and iterated,
+        with each one available to expressions as the `input` binding.
+        [[v.produces]] is the output schema — the class every result instance
+        is typed as. Keeping them distinct is what lets a View *reshape* data
+        rather than merely echo it: you read `Author` and emit `AuthorSummary`.
+      pro.hasRequiredRule:
+        bind-required-rule:
+          pro.text: >-
+            A data [[v.View]] — one authored standalone and RUN as a query (the
+            subject of this guide) — MUST declare a [[v.bind]] class. It is the
+            context every [[v.value]] expression is evaluated against; without
+            it the View has nothing to project from. (A VISUAL look view does
+            not author `bind`: its context is the class its `deriv.look` is
+            attached to — see the Pick Your View by Intent convention. That is
+            the only case where `bind` is omitted.)
+          pro.rationale: >-
+            The bound class is the data View's domain of discourse. The
+            validator resolves every projection path against it, so a missing
+            bind would leave every path uncheckable — the opposite of the
+            protocol's no-magic-strings guarantee. A look view sidesteps this
+            because the attachment supplies the same context; `view.bind` is
+            therefore optional ONLY when supplied contextually that way, never
+            for a standalone query View.
+      pro.hasRecommendedRule:
+        produces-design-time-rule:
+          pro.text: |
+            A reshaping View SHOULD declare a [[v.produces]] class that is
+            defined at design time, in the same durable package as the View,
+            with its own properties — never a class synthesized at runtime
+            inside the result.
+          pro.rationale: |
+            Presentation binds to classes at design time. A [[deriv.look]]
+            declaration — for example a [[look.ResourceView]] — names *a class*
+            and *its properties*. You cannot attach a look to a class that only
+            exists once a query has run. So if a View's result is meant to be
+            aggregated and visualized, its output class must exist ahead of
+            time for the styling to bind to. This mirrors how search results
+            are typed by design-time classes and styled through look.
+      pro.hasValidExample:
+        bind-and-produces:
+          pro.value: |
+            AuthorView:
+              type: v.View
+              v.bind: Author
+              v.produces: AuthorSummary
+              v.projections:
+                - v.as: summaryName
+                  v.value:
+                    type: tx.PropertyRead
+                    tx.readSource: { type: tx.VarRef, tx.varName: input }
+                    tx.readProp: penName
+          pro.description: >-
+            A reshaping View: it reads `Author` instances and produces
+            `AuthorSummary` instances, mapping each author's `penName` onto the
+            summary's `summaryName`.
+      pro.hasInvalidExample:
+        no-bind:
+          pro.value: |
+            BrokenView:
+              type: v.View
+              v.produces: AuthorSummary
+          pro.description: >-
+            Invalid — a View with no [[v.bind]] has no input context to project
+            from, so no projection path can be resolved or evaluated.
+
+    typed-projections:
+      rdfs.label: Typed Projections
+      pro.summary: |
+        Each [[v.Projection]] is a typed bridge from input-space to
+        output-space. [[v.value]] is any [[tx.Expression]] evaluated against
+        the bound `input` instance — a [[tx.PropertyRead]] for a single
+        property, a [[tx.Traverse]] for a multi-step path, a [[tx.Count]] or
+        [[tx.Concat]] for derived values. [[v.as]] is the output property the
+        result is stored under. Both ends are real references resolved through
+        the object model — never a free-text column name.
+      pro.hasRequiredRule:
+        value-in-scope-rule:
+          pro.text: >-
+            Every property a [[v.value]] reads MUST be in scope for the View's
+            [[v.bind]] class (the class, an ancestor, or rdfs.Resource), with
+            the context advancing through each [[tx.Traverse]] step's range.
+          pro.rationale: >-
+            A path that reads a property the bound class does not have would
+            silently yield nothing at materialization time. Validating it
+            against `bind` turns that into an authoring-time error instead of a
+            quietly empty result.
+        as-in-scope-rule:
+          pro.text: >-
+            A projection's [[v.as]] property MUST have a domain that covers the
+            View's [[v.produces]] class. Reuse an existing property where one
+            fits, or define a new one in the View's package with proper
+            domain and range.
+          pro.rationale: >-
+            The result instance is typed by `produces`, so the predicate it
+            carries must be one `produces` instances can legally hold.
+            Validating `as` against `produces` keeps the output graph
+            resolvable and styleable rather than asserting foreign predicates.
+      pro.hasValidExample:
+        multi-step-path:
+          pro.value: |
+            - v.as: bookTitles
+              v.value:
+                type: tx.Traverse
+                tx.traverseSource: { type: tx.VarRef, tx.varName: input }
+                tx.through: wrote
+                tx.step:
+                  type: tx.PropertyRead
+                  tx.readSource: { type: tx.VarRef, tx.varName: input }
+                  tx.readProp: title
+          pro.description: >-
+            A projection whose value walks a path — from the bound author,
+            through `wrote`, to each book's `title`. The validator advances the
+            context from `Author` to `Book` across the traversal, then checks
+            `title` against `Book`.
+      pro.hasInvalidExample:
+        as-out-of-scope:
+          pro.value: |
+            - v.as: sku
+              v.value:
+                type: tx.PropertyRead
+                tx.readSource: { type: tx.VarRef, tx.varName: input }
+                tx.readProp: penName
+          pro.description: >-
+            Invalid when `produces` is `AuthorSummary` and `sku` is a property
+            of some unrelated class — its domain does not cover `AuthorSummary`,
+            so the result instance could not carry the value.
+
+    where-filtering:
+      rdfs.label: Where Filtering
+      pro.summary: |
+        [[v.where]] narrows which bound instances the View includes. Each
+        predicate is a boolean [[tx.Expression]] — typically a [[tx.Equals]],
+        comparison, or [[tx.Contains]] over a read — evaluated against the
+        `input` instance. An instance is kept only when every predicate holds.
+        Filtering reuses the one expression vocabulary rather than introducing
+        a separate constraint grammar.
+      pro.hasRecommendedRule:
+        where-boolean-rule:
+          pro.text: >-
+            Each [[v.where]] predicate SHOULD be an expression that yields a
+            boolean, read against the bound `input` instance.
+          pro.rationale: >-
+            Predicates are the selection filter; a non-boolean predicate has no
+            clear keep-or-drop meaning. Reusing [[tx.Expression]] keeps one
+            language for both projection and filtering.
+      pro.hasValidExample:
+        featured-only:
+          pro.value: |
+            v.where:
+              - type: tx.Equals
+                tx.compareLeft:
+                  type: tx.PropertyRead
+                  tx.readSource: { type: tx.VarRef, tx.varName: input }
+                  tx.readProp: penName
+                tx.compareRight: { type: tx.StringLiteral, tx.stringLiteral: "Ursula K. Le Guin" }
+          pro.description: >-
+            Keeps only the bound authors whose `penName` equals the given
+            value; every other instance is dropped before projection.
+
+    ephemeral-result:
+      rdfs.label: Ephemeral Result
+      pro.summary: |
+        Running a View yields a [[ck.EphemeralPackage]] — a just-in-time
+        package carrying the answer. The first resource in the package is the
+        package header; everything after it is the response. Each response
+        instance is typed by the View's [[v.produces]] class, carries the
+        projected values, and points back at the stable source it came from
+        through [[v.derivedFrom]] — a reference, never a copy. The data that
+        matters lives in what the result points at.
+      pro.hasRequiredRule:
+        produces-typed-rows-rule:
+          pro.text: >-
+            Each result instance MUST be typed by the View's [[v.produces]]
+            class and MUST carry a [[v.derivedFrom]] reference to the stable
+            input instance it was derived from.
+          pro.rationale: >-
+            Typing rows by `produces` is what makes the result recognizable and
+            styleable; `derivedFrom` keeps the result a set of references into
+            the authoritative data rather than a detached copy that can drift.
+      pro.hasValidExample:
+        author-summary-result:
+          pro.value: |
+            q-9d35e0e1fe11e330:
+              type: EphemeralPackage
+              publisher: example.org
+              imports:
+                - publisher: example.org
+                  packages: [ { package: bib, match: ^, version: 1.0.0, alias: bib } ]
+                - publisher: kanonak.org
+                  packages:
+                    - { package: core-kanonak, match: ^, version: 2.1.0, alias: ck }
+                    - { package: view,         match: ^, version: 1.1.0, alias: v }
+              ck.contentHash: sha256:9d35e0e1fe11e330263fd66ef660b269c60ca4a0ee9dbfb008445eafcea406d4
+            le-guin:
+              type: bib.AuthorSummary
+              bib.summaryName: Ursula K. Le Guin
+              v.derivedFrom: bib.le-guin
+          pro.description: >-
+            The materialized result of `AuthorView`. The header is the
+            [[ck.EphemeralPackage]]; the `le-guin` row is an `AuthorSummary`
+            carrying the projected `summaryName` and a [[v.derivedFrom]]
+            reference back to the stable author.
+
+    content-addressed-identity:
+      rdfs.label: Content-Addressed Identity
+      pro.summary: |
+        A [[ck.EphemeralPackage]] is versionless — semver is meaningless for a
+        per-invocation artifact. Its identity is [[ck.contentHash]], the
+        `sha256:` of its body in canonical form. The package name carries a
+        short, address-safe digest derived from that hash, so the colon-bearing
+        hash never has to be parsed as part of an address. Provenance such as
+        [[ck.resolvedAt]] lives only on the header, outside the hashed body.
+      pro.hasRequiredRule:
+        versionless-rule:
+          pro.text: >-
+            A [[ck.EphemeralPackage]] MUST NOT declare a version, and MUST
+            record its [[ck.contentHash]] over its body only — never including
+            the header or provenance fields.
+          pro.rationale: |
+            Ephemerality is explicit via the type, not inferred from a missing
+            version. Hashing the body alone — excluding [[ck.resolvedAt]] and
+            the package's own name — is what makes identity deterministic: the
+            same View over the same data yields the same hash, so identical
+            results dedupe and cache cleanly even when produced at different
+            times.
+      pro.hasValidExample:
+        identity-fields:
+          pro.value: |
+            q-9d35e0e1fe11e330:
+              type: EphemeralPackage
+              publisher: example.org
+              ck.contentHash: sha256:9d35e0e1fe11e330263fd66ef660b269c60ca4a0ee9dbfb008445eafcea406d4
+              ck.resolvedAt: '2026-05-30T00:15:45.288Z'
+          pro.description: >-
+            The name `q-9d35e0e1fe11e330` is the address-safe prefix of the
+            hash; the full hash lives in [[ck.contentHash]]; [[ck.resolvedAt]]
+            records when it was produced but does not affect the hash.
+
+    self-describing-result:
+      rdfs.label: Self-Describing Result
+      pro.summary: |
+        A [[ck.EphemeralPackage]] imports the transitive closure of every
+        vocabulary its shape uses — the [[v.produces]] class's package, the
+        packages of the properties it carries, and the packages of the
+        resources it references. A receiver that has never seen the query can
+        fetch those vocabularies and fully understand the result, including
+        styling it through whatever look the produces class declares.
+      pro.hasRequiredRule:
+        closure-imports-rule:
+          pro.text: >-
+            A [[ck.EphemeralPackage]] MUST import every package whose terms its
+            body references, so the result is resolvable on its own.
+          pro.rationale: >-
+            Self-description through the import closure is what lets a result
+            cross a system boundary with no prior schema agreement — the
+            receiver resolves the shape from the imports rather than negotiating
+            it out of band.

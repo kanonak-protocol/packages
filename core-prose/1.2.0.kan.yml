@@ -1,0 +1,75 @@
+core-prose:
+  type: Package
+  publisher: kanonak.org
+  version: 1.2.0
+  label: Core Prose
+  comment: >-
+    Prose datatypes for Kanonak. Defines Markdown (with validated
+    inline references) and SubstitutableString, plus a universal
+    documentation property — the Markdown counterpart of rdfs.comment
+    that applies to any resource.
+  documentation: >-
+    The **core-prose** package gives Kanonak a place for human-facing
+    writing that is still part of the graph. [[Markdown]] is a datatype
+    whose `[[reference]]` placeholders resolve through the object model
+    and are validated, so prose can link to resources without magic
+    strings. [[SubstitutableString]] carries those same `[[reference]]`
+    placeholders for any templated text (bare, alias-qualified, or with a
+    `|display label`); Markdown is the CommonMark-flavoured subtype. (Prose
+    references are ALWAYS `[[reference]]` — never `{{…}}`, which is an
+    unrelated, now-removed look SVG-tier syntax replaced by tx.Expression.)
+    The [[documentation]] property is the Markdown
+    counterpart of rdfs.comment: it has no domain, so any resource — a
+    package, a class, an instance — can describe itself richly. This
+    very description is a documentation value.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+
+SubstitutableString:
+  type: Datatype
+  label: Substitutable String
+  comment: >
+    A string that may embed [[reference]] placeholders. Each placeholder
+    names a Kanonak resource resolved through the containing document's
+    import closure - bare ([[seattle]]), alias-qualified ([[us.portland]]),
+    or a local entity. An optional display label follows a pipe, e.g.
+    [[seattle|the Emerald City]]. All other text is opaque to the SDK.
+  subClassOf: xsd.string
+
+Markdown:
+  type: Datatype
+  label: Markdown
+  comment: >
+    A SubstitutableString whose surrounding text is CommonMark markdown.
+    The reference contract is identical to SubstitutableString; the
+    markdown flavour only affects how derivations render the value -
+    verbatim into markdown output, through a renderer into HTML.
+    Placeholders inside fenced or inline code are left untouched.
+  subClassOf: SubstitutableString
+
+documentation:
+  type: owl.DatatypeProperty
+  label: Documentation
+  comment: >-
+    Long-form prose describing a resource. The Markdown counterpart of
+    rdfs.comment: where comment is a short, plain one-liner,
+    documentation is rich CommonMark that can embed [[reference]] links
+    to specific resources (resolved through the document's import
+    closure and validated like any reference). No domain is asserted -
+    like rdfs.comment it applies to any resource. Rendered as a prose
+    section by the look layer (self-suppressing when absent), so a
+    package can describe its purpose and how its resources fit together,
+    a class can document itself, and so on.
+  range: Markdown

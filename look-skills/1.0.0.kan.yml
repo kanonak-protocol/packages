@@ -176,8 +176,9 @@ look-authoring:
     - title: The display lens — make ANY ontology render correctly (displayLabel / displaySummary)
       body: |
         Renderers need a display name and a one-line summary for every
-        resource — for cards, nav links, hero titles, the SVG `{{label}}`,
-        reference links, page titles. By default those come from `rdfs.label`
+        resource — for cards, nav links, hero titles, the SVG label tier
+        (a `tx.VarRef` of `label`), reference links, page titles. By default
+        those come from `rdfs.label`
         and `rdfs.comment`. **But `rdfs.label`/`rdfs.comment` are a
         convention, not a requirement.** Many well-designed ontologies carry
         their display fields in domain-specific properties (`teamName`,
@@ -234,12 +235,36 @@ look-authoring:
               - type: look.StatRow
                 look.stats:
                   - look.statLabel: "μ"
-                    look.statPath: "ont.estimate/est.mean"
+                    look.statPath:                       # tx.Expression: read est.mean off the embedded estimate
+                      type: tx.PropertyRead
+                      tx.readSource:
+                        type: tx.PropertyRead
+                        tx.readSource: { type: tx.VarRef, tx.varName: input }
+                        tx.readProp: ont.estimate
+                      tx.readProp: est.mean
                   - look.statLabel: "95% CI"
-                    look.statPath: "ont.estimate/est.upper95"
+                    look.statPath:
+                      type: tx.PropertyRead
+                      tx.readSource:
+                        type: tx.PropertyRead
+                        tx.readSource: { type: tx.VarRef, tx.varName: input }
+                        tx.readProp: ont.estimate
+                      tx.readProp: est.upper95
               - type: look.Distribution
-                look.alphaPath: "ont.estimate/est.alpha"
-                look.betaPath: "ont.estimate/est.beta"
+                look.alphaPath:
+                  type: tx.PropertyRead
+                  tx.readSource:
+                    type: tx.PropertyRead
+                    tx.readSource: { type: tx.VarRef, tx.varName: input }
+                    tx.readProp: ont.estimate
+                  tx.readProp: est.alpha
+                look.betaPath:
+                  type: tx.PropertyRead
+                  tx.readSource:
+                    type: tx.PropertyRead
+                    tx.readSource: { type: tx.VarRef, tx.varName: input }
+                    tx.readProp: ont.estimate
+                  tx.readProp: est.beta
               - type: look.Markdown
                 look.source: ont.rationale            # a core-prose Markdown property
               - type: look.ReferenceList
@@ -258,8 +283,13 @@ look-authoring:
           value off the instance. `look.title: ont.strategyName` means "read
           this instance's `strategyName`."
         - **Path bands** (`StatRow`, `Distribution`, `Timeline`) take a
-          `/`-separated `*Path` string that reaches *into* embedded objects:
-          `"ont.estimate/est.mean"` follows `estimate`, then reads `mean`.
+          `tx.Expression` in each `*Path` slot that computes a value off the
+          instance. Reaching into an embedded object is a nested
+          `tx.PropertyRead` (read `ont.estimate`, then read `est.mean` off
+          it); stepping through a *reference* is a `tx.Traverse` (its `step`
+          reads a property off the traversed-to subject). Every property is a
+          real reference resolved through the object model and validated at
+          `kanonak validate` time — no string paths.
         - **`look.Details`** is the great default — a recursive property
           sheet for everything you have not surfaced elsewhere. A minimal
           good ResourceView is often just `Hero` + `Details`.
@@ -292,7 +322,13 @@ look-authoring:
                 look.source: ont.WorldviewThesis      # the class to place on the time axis
                 look.orderBy: ont.asOf
                 look.track: ont.hasThesis              # sub-resources to follow across versions
-                look.metricPath: "ont.confidence/est.mean"
+                look.metricPath:                       # evaluated on each tracked sub-resource
+                  type: tx.PropertyRead
+                  tx.readSource:
+                    type: tx.PropertyRead
+                    tx.readSource: { type: tx.VarRef, tx.varName: input }
+                    tx.readProp: ont.confidence
+                  tx.readProp: est.mean
                 look.axisMin: 0
                 look.axisMax: 1
               - type: look.ResourceGrid
@@ -418,7 +454,9 @@ look-authoring:
         Slots that name a property (`title`, `subtitle`, `source`, `chips`,
         `entries`) take a property reference and read its value off the
         input. Slots ending in `Path` (`metricPath`, `statPath`, `labelPath`)
-        take a `/`-separated path string that reaches into embeddeds.
+        take a `tx.Expression` — a `tx.PropertyRead` over `tx.VarRef(input)`,
+        nested to reach into an embedded, or a `tx.Traverse` to step through
+        a reference — so every property resolves through the object model.
 
     - title: Tokens and instance variants (theming and state)
       body: |
@@ -477,7 +515,8 @@ look-authoring:
                 - {package: core-owl, match: ^, version: 2.0.0, alias: owl}
                 - {package: core-xsd, match: ^, version: 1.0.0, alias: xsd}
                 - {package: core-prose, match: ^, version: 1.0.0, alias: prose}
-                - {package: look, match: ^, version: 1.18.0, alias: look}
+                - {package: look, match: ^, version: 2.0.0, alias: look}
+                - {package: transformations, match: ^, version: 3.14.0, alias: tx}
                 - {package: derivation, match: ^, version: 1.1.0, alias: derivation}
 
         strategyName:

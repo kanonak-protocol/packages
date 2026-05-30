@@ -1,0 +1,196 @@
+view:
+  type: Package
+  publisher: kanonak.org
+  version: 1.1.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-kanonak
+          match: ^
+          version: 2.0.0
+          alias: ck
+        - package: transformations
+          match: ^
+          version: 3.14.0
+          alias: tx
+
+View:
+  type: rdfs.Class
+  label: View
+  comment: >-
+    Abstract base for the canonical "shape over a class" primitive of the
+    protocol. A View binds to a context class and declares an ordered output
+    over the bound instance — a list of `projections` (named value cells)
+    for a data View, or an ordered band surface for a visual subclass —
+    plus optional boolean `where` filters. Not directly instantiable:
+    authors instantiate a concrete subclass. Two families share this base:
+    a DATA View (e.g. a query View materialized into an EphemeralPackage)
+    projects values through `projections`; a VISUAL View (`look.View` and
+    its ResourceView / PackageView / PublisherView / SemanticSvg subclasses)
+    renders ordered `look.bands` instead — bands are the visual analog of
+    projections. Both bind to a context class the same way (explicit `bind`,
+    or supplied by a `derivation.look` attachment), share the same
+    object-model path validation, and compute through the
+    kanonak.org/transformations Expression vocabulary rather than a parallel
+    one — a View is a use of `tx.Expression`, not a new function language.
+
+Projection:
+  type: rdfs.Class
+  label: Projection
+  comment: >-
+    One cell in a View's shape — it MAPS a value computed from the input
+    instance onto a property of the output. `value` is any `tx.Expression`
+    evaluated against the `bind` instance (available as the `input`
+    environment binding, the same convention `tx.Transformation` uses);
+    `as` names the property of the View's `produces` class the result is
+    stored under. The common `value` case — reading a property or walking a
+    path — is a `tx.PropertyRead` or `tx.Traverse`; aggregation is a
+    `tx.Count` / `tx.Sum` / `tx.Average` over a list-valued expression; text
+    shaping is a `tx.Normalize` or `tx.DisplayLabel`. The two ends are
+    validated independently at `kanonak validate` time: every path step in
+    `value` against `bind`, and `as` against `produces`. So a projection is
+    a typed bridge from input-space to output-space, with both ends resolved
+    through the object model — never a free-text column name.
+
+ViewPackage:
+  type: rdfs.Class
+  subClassOf: ck.Package
+  label: View Package
+  comment: >-
+    A Package whose purpose is to publish a single, stable, addressable
+    View. Its `rootView` names the one View instance the package exists to
+    carry; other resources in the package are that View's supporting parts
+    (Projections, predicate expressions). Because it is an ordinary
+    versioned Package, a ViewPackage is referenced by URI like any other —
+    this is how an agent names a query to run, or a publisher ships a
+    reusable shape, without inlining the View at every call site.
+
+rootView:
+  type: owl.ObjectProperty
+  domain: ViewPackage
+  range: View
+  label: Root View
+  comment: >-
+    The single root View this package publishes. Exactly one per
+    ViewPackage: the package is the unit of versioning and addressing for
+    that one View. Supporting resources (its Projections, its `where`
+    predicate expressions) live alongside it in the package but are reached
+    through the root View, not named as additional roots.
+
+bind:
+  type: owl.ObjectProperty
+  domain: View
+  range: rdfs.Class
+  label: Bind
+  comment: >-
+    The context class this View is a shape over — the type of the instance
+    each Projection (or, for a visual subclass, each Band) is computed
+    against. A reference to the Class entity itself, resolved through the
+    import closure, so the validator can check that every path is reachable
+    from this class. Required for a STANDALONE / addressable View (one named
+    as a ViewPackage `rootView`, or run as a query): with no bound class it
+    has no context to project from. OPTIONAL when the binding is supplied
+    CONTEXTUALLY — a `look.View` attached to a class via `derivation.look`
+    takes that class as its context, so authoring `bind` on it would be
+    redundant with the attachment. Such an attached view MAY still name
+    `bind` explicitly to be self-contained and addressable, but is not
+    required to.
+
+produces:
+  type: owl.ObjectProperty
+  domain: View
+  range: rdfs.Class
+  label: Produces
+  comment: >-
+    The output class each result instance is typed as — the design-time
+    schema of this View's result. Optional. When present, the View is a
+    RESHAPING view: a producer mints one `produces` instance per matched
+    input, sets each Projection's `as` property to that Projection's
+    evaluated `value`, and references the source instance. Because
+    `produces` is an ordinary design-time class, look attaches to it
+    (`derivation.look`) and styles the result — which is the whole point of
+    authoring the output schema ahead of time rather than synthesizing it
+    inside the response. When ABSENT, the View is a SELECTION view: the
+    result is references to the matched `bind` instances themselves, each
+    styled by its own class; Projections are then unnecessary.
+
+projections:
+  type: owl.ObjectProperty
+  domain: View
+  range: Projection
+  label: Projections
+  comment: >-
+    Ordered list of Projections that map the input shape onto the `produces`
+    output class. List order is significant — it is the order cells appear
+    in the materialized result (and, for visual subclasses, the order
+    regions render). Present on reshaping views (those with a `produces`);
+    omitted on selection views.
+
+where:
+  type: owl.ObjectProperty
+  domain: View
+  range: tx.Expression
+  label: Where
+  comment: >-
+    Optional list of boolean filter predicates. Each is a `tx.Expression`
+    yielding a boolean (typically a `tx.Equals` / `tx.GreaterThan` /
+    `tx.Contains` over a `tx.PropertyRead`, combined with `tx.And` / `tx.Or`
+    / `tx.Not`), evaluated against the bound instance available as `input`.
+    An instance is included only when every predicate holds; an absent
+    `where` includes every instance of the bound class. Reusing the
+    transformations predicate vocabulary keeps filtering in the one
+    expression language rather than a parallel constraint grammar.
+
+value:
+  type: owl.ObjectProperty
+  domain: Projection
+  range: tx.Expression
+  label: Value
+  comment: >-
+    The expression computing this Projection's value from the bound
+    instance. Any `tx.Expression`; the bound instance is available as the
+    `input` environment binding. A bare property is a `tx.PropertyRead`
+    (`readSource` a `tx.VarRef` of `input`, `readProp` the property); a
+    multi-step path is a `tx.Traverse`; an aggregate wraps the value in a
+    `tx.ListAggregate` subclass; a derived label is a `tx.DisplayLabel`.
+    Every property and path step resolves through the object model and is
+    validated against the View's bound class at `kanonak validate` time.
+
+derivedFrom:
+  type: owl.ObjectProperty
+  domain: rdfs.Resource
+  range: rdfs.Resource
+  label: Derived From
+  comment: >-
+    Set by a producer on each materialized result instance: a reference to
+    the stable input resource the instance was derived from. This is what
+    keeps a reshaping view's result a set of REFERENCES rather than copies —
+    the row carries the projected/aggregated values, and `derivedFrom`
+    points back at the authoritative source so a consumer can resolve it for
+    anything the projection didn't carry. Domain is rdfs.Resource so it
+    attaches to any produces class without that class having to declare it.
+
+as:
+  type: owl.ObjectProperty
+  domain: Projection
+  range: rdfs.Property
+  label: As
+  comment: >-
+    The output property this Projection's `value` is stored under on the
+    View's `produces` instance — a real property reference, not a free-text
+    column name, so the output shape is resolvable and styleable. Its domain
+    must cover `produces` (validated at `kanonak validate` time). Reuse an
+    existing property where one fits the output meaning, or define a new
+    property in the ViewPackage (with proper `type`/`domain`/`range`) when
+    the output introduces a genuinely novel field — either way it is defined
+    and resolvable. The value flows from `bind`-space (read by `value`) into
+    `produces`-space (named by `as`); the two ends are validated against
+    their own classes.

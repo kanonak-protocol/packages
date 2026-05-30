@@ -1,0 +1,147 @@
+people:
+  type: Package
+  publisher: kanonak.org
+  version: 2.0.0
+  label: People
+  comment: >-
+    A catalog of the people who author and contribute to Kanonak work.
+    Each is a provenance.Person with a stable URI, so the author and
+    contributor properties can credit the same person consistently
+    wherever they appear. The parallel to the stewards package: stewards
+    holds the organizations that govern protocols, this holds the
+    individuals who write them.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: provenance
+          match: ^
+          version: 1.0.0
+          alias: prov
+        - package: link
+          match: ^
+          version: 1.0.0
+          alias: link
+        - package: look
+          match: ^
+          version: 2.0.0
+          alias: look
+        - package: transformations
+          match: ^
+          version: 3.14.0
+          alias: tx
+
+paul-fryer:
+  type: prov.Person
+  label: Paul Fryer
+  comment: >-
+    Creator of the Kanonak Protocol. An uncommon intersection of deep
+    semantic-modeling roots, two decades architecting large-scale
+    distributed and multi-tenant systems (banking at Fiserv, retail cloud
+    at AWS), and hands-on work applying AI in production — the exact
+    background that positioned him to design an open, versioned protocol
+    for sharing machine-readable vocabularies across independent
+    publishers.
+  link.links:
+    - label: LinkedIn
+      link.url: https://www.linkedin.com/in/paulfryerlinkedin/
+      comment: Professional profile
+    - label: GitHub
+      link.url: https://github.com/paulfryer
+      comment: Code and open-source work
+  look.semanticSvg:
+    look.tierChip:
+      type: tx.StringLiteral
+      tx.stringLiteral: |-
+        <circle cx="200" cy="200" r="200" fill="#6b7785"/>
+        <path d="M70 360 Q70 268 200 268 Q330 268 330 360 L330 400 L70 400 Z" fill="#2a3a55"/>
+        <circle cx="200" cy="176" r="92" fill="#e6b48d"/>
+        <path d="M112 178 Q104 96 200 92 Q296 96 288 178 Q280 120 248 104 Q200 84 152 104 Q120 120 112 178 Z" fill="#2e2018"/>
+    look.tierIcon:
+      type: tx.StringLiteral
+      tx.stringLiteral: |-
+        <rect width="400" height="400" rx="56" fill="#9ca1a6"/>
+        <path d="M64 400 Q70 308 156 290 L244 290 Q330 308 336 400 Z" fill="#2a3a55"/>
+        <path d="M172 292 L200 360 L228 292 Z" fill="#141414"/>
+        <path d="M178 250 L178 298 Q200 314 222 298 L222 250 Z" fill="#d49b73"/>
+        <ellipse cx="200" cy="174" rx="80" ry="98" fill="#e6b48d"/>
+        <path d="M120 174 Q112 108 142 86 Q172 64 200 64 Q230 64 260 88 Q288 110 280 176 Q272 130 252 112 Q210 92 176 104 Q140 118 132 148 Q124 158 120 174 Z" fill="#2e2018"/>
+        <circle cx="172" cy="172" r="8" fill="#3f586f"/>
+        <circle cx="228" cy="172" r="8" fill="#3f586f"/>
+        <path d="M180 226 Q200 234 220 226" stroke="#9c5a4a" stroke-width="5" fill="none" stroke-linecap="round"/>
+    look.tierCard:
+      type: tx.StringLiteral
+      tx.stringLiteral: |-
+        <rect width="400" height="400" rx="40" fill="#9ca1a6"/>
+        <path d="M58 400 Q64 310 150 290 L250 290 Q336 310 342 400 Z" fill="#2a3a55"/>
+        <path d="M150 290 L200 358 L178 290 Z" fill="#223049"/>
+        <path d="M250 290 L200 358 L222 290 Z" fill="#223049"/>
+        <path d="M170 290 L200 372 L230 290 Z" fill="#141414"/>
+        <path d="M176 248 L176 300 Q200 318 224 300 L224 248 Z" fill="#d49b73"/>
+        <ellipse cx="122" cy="182" rx="13" ry="21" fill="#e0a87f"/>
+        <ellipse cx="278" cy="182" rx="13" ry="21" fill="#e0a87f"/>
+        <ellipse cx="200" cy="172" rx="82" ry="100" fill="#e6b48d"/>
+        <path d="M132 200 Q142 264 200 276 Q258 264 268 200 Q252 244 200 250 Q148 244 132 200 Z" fill="#d29f78" opacity="0.45"/>
+        <path d="M118 174 Q110 110 140 86 Q170 62 200 62 Q232 62 262 88 Q290 112 282 176 Q274 130 254 110 Q230 92 206 96 Q198 108 188 102 Q168 92 150 104 Q134 116 130 146 Q122 158 118 174 Z" fill="#2e2018"/>
+        <path d="M150 104 Q172 92 198 100 Q178 100 162 112 Q152 118 150 104 Z" fill="#4a3526" opacity="0.7"/>
+        <path d="M148 152 Q170 142 192 151" stroke="#2a1d14" stroke-width="7" fill="none" stroke-linecap="round"/>
+        <path d="M208 151 Q230 142 252 152" stroke="#2a1d14" stroke-width="7" fill="none" stroke-linecap="round"/>
+        <ellipse cx="170" cy="171" rx="19" ry="12" fill="#f2f2ee"/>
+        <ellipse cx="230" cy="171" rx="19" ry="12" fill="#f2f2ee"/>
+        <circle cx="172" cy="171" r="9" fill="#5b82a6"/>
+        <circle cx="228" cy="171" r="9" fill="#5b82a6"/>
+        <circle cx="172" cy="171" r="4" fill="#1c2a36"/>
+        <circle cx="228" cy="171" r="4" fill="#1c2a36"/>
+        <circle cx="175" cy="168" r="2" fill="#eaf2f8"/>
+        <circle cx="231" cy="168" r="2" fill="#eaf2f8"/>
+        <path d="M200 174 L194 204 Q200 210 206 204 Z" fill="#d49b73" opacity="0.5"/>
+        <path d="M189 205 Q200 214 211 205" stroke="#c08a63" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M178 229 Q200 237 222 229" stroke="#9c5a4a" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <path d="M182 231 Q200 226 218 231 Q200 241 182 231 Z" fill="#c98a78" opacity="0.5"/>
+    look.tierFull:
+      type: tx.Concat
+      tx.parts:
+        - type: tx.StringLiteral
+          tx.stringLiteral: |-
+            <rect width="400" height="400" fill="#9ca1a6"/>
+            <path d="M52 400 Q60 306 150 288 L250 288 Q340 306 348 400 Z" fill="#2a3a55"/>
+            <path d="M150 288 L200 360 L176 288 Z" fill="#223049"/>
+            <path d="M250 288 L200 360 L224 288 Z" fill="#223049"/>
+            <path d="M168 288 L200 376 L232 288 Z" fill="#141414"/>
+            <path d="M176 246 L176 300 Q200 320 224 300 L224 246 Z" fill="#d49b73"/>
+            <path d="M176 268 Q200 286 224 268 Q200 296 176 268 Z" fill="#c98a6e" opacity="0.5"/>
+            <ellipse cx="121" cy="183" rx="13" ry="22" fill="#e0a87f"/>
+            <ellipse cx="279" cy="183" rx="13" ry="22" fill="#e0a87f"/>
+            <ellipse cx="200" cy="172" rx="83" ry="101" fill="#e6b48d"/>
+            <path d="M130 202 Q142 266 200 278 Q258 266 270 202 Q252 246 200 252 Q148 246 130 202 Z" fill="#d29f78" opacity="0.42"/>
+            <path d="M116 175 Q108 108 139 84 Q169 60 200 60 Q233 60 263 86 Q292 110 284 177 Q276 128 255 108 Q230 90 206 95 Q198 108 187 101 Q167 90 149 103 Q133 115 129 146 Q121 158 116 175 Z" fill="#2e2018"/>
+            <path d="M149 103 Q172 91 198 99 Q177 99 161 112 Q151 119 149 103 Z" fill="#4a3526" opacity="0.7"/>
+            <path d="M260 100 Q278 118 282 152 Q272 126 252 110 Z" fill="#241a12"/>
+            <path d="M147 152 Q170 141 192 151" stroke="#2a1d14" stroke-width="7" fill="none" stroke-linecap="round"/>
+            <path d="M208 151 Q230 141 253 152" stroke="#2a1d14" stroke-width="7" fill="none" stroke-linecap="round"/>
+            <ellipse cx="170" cy="171" rx="20" ry="12" fill="#f2f2ee"/>
+            <ellipse cx="230" cy="171" rx="20" ry="12" fill="#f2f2ee"/>
+            <circle cx="172" cy="171" r="9.5" fill="#5b82a6"/>
+            <circle cx="228" cy="171" r="9.5" fill="#5b82a6"/>
+            <circle cx="172" cy="171" r="6" fill="#3a5f7d"/>
+            <circle cx="228" cy="171" r="6" fill="#3a5f7d"/>
+            <circle cx="172" cy="171" r="3.5" fill="#15212c"/>
+            <circle cx="228" cy="171" r="3.5" fill="#15212c"/>
+            <circle cx="175" cy="167" r="2.4" fill="#eaf2f8"/>
+            <circle cx="231" cy="167" r="2.4" fill="#eaf2f8"/>
+            <path d="M150 162 Q170 154 190 162" stroke="#b98a66" stroke-width="2.5" fill="none"/>
+            <path d="M210 162 Q230 154 250 162" stroke="#b98a66" stroke-width="2.5" fill="none"/>
+            <path d="M200 173 L193 205 Q200 212 207 205 Z" fill="#d49b73" opacity="0.55"/>
+            <path d="M187 206 Q200 215 213 206" stroke="#bf875f" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <path d="M177 229 Q200 238 223 229" stroke="#9c5a4a" stroke-width="4" fill="none" stroke-linecap="round"/>
+            <path d="M181 231 Q200 225 219 231 Q200 242 181 231 Z" fill="#c98a78" opacity="0.5"/>
+            <rect x="0" y="346" width="400" height="54" fill="#0e1622" opacity="0.55"/>
+            <text x="200" y="381" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="30" font-weight="700" fill="#ffffff">
+        - type: tx.VarRef
+          tx.varName: label
+        - type: tx.StringLiteral
+          tx.stringLiteral: |-
+            </text>
