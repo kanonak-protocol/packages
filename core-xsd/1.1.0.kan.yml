@@ -1,0 +1,115 @@
+core-xsd:
+  type: Package
+  publisher: kanonak.org
+  version: 1.1.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+
+anySimpleType:
+  type: Datatype
+  label: Any Simple Type
+  comment: The base datatype from which all XML Schema simple types are derived
+string:
+  type: Datatype
+  label: String
+  comment: The string datatype represents character strings in XML
+anyURI:
+  type: Datatype
+  label: Any URI
+  comment: Represents a Uniform Resource Identifier (URI) reference
+decimal:
+  type: Datatype
+  label: Decimal
+  comment: Represents arbitrary precision decimal numbers
+integer:
+  type: Datatype
+  label: Integer
+  comment: The integer datatype represents integer values
+nonNegativeInteger:
+  type: Datatype
+  label: Non Negative Integer
+  comment: The datatype representing integers greater than or equal to zero (0, 1, 2, 3, ...)
+float:
+  type: Datatype
+  label: Float
+  comment: The float datatype represents 32-bit IEEE floating-point numbers
+double:
+  type: Datatype
+  label: Double
+  comment: The double datatype represents 64-bit IEEE floating-point numbers
+boolean:
+  type: Datatype
+  label: Boolean
+  comment: Boolean datatype - true or false values
+date:
+  type: Datatype
+  label: Date
+  comment: The date datatype represents calendar dates
+time:
+  type: Datatype
+  label: Time
+  comment: The time datatype represents instants of time that recur every day
+dateTime:
+  type: Datatype
+  label: Date Time
+  comment: Represents a specific instant in time with date and time components
+hexBinary:
+  type: Datatype
+  label: Hex Binary
+  comment: Represents arbitrary hex-encoded binary data
+base64Binary:
+  type: Datatype
+  label: Base64 Binary
+  comment: Represents Base64-encoded arbitrary binary data
+duration:
+  type: Datatype
+  label: Duration
+  comment: Represents a duration of time (e.g., P1Y2M3DT4H5M6S)
+long:
+  type: Datatype
+  label: Long
+  comment: The long datatype represents 64-bit signed integer values
+short:
+  type: Datatype
+  label: Short
+  comment: The short datatype represents 16-bit signed integer values
+byte:
+  type: Datatype
+  label: Byte
+  comment: The byte datatype represents 8-bit signed integer values
+positiveInteger:
+  type: Datatype
+  label: Positive Integer
+  comment: The datatype representing integers greater than zero (1, 2, 3, ...)
+negativeInteger:
+  type: Datatype
+  label: Negative Integer
+  comment: The datatype representing integers less than zero (-1, -2, -3, ...)
+nonPositiveInteger:
+  type: Datatype
+  label: Non Positive Integer
+  comment: The datatype representing integers less than or equal to zero (0, -1, -2, ...)
+unsignedInt:
+  type: Datatype
+  label: Unsigned Int
+  comment: The unsignedInt datatype represents 32-bit unsigned integer values
+unsignedLong:
+  type: Datatype
+  label: Unsigned Long
+  comment: The unsignedLong datatype represents 64-bit unsigned integer values
+unsignedShort:
+  type: Datatype
+  label: Unsigned Short
+  comment: The unsignedShort datatype represents 16-bit unsigned integer values
+unsignedByte:
+  type: Datatype
+  label: Unsigned Byte
+  comment: The unsignedByte datatype represents 8-bit unsigned integer values
+int:
+  type: Datatype
+  label: Int
+  comment: The int datatype represents 32-bit signed integer values
