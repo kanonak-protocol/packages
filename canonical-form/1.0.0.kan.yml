@@ -1,0 +1,241 @@
+canonical-form:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: Canonical Form
+  comment: >-
+    The normative specification of the Kanonak canonical form — the
+    representation-independent serialization whose SHA-256 is a package's
+    permanent content address (a Package version's content hash, an
+    EphemeralPackage's contentHash and its q-<hex16> name, and kanonak.lock
+    integrity). Identity is datatype-precise: every literal is (carrier,
+    canonical lexical), numbers are arbitrary precision, ordering is by UTF-8
+    byte sequence, and the rules are frozen to a canonicalFormVersion. Written
+    so the form can be re-implemented identically in any language; the golden
+    conformance vectors are the cross-language oracle.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - { package: core-rdf,   match: ^, version: 1.0.0, alias: rdfs }
+        - { package: core-owl,   match: ^, version: 2.1.0, alias: owl }
+        - { package: core-xsd,   match: ^, version: 1.0.0, alias: xsd }
+        - { package: protocols,  match: ^, version: 2.0.0, alias: pro }
+        - { package: core-prose, match: ^, version: 1.1.0, alias: prose }
+        - { package: provenance, match: ^, version: 1.0.0, alias: prov }
+        - { package: people,     match: ^, version: 2.0.0, alias: people }
+
+canonical-form-spec:
+  type: pro.Protocol
+  rdfs.label: Canonical Form
+  rdfs.comment: >-
+    How Kanonak turns a parsed package into the exact bytes that are hashed for
+    its permanent content address — datatype-precise literals, UTF-8 byte
+    ordering, a frozen wire form, and the header-outside-the-body rule.
+  layer: pro.guidance-layer
+  prov.author: people.paul-fryer
+  pro.createdDate: 2026-05-31
+  prose.documentation: |
+    A **content address** is permanent: the SHA-256 of a package's canonical
+    form is its identity forever, so every implementation — the cloud, the CLI,
+    and any agent in any language — MUST compute the *same* bytes for the same
+    content. The canonical form is the contract; the TypeScript SDK is one
+    conformant implementation of it, not the definition.
+
+    The pipeline has two layers, with a deliberate split of stability:
+
+    - **Parsing is lossless but free to evolve.** The reader preserves each
+      scalar's raw lexical token (no coercion to an IEEE double, no Date
+      round-trip); a scalar's *type* is then directed by its property's resolved
+      [[rdfs.range]] — the ontology decides datatypes, not the YAML reader.
+    - **Canonicalization is frozen.** The carrier rules, the lexical forms, the
+      ordering, and the wire layout are pinned to `canonicalFormVersion` and
+      evolve only by minting a NEW version, never by editing in place.
+
+    Identity of every literal is the pair **(carrier, canonical lexical)**. The
+    carrier is the datatype's value-space; the canonical lexical is the
+    value-based normal form of the token. So an `xsd.decimal` 5 and an
+    `xsd.integer` 5 are DIFFERENT (carrier differs), while an `xsd.long` 0100
+    and an `xsd.integer` 100 are the SAME (one integer carrier, one canonical
+    value). A value whose
+    datatype is unknown (open-world / unmodeled) carries no carrier and is kept
+    as its raw token — lossless, but not value-canonicalized.
+
+    The conventions below are the normative rules. They are checked by a set of
+    golden conformance vectors (per-carrier lexical vectors and full-form
+    canonicalForm/hash vectors over a language-neutral typed-value input model);
+    an independent implementation that passes 100% of the vectors is guaranteed
+    to agree on content addresses with every other.
+  pro.hasConvention:
+
+    datatype-precise-identity:
+      rdfs.label: Datatype-Precise Identity
+      pro.summary: |
+        Every literal's identity is **(carrier, canonical lexical)**. The
+        datatype is part of identity, uniformly: if `xsd:decimal 5` differs from
+        `xsd:integer 5` by carrier, then `xsd:anyURI "x"` differs from
+        `xsd:string "x"` by carrier too. Restricted/derived datatypes that share
+        a value space collapse onto one carrier; distinct value spaces stay
+        distinct.
+      pro.hasRequiredRule:
+        carrier-tag-rule:
+          pro.text: >-
+            A typed literal MUST canonicalize to its carrier tag plus the
+            canonical lexical form of its value. Two literals are identical iff
+            BOTH carrier and canonical lexical are equal.
+          pro.rationale: >-
+            The platform deliberately models distinct datatypes ([[xsd.decimal]]
+            vs [[xsd.integer]]); identity must preserve that distinction, or two
+            semantically-different resources would share a content address.
+      pro.hasValidExample:
+        decimal-vs-integer:
+          pro.value: |
+            decimal 5.0   ->  (decimal, "5")
+            integer 5     ->  (integer, "5")    # distinct: carrier differs
+            long 0100     ->  (integer, "100")
+            integer 100   ->  (integer, "100")  # identical: same carrier + value
+          pro.description: >-
+            Same canonical lexical, different carrier => different identity. Same
+            carrier and value across the integer value-space => identical.
+
+    value-space-carriers:
+      rdfs.label: Value-Space Carriers
+      pro.summary: |
+        A datatype routes to exactly one carrier by VALUE SPACE, not by name.
+        The entire integer-derivation tree ([[xsd.long]], [[xsd.int]],
+        [[xsd.short]], [[xsd.byte]], the unsigned and the non-negative/positive
+        forms) -> the **integer** carrier. [[xsd.decimal]] -> **decimal**.
+        [[xsd.double]] and [[xsd.float]] -> distinct IEEE carriers.
+        [[xsd.boolean]] -> **boolean**. [[xsd.string]] (and the
+        whitespace-facet restrictions) -> **string**; [[xsd.anyURI]] and
+        [[rdfs.Literal]]-typed language strings are their own carriers.
+        [[xsd.dateTime]], [[xsd.date]], [[xsd.time]] are temporal carriers;
+        [[xsd.hexBinary]] and [[xsd.base64Binary]] are binary carriers. The
+        routing is an authored URI contract, not derived from the graph.
+      pro.hasRequiredRule:
+        route-by-value-space-rule:
+          pro.text: >-
+            Every derived/restricted datatype MUST route to its base value
+            space's carrier, so a restricted subtype never diverges from its
+            base on the same value. Datatypes outside the carrier set are NOT
+            guessed into a carrier — their values are kept as raw tokens.
+          pro.rationale: >-
+            If [[xsd.long]] fell to a raw-token tier while [[xsd.integer]] was
+            value-canonical, `long "0100"` and `integer "100"` would hash
+            differently — divergence on the integer surface that generated SDKs
+            (emitting precise sized integers) would hit immediately.
+
+    arbitrary-precision-numbers:
+      rdfs.label: Arbitrary-Precision Numbers
+      pro.summary: |
+        The integer and decimal carriers are arbitrary precision and
+        string-backed — NEVER an IEEE double. Integer canonical form drops
+        leading zeros and a leading `+`, maps `-0` to `0`. Decimal canonical
+        form is the minimal value form: drop trailing zeros, drop the point when
+        integral (`1.10` -> `1.1`, `1.00` -> `1`, `-0.00` -> `0`). Only the
+        [[xsd.double]]/[[xsd.float]] carriers are genuine IEEE-754 — shortest
+        round-tripping decimal, with the non-finite lexicals `INF`, `-INF`,
+        `NaN`.
+      pro.hasForbiddenRule:
+        no-double-behind-numbers-rule:
+          pro.text: >-
+            An integer or decimal value MUST NOT be round-tripped through a
+            native IEEE double at any point. Significance/scale, if it matters,
+            MUST be modeled as its own property — never smuggled through
+            trailing zeros, which the canonical decimal form drops.
+          pro.rationale: >-
+            Epoch-nanosecond timestamps already exceed 2^53, and decimal prices
+            are not representable as doubles; a double behind either is a
+            correctness bug that, post-freeze, can never be fixed.
+
+    lossless-then-canonical-lexical:
+      rdfs.label: Lossless Parse, Canonical Lexical
+      pro.summary: |
+        The reader preserves the raw lexical token; canonicalization then
+        applies the datatype's canonical lexical form. Strings normalize to
+        Unicode NFC (no whitespace-facet collapse). A language string adds BCP 47
+        canonical-case on its tag. `xsd:dateTime` — and only dateTime, which
+        denotes an instant — normalizes to UTC `Z`; `xsd:date`/`xsd:time` (and a
+        timezone-less dateTime) are lexical-only with NO UTC shift, and a
+        timezone-less value stays distinct from a zoned one. Fractional seconds
+        are arbitrary precision (trailing zeros trimmed). `xsd:hexBinary` is
+        uppercase; `xsd:base64Binary` is RFC 4648 canonical (standard alphabet,
+        canonical padding, no line breaks).
+      pro.hasRequiredRule:
+        type-by-range-rule:
+          pro.text: >-
+            A scalar's datatype MUST be taken from its property's resolved
+            [[rdfs.range]], not inferred from the value's textual shape. A value
+            with no resolvable datatype carries no carrier and canonicalizes as
+            its raw token (the open-world tier) — it is never guessed into a
+            datatype.
+          pro.rationale: >-
+            Type-by-range is what lets the ontology own datatypes; guessing from
+            shape (is "5" an int or a string?) reintroduces exactly the
+            per-implementation divergence the canonical form exists to remove.
+
+    byte-ordering-and-wire-form:
+      rdfs.label: Ordering and Wire Form
+      pro.summary: |
+        Subjects are ordered by the UTF-8 byte sequence of their canonical URI;
+        statements within a subject by the UTF-8 byte sequence of the predicate
+        URI; list elements preserve source order (lists carry semantic order).
+        UTF-8 byte order equals Unicode code-point order — pinned because a
+        language's native string compare disagrees (Go sorts bytes, JS sorts
+        UTF-16 code units). The wire form is compact JSON: no insignificant
+        whitespace, RFC 8785 string escaping (only `"`, `\`, and C0 controls;
+        non-ASCII raw UTF-8), object keys in a FIXED per-blob field order, UTF-8
+        output. A typed scalar is a `{type:"typed",carrier,value}` blob.
+      pro.hasRequiredRule:
+        utf8-byte-order-rule:
+          pro.text: >-
+            Sorts MUST be by UTF-8 byte sequence, never a locale collation and
+            never a language's native string `<`. The bytes fed to SHA-256 are
+            the compact JSON in UTF-8; the hash is framed `sha256:` + 64 hex.
+          pro.rationale: >-
+            "Sorted" is ambiguous across the target languages; pinning UTF-8
+            byte order makes every port agree on the one ordering.
+
+    header-outside-the-body-hash:
+      rdfs.label: Header Outside the Body Hash
+      pro.summary: |
+        Only body resources are hashed. A package header —
+        and specifically an EphemeralPackage's provenance (`ck.resolvedAt`,
+        `ck.id`) — lives OUTSIDE the hashed body, so two independent producers
+        that compute the same body collide on the same contentHash (and the same
+        `q-<hex16>` name). The body's subjects are hashed with their namespace
+        neutralized to a constant (`ephemeral`), so the hash is independent of
+        the package name the body ends up under.
+      pro.hasRequiredRule:
+        neutralize-body-namespace-rule:
+          pro.text: >-
+            Content-hashing MUST exclude the header/provenance and MUST
+            neutralize each body subject's namespace to the constant `ephemeral`
+            before serializing. A port that reimplements only the inner form but
+            skips neutralization computes the right form and the WRONG hash for
+            an EphemeralPackage.
+          pro.rationale: >-
+            Provenance is per-production; identity is per-content. Excluding
+            provenance and neutralizing the name are what make identical
+            productions — by different agents, at different times — collide.
+
+    frozen-and-versioned:
+      rdfs.label: Frozen and Versioned
+      pro.summary: |
+        The canonical form is frozen to a `canonicalFormVersion` (currently
+        "1"). The version is NOT part of the hashed bytes — historical hashes
+        stay valid — but it stamps the golden-vector fixtures and lets a consumer
+        record which form produced an address. The conformance vectors (the
+        per-carrier lexical set and the full-form canonicalForm/hash set over a
+        typed-value input model) are the cross-language oracle: an implementation
+        that passes them all agrees on content addresses with every other.
+      pro.hasForbiddenRule:
+        no-in-place-change-rule:
+          pro.text: >-
+            A canonicalization rule MUST NOT be changed in place. Any change to
+            a carrier, a lexical form, the ordering, or the wire layout requires
+            a NEW canonicalFormVersion; the frozen rules must not delegate their
+            byte output to general-purpose, evolvable helpers.
+          pro.rationale: >-
+            Content addresses are permanent; an in-place change silently
+            re-addresses all historical content. Isolation from evolvable
+            helpers is what keeps the freeze real over time.
