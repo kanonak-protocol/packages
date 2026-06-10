@@ -1,0 +1,169 @@
+math:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: Math - scientific and numeric functions extending the transformations expression vocabulary
+  comment: >
+    A platform math vocabulary for kanonak.org/transformations (tx). tx ships the core arithmetic
+    (Add / Subtract / Multiply / Divide), the unary Abs / Negate, and list aggregates (Min / Max
+    over a list-valued source). This package adds the scientific and numeric functions a
+    quantitative or numeric-runtime domain needs - transcendentals, power, modulo, rounding, sign,
+    pairwise minimum / maximum, and a clamp - authored as tx.Expression subclasses so they compose anywhere
+    a tx operand is expected. Unary functions extend tx.UnaryNumericOp (reusing the inherited
+    tx.value operand); binary functions extend tx.BinaryArithmetic (reusing arithLeft / arithRight);
+    Clip is a ternary Expression with its own operands. Each operation is total over its documented
+    domain or raises a runtime error on a domain violation (matching tx's strict-numeric pattern);
+    the per-language primitive implementations live in the runners, keyed on the node class.
+
+    v1 is a deliberate core. Reserved for later versions (added without breaking this one):
+    trigonometric (Sin / Cos / Tan) and inverse-trig, hyperbolic functions, arbitrary-base Log,
+    cube root, and variadic (n-ary) min / max. Versions are immutable and additive.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: transformations
+          match: ^
+          version: 3.14.0
+          alias: tx
+        - package: core-rdf
+          match: ^
+          version: 1.1.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.1.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: core-shacl
+          match: ^
+          version: 1.0.0
+          alias: sh
+
+# =============================================================================
+# UNARY - one operand (the inherited tx.value Expression)
+# =============================================================================
+
+Exp:
+  type: rdfs.Class
+  subClassOf: tx.UnaryNumericOp
+  label: Exp
+  comment: Euler's number raised to the operand - e ^ value. Total over the reals.
+
+Ln:
+  type: rdfs.Class
+  subClassOf: tx.UnaryNumericOp
+  label: Ln
+  comment: Natural logarithm (base e) of the operand. The operand must be strictly positive at runtime.
+
+Log10:
+  type: rdfs.Class
+  subClassOf: tx.UnaryNumericOp
+  label: Log10
+  comment: Base-10 logarithm of the operand. The operand must be strictly positive at runtime.
+
+Sqrt:
+  type: rdfs.Class
+  subClassOf: tx.UnaryNumericOp
+  label: Sqrt
+  comment: Non-negative square root of the operand. The operand must be non-negative at runtime.
+
+Floor:
+  type: rdfs.Class
+  subClassOf: tx.UnaryNumericOp
+  label: Floor
+  comment: The largest integer not greater than the operand (rounds toward negative infinity).
+
+Ceil:
+  type: rdfs.Class
+  subClassOf: tx.UnaryNumericOp
+  label: Ceil
+  comment: The smallest integer not less than the operand (rounds toward positive infinity).
+
+Round:
+  type: rdfs.Class
+  subClassOf: tx.UnaryNumericOp
+  label: Round
+  comment: >
+    The nearest integer to the operand, rounding halves away from zero (so 2.5 -> 3, -2.5 -> -3).
+    The tie rule is fixed for determinism; other rounding modes are separate functions in a later version.
+
+Sign:
+  type: rdfs.Class
+  subClassOf: tx.UnaryNumericOp
+  label: Sign
+  comment: The sign of the operand - -1 if negative, 0 if zero, 1 if positive.
+
+# =============================================================================
+# BINARY - two operands (the inherited tx.arithLeft / tx.arithRight Expressions)
+# =============================================================================
+
+Power:
+  type: rdfs.Class
+  subClassOf: tx.BinaryArithmetic
+  label: Power
+  comment: arithLeft raised to arithRight - base ^ exponent.
+
+Modulo:
+  type: rdfs.Class
+  subClassOf: tx.BinaryArithmetic
+  label: Modulo
+  comment: >
+    The remainder of arithLeft divided by arithRight, computed as a - b * floor(a / b) so the
+    result takes the sign of the divisor (floored modulo - deterministic and well-defined for
+    negatives). arithRight must be non-zero at runtime.
+
+Minimum:
+  type: rdfs.Class
+  subClassOf: tx.BinaryArithmetic
+  label: Minimum
+  comment: >
+    The lesser of arithLeft and arithRight (pairwise, two-operand). Named in full to distinguish it
+    from tx.Min, which REDUCES a single list-valued source; this is the pairwise form for clamping /
+    flooring, e.g. Minimum(x, cap).
+
+Maximum:
+  type: rdfs.Class
+  subClassOf: tx.BinaryArithmetic
+  label: Maximum
+  comment: >
+    The greater of arithLeft and arithRight (pairwise, two-operand). Named in full to distinguish it
+    from tx.Max (list aggregate); the pairwise form, e.g. Maximum(0, flow) to floor a quantity at zero.
+
+# =============================================================================
+# TERNARY - Clip (clamp a value into a range); its own operands
+# =============================================================================
+
+Clip:
+  type: rdfs.Class
+  subClassOf: tx.Expression
+  label: Clip
+  comment: >
+    Clamps clipValue into the closed interval [clipLower, clipUpper] - returns clipLower if the
+    value is below it, clipUpper if above, else the value unchanged. All three operands are
+    Expressions. If clipLower > clipUpper the result is unspecified (a runtime error).
+clipValue:
+  type: owl.ObjectProperty
+  domain: Clip
+  range: tx.Expression
+  label: clip value
+clipLower:
+  type: owl.ObjectProperty
+  domain: Clip
+  range: tx.Expression
+  label: clip lower
+clipUpper:
+  type: owl.ObjectProperty
+  domain: Clip
+  range: tx.Expression
+  label: clip upper
+
+ClipShape:
+  type: sh.NodeShape
+  sh.targetClass: Clip
+  sh.property:
+    - { sh.path: clipValue, sh.class: tx.Expression, sh.minCount: 1, sh.maxCount: 1 }
+    - { sh.path: clipLower, sh.class: tx.Expression, sh.minCount: 1, sh.maxCount: 1 }
+    - { sh.path: clipUpper, sh.class: tx.Expression, sh.minCount: 1, sh.maxCount: 1 }
