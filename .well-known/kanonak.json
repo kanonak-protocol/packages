@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "featured_packages": [
+    "core-kanonak",
+    "core-rdf",
+    "core-owl",
+    "core-xsd",
+    "core-prose",
+    "core-shacl"
+  ]
+}
