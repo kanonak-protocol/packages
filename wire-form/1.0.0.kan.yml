@@ -1,0 +1,440 @@
+# Wire Form — declare binary wire protocols once; derive codecs everywhere.
+#
+# The declaration vocabulary behind the kanonak-wire runtime kernel
+# (wireFormatVersion "1"). A package declares its frames as Structs, Unions,
+# and ConstantGroups; the generator emits static per-language codecs that call
+# the published kanonak-wire kernel — declaration -> GENERATION, the
+# declaration compiles away (contrast kanonak.org/transformations, whose
+# expressions are declaration -> interpretation).
+#
+# Worked shape (a protocol package would declare, using alias `wire`):
+#
+#   Envelope:
+#     type: wire.Struct
+#     wire.fields:
+#       - { wire.fieldName: kind,      wire.encodedAs: wire.U8 }
+#       - { wire.fieldName: channelId, wire.encodedAs: wire.U16BE }
+#       - { wire.fieldName: payload,   wire.encodedAs: wire.Rest }
+#
+#   TerminalMessage:
+#     type: wire.Struct
+#     wire.fields:
+#       - { wire.fieldName: sessionId, wire.encodedAs: wire.Uuid }
+#       - { wire.fieldName: body,      wire.encodedAs: TerminalBody }
+#
+#   TerminalBody:
+#     type: wire.Union
+#     wire.taggedBy: wire.U8
+#     wire.variants:
+#       - { wire.variantName: input,  wire.tagValue: 2,   wire.fields: [ { wire.fieldName: data, wire.encodedAs: wire.Rest } ] }
+#       - { wire.variantName: resize, wire.tagValue: 3,   wire.fields: [ { wire.fieldName: size, wire.encodedAs: wire.JsonBody, wire.bodySchema: ResizeBody } ] }
+
+wire-form:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: core-shacl
+          match: ^
+          version: 1.0.0
+          alias: sh
+        - package: protocols
+          match: ^
+          version: 2.0.0
+          alias: proto
+
+# =============================================================================
+# Form model
+# =============================================================================
+# WireForm is anything a field may be encoded as: a primitive (closed set,
+# whose byte semantics ARE the kanonak-wire kernel's wireFormatVersion "1"
+# contract), or a declared Struct/Union (composition). Declaration marks what
+# an authoring package contributes and what generators act on.
+
+WireForm:
+  type: rdfs.Class
+  label: Wire Form
+  comment: >-
+    Anything a Field may be encoded as: a Primitive member, or a declared
+    Struct or Union. Abstract — never instantiated directly.
+
+Declaration:
+  type: rdfs.Class
+  label: Declaration
+  comment: >-
+    Marker superclass for the wire artifacts a package author declares —
+    Structs, Unions, and ConstantGroups. Generators detect a package's wire
+    surface as its subjects whose type is a subclass of Declaration, and emit
+    static codecs/constants for exactly those. The declaration's subject name
+    is the generated type's name.
+
+Primitive:
+  type: rdfs.Class
+  subClassOf: WireForm
+  label: Primitive
+  comment: >-
+    The closed set of primitive field types. Byte semantics are defined by the
+    kanonak-wire runtime kernel, wireFormatVersion "1" — big-endian integers,
+    lowercase-canonical 16-byte UUIDs, strict (never lossy) UTF-8, fail-loud
+    errors, zero-copy views. This enumeration grows only with a real consumer
+    AND a kernel that already covers the addition (never ahead of the kernel).
+  owl.oneOf: [ U8, U16BE, U32BE, FixedBytes, Uuid, LenPrefixedUtf8, Rest, JsonBody ]
+
+U8:
+  type: Primitive
+  label: U8
+  comment: One byte, unsigned, 0..255.
+
+U16BE:
+  type: Primitive
+  label: U16BE
+  comment: Two bytes, big-endian, unsigned, 0..65535.
+
+U32BE:
+  type: Primitive
+  label: U32BE
+  comment: >-
+    Four bytes, big-endian, unsigned, 0..2^32-1. Languages without a fitting
+    unsigned type widen (e.g. Java long) — exactness above 2^31 is normative.
+
+FixedBytes:
+  type: Primitive
+  label: Fixed Bytes
+  comment: >-
+    Exactly byteLength raw bytes (the Field MUST carry wire.byteLength).
+    Decoded as a zero-copy view where the language has one.
+
+Uuid:
+  type: Primitive
+  label: UUID
+  comment: >-
+    Exactly 16 bytes. String form is lowercase hyphenated 8-4-4-4-12; any 16
+    bytes are legal (no version/variant validation).
+
+LenPrefixedUtf8:
+  type: Primitive
+  label: Length-Prefixed UTF-8
+  comment: >-
+    A u16be byte length, then exactly that many bytes decoded as strict UTF-8.
+    Unlike the tail types this may appear at any position. Added for a real
+    consumer: a file-transfer response that carries a length-prefixed
+    content-type ahead of the payload bytes.
+
+Rest:
+  type: Primitive
+  label: Rest
+  comment: >-
+    All remaining bytes (possibly zero), as a zero-copy view. A tail type:
+    legal only as the FINAL field of its Struct or Variant.
+
+JsonBody:
+  type: Primitive
+  label: JSON Body
+  comment: >-
+    All remaining bytes decoded as strict UTF-8 and parsed as JSON against the
+    Field's wire.bodySchema class. A tail type: legal only as the FINAL field.
+    Never lossy — invalid UTF-8 or JSON is a loud error, not a fallback.
+
+# =============================================================================
+# Struct
+# =============================================================================
+
+Struct:
+  type: rdfs.Class
+  subClassOf:
+    - WireForm
+    - Declaration
+  label: Struct
+  comment: >-
+    An ordered sequence of Fields encoded back-to-back with no padding, no
+    alignment, and no in-band version byte (layout changes require a new
+    package version). FIELD ORDER IS BYTE ORDER — the fields list is
+    normative, not documentation.
+
+Field:
+  type: rdfs.Class
+  label: Field
+  comment: >-
+    One field of a Struct (or Variant). Embedded within its owner's
+    wire.fields list; never a standalone declaration.
+
+fields:
+  type: owl.ObjectProperty
+  domain: Struct
+  range: Field
+  label: Fields
+  comment: >-
+    The Struct's fields, IN BYTE ORDER — the list order is the wire layout.
+    At most one tail-typed field (Rest, JsonBody), and only in final position.
+
+fieldName:
+  type: owl.DatatypeProperty
+  domain: Field
+  range: xsd.string
+  label: Field Name
+  comment: >-
+    The generated accessor's logical name (lowerCamelCase). Each language port
+    renders it per idiom — the name, like everything else here, is authored
+    once.
+
+encodedAs:
+  type: owl.ObjectProperty
+  domain: Field
+  range: WireForm
+  label: Encoded As
+  comment: >-
+    The field's wire form: a Primitive member, or a declared Struct/Union
+    (composition — the referenced declaration's layout is encoded in place).
+
+byteLength:
+  type: owl.DatatypeProperty
+  domain: Field
+  range: xsd.unsignedInt
+  label: Byte Length
+  comment: Exact byte count. REQUIRED when encodedAs is FixedBytes; forbidden otherwise.
+
+bodySchema:
+  type: owl.ObjectProperty
+  domain: Field
+  range: rdfs.Class
+  label: Body Schema
+  comment: >-
+    The class whose generated (kanonak-codec) shape the JSON tail parses
+    against. REQUIRED when encodedAs is JsonBody; forbidden otherwise.
+
+# =============================================================================
+# Union
+# =============================================================================
+
+Union:
+  type: rdfs.Class
+  subClassOf:
+    - WireForm
+    - Declaration
+  label: Union
+  comment: >-
+    A discriminated union: the tag (taggedBy's primitive) is read first, then
+    exactly the matching Variant's fields. An unrecognized tag is a loud
+    UnknownTag error — never skipped, never defaulted.
+
+Variant:
+  type: rdfs.Class
+  subClassOf: Struct
+  label: Variant
+  comment: >-
+    One arm of a Union: a Struct (ordered fields) plus the tagValue that
+    selects it. Embedded within its Union's wire.variants list; never a
+    standalone declaration.
+
+taggedBy:
+  type: owl.ObjectProperty
+  domain: Union
+  range: Primitive
+  label: Tagged By
+  comment: >-
+    The discriminator primitive read before the variant body. Version 1
+    permits U8 only (widen only with a real consumer).
+
+variants:
+  type: owl.ObjectProperty
+  domain: Union
+  range: Variant
+  label: Variants
+  comment: >-
+    The union's arms. tagValue decides dispatch; list order carries no wire
+    meaning. tagValues MUST be unique within the Union and fit taggedBy's range.
+
+variantName:
+  type: owl.DatatypeProperty
+  domain: Variant
+  range: xsd.string
+  label: Variant Name
+  comment: The generated variant's logical name (lowerCamelCase).
+
+tagValue:
+  type: owl.DatatypeProperty
+  domain: Variant
+  range: xsd.unsignedInt
+  label: Tag Value
+  comment: The discriminator value selecting this variant. Unique within the Union.
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+ConstantGroup:
+  type: rdfs.Class
+  subClassOf: Declaration
+  label: Constant Group
+  comment: >-
+    A named registry of wire constants (channel ids, frame kinds, op codes) —
+    generated as typed constants in every language, so cross-boundary numbers
+    are never magic literals in any implementation.
+
+Constant:
+  type: rdfs.Class
+  label: Constant
+  comment: One named constant. Embedded within its group's wire.constants list.
+
+constants:
+  type: owl.ObjectProperty
+  domain: ConstantGroup
+  range: Constant
+  label: Constants
+  comment: The group's members. constantNames MUST be unique within the group.
+
+membersEncodedAs:
+  type: owl.ObjectProperty
+  domain: ConstantGroup
+  range: Primitive
+  label: Members Encoded As
+  comment: The wire type of every member. Version 1 permits U8, U16BE, or U32BE.
+
+constantName:
+  type: owl.DatatypeProperty
+  domain: Constant
+  range: xsd.string
+  label: Constant Name
+  comment: The constant's logical name (lowerCamelCase; rendered per language idiom).
+
+constantValue:
+  type: owl.DatatypeProperty
+  domain: Constant
+  range: xsd.unsignedInt
+  label: Constant Value
+  comment: The constant's numeric value. Must fit the group's membersEncodedAs range.
+
+# =============================================================================
+# Shapes — the constraints live in the graph, where they are validated
+# =============================================================================
+
+# Note: no minCount on fields — a VARIANT may legitimately be empty (a
+# tag-only message like a CLOSE op carries no data), and Variant ⊑ Struct
+# means this shape targets variants too. A STANDALONE empty Struct declaration
+# is instead discouraged by rule (EmptyStructsAreVariantsOnly).
+StructShape:
+  type: sh.NodeShape
+  sh.targetClass: Struct
+  sh.property:
+    - { sh.path: fields, sh.class: Field }
+
+FieldShape:
+  type: sh.NodeShape
+  sh.targetClass: Field
+  sh.property:
+    - { sh.path: fieldName, sh.datatype: xsd.string, sh.minCount: 1, sh.maxCount: 1 }
+    - { sh.path: encodedAs, sh.class: WireForm, sh.minCount: 1, sh.maxCount: 1 }
+    - { sh.path: byteLength, sh.datatype: xsd.unsignedInt, sh.maxCount: 1 }
+    - { sh.path: bodySchema, sh.maxCount: 1 }
+
+UnionShape:
+  type: sh.NodeShape
+  sh.targetClass: Union
+  sh.property:
+    - { sh.path: taggedBy, sh.class: Primitive, sh.minCount: 1, sh.maxCount: 1 }
+    - { sh.path: variants, sh.class: Variant, sh.minCount: 1 }
+
+VariantShape:
+  type: sh.NodeShape
+  sh.targetClass: Variant
+  sh.property:
+    - { sh.path: variantName, sh.datatype: xsd.string, sh.minCount: 1, sh.maxCount: 1 }
+    - { sh.path: tagValue, sh.datatype: xsd.unsignedInt, sh.minCount: 1, sh.maxCount: 1 }
+
+ConstantGroupShape:
+  type: sh.NodeShape
+  sh.targetClass: ConstantGroup
+  sh.property:
+    - { sh.path: membersEncodedAs, sh.class: Primitive, sh.minCount: 1, sh.maxCount: 1 }
+    - { sh.path: constants, sh.class: Constant, sh.minCount: 1 }
+
+ConstantShape:
+  type: sh.NodeShape
+  sh.targetClass: Constant
+  sh.property:
+    - { sh.path: constantName, sh.datatype: xsd.string, sh.minCount: 1, sh.maxCount: 1 }
+    - { sh.path: constantValue, sh.datatype: xsd.unsignedInt, sh.minCount: 1, sh.maxCount: 1 }
+
+# =============================================================================
+# Convention rules — what a conformant declaration and generator MUST honor
+# =============================================================================
+
+FieldOrderIsByteOrder:
+  type: proto.RequiredRule
+  proto.text: The wire.fields list order IS the byte layout. Implementations MUST encode and decode fields in list order with no padding, alignment, or reordering.
+  proto.rationale: >-
+    One authored order, one wire layout, in every language — layout can never
+    drift between ports because there is nothing per-port to state.
+
+TailTypesLast:
+  type: proto.RequiredRule
+  proto.text: A field typed Rest or JsonBody MUST be the final field of its Struct or Variant, and at most one such field may appear.
+  proto.rationale: >-
+    Tail types consume all remaining bytes; anything after them is
+    unreachable. Making this a validation error keeps a malformed layout from
+    ever generating.
+
+FixedBytesRequiresLength:
+  type: proto.RequiredRule
+  proto.text: A field typed FixedBytes MUST carry wire.byteLength; any other field type MUST NOT.
+  proto.rationale: Without a length the layout is ambiguous; on any other type a length is dead weight that will mislead a reader.
+
+JsonBodyRequiresSchema:
+  type: proto.RequiredRule
+  proto.text: A field typed JsonBody MUST carry wire.bodySchema; any other field type MUST NOT.
+  proto.rationale: >-
+    The JSON tail's shape must be declared, not discovered at runtime — the
+    schema reference is what lets generators emit a typed parse instead of a
+    bag of unknowns.
+
+TagValuesUniqueAndInRange:
+  type: proto.RequiredRule
+  proto.text: Within a Union, every Variant's tagValue MUST be unique and MUST fit the taggedBy primitive's value range. Decoders MUST fail loudly (UnknownTag) on an unrecognized tag.
+  proto.rationale: >-
+    Duplicate tags make dispatch ambiguous; out-of-range tags are unencodable.
+    Silent skipping of unknown tags is the classic protocol fallback bug.
+
+KernelSemantics:
+  type: proto.RequiredRule
+  proto.text: Primitive semantics are defined by the kanonak-wire runtime kernel at wireFormatVersion "1" (big-endian, strict UTF-8, lowercase UUID canonical form, fail-loud error taxonomy). Generated codecs MUST call the published kanonak-wire kernel for these semantics, never reimplement them.
+  proto.rationale: >-
+    The kernel is the one audited, conformance-vector-gated implementation of
+    the determinism traps per language; reimplementation is where
+    cross-language divergence is born.
+
+GenerateDontInterpret:
+  type: proto.RequiredRule
+  proto.text: Wire declarations MUST be realized as generated static codecs; implementations MUST NOT interpret declarations on the per-frame data path.
+  proto.rationale: >-
+    This vocabulary exists for hot paths — the declaration compiles away.
+    Interpretation belongs to the expression runtime's problem class, not
+    this one.
+
+EmptyStructsAreVariantsOnly:
+  type: proto.RequiredRule
+  proto.text: A Variant MAY declare zero fields (a tag-only message). A standalone Struct declaration MUST declare at least one field.
+  proto.rationale: >-
+    An empty variant is meaningful — the tag IS the message (e.g. a CLOSE op).
+    An empty standalone struct encodes zero bytes and means nothing.
+
+LayoutVersioning:
+  type: proto.RequiredRule
+  proto.text: Wire messages carry no in-band version. Any change to a Declaration's layout (fields, order, types, tags, constants) MUST ship as a new package version, never as an edit in place.
+  proto.rationale: >-
+    Both ends of a wire resolve the same package version and therefore agree
+    on layout by construction; in-band versioning would re-open the
+    negotiate-and-drift hole the package system already closes.
