@@ -1418,14 +1418,19 @@ edges:
 
 nodeTier:
   type: owl.DatatypeProperty
-  domain: Facet
+  domain:
+    - Facet
+    - Sequence
   range: xsd.string
   label: Node Tier
   comment: >-
     Semantic-zoom tier each node tile renders at — "chip", "icon" (default),
     "card", or "full". Because a node tile is a responsive SemanticSvg, its
     rendered size selects the tier; this setting picks that size, so a diagram
-    can show identity glyphs (icon) or richer cards/heroes per node.
+    can show identity glyphs (icon) or richer cards/heroes per node. On a
+    Facet it sizes the facet's nodes; on a Sequence it sizes the lifeline
+    heads, and the column pitch follows. Overrides the participants' own
+    class-level `diagramTier`; absent both, nodes render at icon.
 
 diagramTier:
   type: owl.DatatypeProperty
@@ -1592,9 +1597,12 @@ Sequence:
     for that pair alone. References that connect to nothing become no
     lifeline; the graph is the filter. Participants render as their own
     identity tiles, and both lifeline and message labels resolve through
-    the display lens, so a class-level displayLabel applies. The prose is
-    the annotation — render it alongside with a Markdown band over the same
-    property, and the narrative and the diagram cannot drift.
+    the display lens, so a class-level displayLabel applies. Lifeline heads
+    size by `nodeTier` on the band, else by the participants' class-level
+    `diagramTier`, else icon. The prose is the annotation — render it
+    alongside with a Markdown band over the same property, and the
+    narrative and the diagram cannot drift; `kanonak validate` reports where
+    they do.
 
 connectors:
   type: owl.ObjectProperty
