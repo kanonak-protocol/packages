@@ -1,0 +1,616 @@
+look-conventions:
+  type: Package
+  publisher: kanonak.org
+  version: 1.3.0
+  label: Look Conventions
+  comment: >-
+    The canonical guide to styling a Kanonak ontology — how to make a class,
+    package, or publisher render as a page, and when to reach for a look
+    versus a transformation versus a view. The single source of truth for
+    the look authoring surface; read this to learn where to start.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - { package: core-rdf,        match: ^, version: 1.0.0,  alias: rdfs }
+        - { package: protocols,       match: ^, version: 2.0.0,  alias: pro }
+        - { package: core-prose,      match: ^, version: 1.1.0,  alias: prose }
+        - { package: look,            match: ^, version: 2.4.0,  alias: look }
+        - { package: core-owl,        match: ^, version: 2.0.0,  alias: owl }
+        - { package: core-shacl,      match: ^, version: 1.1.0,  alias: sh }
+        - { package: derivation,      match: ^, version: 1.1.0,  alias: deriv }
+        - { package: transformations, match: ^, version: 3.14.0, alias: tx }
+        - { package: view,            match: ^, version: 1.1.0,  alias: v }
+        - { package: core-kanonak,    match: ^, version: 2.1.0,  alias: ck }
+        - { package: provenance,      match: ^, version: 1.0.0,  alias: prov }
+        - { package: people,          match: ^, version: 2.0.0,  alias: people }
+
+look-conventions-spec:
+  type: pro.Protocol
+  rdfs.label: Look Conventions
+  rdfs.comment: >-
+    The one canonical way to style a Kanonak ontology, and a decision guide
+    for when to use a look, a transformation, or a view.
+  layer: pro.guidance-layer
+  prov.author: people.paul-fryer
+  pro.createdDate: 2026-05-29
+  prose.documentation: |
+    The look system turns a class into a rendered page with no hand-written
+    HTML or CSS: you attach a **look** to a *type*, and every instance of
+    that type renders through it. Whatever a type does not declare, it
+    inherits from its superclass and ultimately from the universal floor on
+    [[rdfs.Resource]] — so every resource has a sane page even before you
+    style anything. This package is the single source of truth for that
+    system; the conventions below are the whole of it.
+
+    **Start here — what are you trying to produce?**
+
+    ```text
+    A readable PAGE for a resource (its HTML page + SVG identity)
+       -> a LOOK.  Declare derivation.look on the CLASS: a ResourceView of bands.
+            - want the resource's icon / glyph?            add look.semanticSvg
+            - display name or summary is not the default
+              rdfs.label / rdfs.comment?                   add look.displayLabel / displaySummary
+            - want to theme its colors?                    add derivation.tokens
+            - want a DIAGRAM (relations, a sequence,
+              the schema)?                                 add a look.Diagram / look.Sequence /
+                                                           look.EntityRelationship band — it reads
+                                                           the graph; author no diagram data
+
+    A NON-page artifact (JSON, YAML, generated code) -- or a visual the
+    band catalogue genuinely cannot express (a bespoke chart or matrix)
+       -> a TRANSFORMATION.  A tx.Transformation bound via derivation.derivations.
+
+    A QUERY that selects, filters, or reshapes instances into a result set
+       -> a VIEW.  A view.View, materialized into an EphemeralPackage.
+    ```
+
+    In one line: **[[deriv.look]] for pages, [[deriv.derivations]] + a
+    [[tx.Transformation]] for non-page artifacts and novel visuals, and a
+    [[v.View]] for queries.** The look is the default for presentation; the
+    other two are for when you are not rendering a resource's own page. Most
+    publishers only ever need looks.
+  pro.hasConvention:
+
+    choosing-an-approach:
+      rdfs.label: Choosing an Approach
+      pro.summary: |
+        Three tools present or derive data, and they do not overlap. A
+        **look** ([[deriv.look]]) renders a resource as a page — the default,
+        and almost always what you want. A **transformation**
+        ([[tx.Transformation]], bound via [[deriv.derivations]]) produces a
+        non-page artifact (JSON, YAML, generated code) or a visual the band
+        catalogue cannot express. A **view** ([[v.View]]) is a query that
+        selects and reshapes instances into a result set. Reach for the
+        look first; only drop to a transformation or a view when you are not
+        rendering a resource's own page.
+      pro.hasRecommendedRule:
+        look-for-pages-rule:
+          pro.text: >-
+            To render a resource as a readable page, you SHOULD declare a
+            [[deriv.look]] and let the universal renderer produce the HTML,
+            CSS, and SVG. Do NOT hand-author a [[tx.Transformation]] that
+            emits page HTML.
+          pro.rationale: >-
+            Declarative bands express the common page (hero + properties +
+            cross-references) in a fraction of the YAML, with built-in
+            cascade semantics for multi-publisher styling. Hand-rolled HTML
+            transformations diverge across publishers and rot.
+        transformation-for-artifacts-rule:
+          pro.text: >-
+            Author a [[tx.Transformation]] (bound via [[deriv.derivations]])
+            only for output that is NOT a resource page — a data format, a
+            generated file, or a bespoke visualization the band catalogue
+            cannot produce.
+          pro.rationale: >-
+            Transformations are the escape hatch for genuinely novel output.
+            Using one where a look would do throws away the cascade and the
+            shared band library.
+        view-for-queries-rule:
+          pro.text: >-
+            Use a [[v.View]] when you need to select, filter, or aggregate
+            instances into a NEW result shape — not to style an existing
+            resource. A view materializes into a [[ck.EphemeralPackage]]. The
+            full data-View authoring guide is the `kanonak.org/view-language`
+            protocol; this guide is the visual (look) side of the same
+            `view.View` base.
+          pro.rationale: >-
+            A view is a query; a look is presentation. They share the
+            `view.View` base — a look view is its visual specialization, a data
+            view its projecting one — but the surfaces are disjoint (bands vs
+            projections). Conflating them leads to looks that try to compute and
+            views that try to render; route by intent and follow the matching
+            guide.
+
+    style-types-not-instances:
+      rdfs.label: Style Types, Not Instances
+      pro.summary: |
+        You attach a look to a **class** (or a package, or a publisher), and
+        every instance of that type renders through it. You almost never
+        style a single resource — you style the *concept*, and all its
+        instances follow. Styling one instance directly is a rare, deliberate
+        override, not the default move.
+      pro.hasRequiredRule:
+        attach-to-type-rule:
+          pro.text: >-
+            A [[deriv.look]] declaration SHOULD live on a class (or a
+            [[ck.Package]] / publisher), so it applies to every instance.
+            Declaring it on an individual instance MUST be a deliberate
+            override, not the way you style a kind of thing.
+          pro.rationale: >-
+            Styling the type is what makes the system scale: one declaration
+            styles a thousand instances, and the class hierarchy carries it
+            to subtypes. Per-instance looks are duplication waiting to drift.
+        state-drives-variants-not-per-instance-looks-rule:
+          pro.text: >-
+            When presentation should follow an instance's STATE — a status, a
+            severity, a phase — declare a [[look.InstanceVariant]] on the
+            class's View rather than styling the affected instances. The
+            variant's [[look.WhenCondition]] matches a property value, and
+            every instance in that state follows it.
+          pro.rationale: >-
+            State-driven presentation is the one case that looks like it needs
+            per-instance styling and does not. A variant is still a
+            declaration on the TYPE — one rule covers every instance that
+            enters the state, including ones authored later — so it scales the
+            way the rest of the cascade does, while styling each affected
+            instance by hand does not.
+      pro.hasInvalidExample:
+        per-instance-styling:
+          pro.value: |
+            my-publisher.org/widgets/widget-0042:
+              derivation.look:
+                type: look.ResourceView
+                bands: [ { type: look.Hero, look.title: rdfs.label } ]
+          pro.description: >-
+            Avoid — styling one widget instance. Pull the look up onto the
+            `Widget` class so every widget renders the same way.
+
+    the-resource-view:
+      rdfs.label: The Resource View
+      pro.summary: |
+        The core pattern: a class declares [[deriv.look]] whose value is a
+        [[look.ResourceView]] — an ordered list of **bands**, each rendering
+        one region of the page from the resource's own properties. The band
+        catalogue covers the common page: [[look.Hero]] (title + subtitle +
+        type badges), [[look.PropertyList]] and [[look.PropertyTable]]
+        (property values), [[look.ReferenceList]] / [[look.ReferencedBy]]
+        (cross-references), [[look.Markdown]] (prose), [[look.EmbeddedViews]]
+        (nested resources rendered through their own class looks), and more.
+        Bands read existing properties — they do not carry content.
+      pro.hasRequiredRule:
+        resourceview-of-bands-rule:
+          pro.text: >-
+            A class's page look MUST be a [[look.ResourceView]] whose
+            `bands` is an ordered list of band instances, each pointing (via
+            `look.source` or a band-specific slot) at a property of the
+            resource. Render order follows list order.
+          pro.rationale: >-
+            An ordered list of declarative bands reading real properties is
+            what lets the renderer produce a page with no per-class code, and
+            keeps labels and values sourced from the graph (DRY).
+      pro.hasValidExample:
+        styled-class:
+          pro.value: |
+            my-publisher.org/catalog/Author:
+              derivation.look:
+                type: look.ResourceView
+                bands:
+                  - { type: look.Hero, look.title: rdfs.label, look.subtitle: rdfs.comment, look.badges: rdfs.type }
+                  - { type: look.PropertyList, look.source: catalog.wrote }
+                  - { type: look.ReferencedBy }
+          pro.description: >-
+            A complete `Author` page — a hero from `rdfs.label` / `rdfs.comment`,
+            the list of works from `catalog.wrote`, and an incoming-reference
+            grid — every region derived from existing properties.
+
+    path-carrier-bands:
+      rdfs.label: Path-Carrier Bands
+      pro.summary: |
+        The common bands above name a single property in a slot like
+        [[look.source]] or [[look.title]]. The quantitative and series bands —
+        [[look.StatRow]], [[look.Distribution]], [[look.Timeline]] /
+        [[look.VersionDiff]], [[look.VersionDelta]], [[look.TimePlot]], a
+        detail-row [[look.ReferenceList]], and [[look.Diagram]] channels — need
+        to reach a value that may live one or more steps INTO the instance.
+        As of look@2.0.0 every such `*Path` slot (`metricPath`, `statPath`,
+        `mapPath`, `alphaPath`/`betaPath`, `lowerPath`/`upperPath`, `hueBy`,
+        `laneBy`, `labelPath`, `badgePath`, `nodeNote`, `edgeValue`) is a
+        [[tx.Expression]] — the SAME vocabulary the SVG tiers and data Views
+        use — NOT a `/`-separated path string. There are exactly three shapes,
+        chosen by what the step is:
+
+        - **A property on the evaluated node** → a [[tx.PropertyRead]] whose
+          `readSource` is a [[tx.VarRef]] of `input`.
+        - **A field inside an embedded value** → NEST the read: a
+          `tx.PropertyRead` whose `readSource` is itself the `tx.PropertyRead`
+          of the embedding property (e.g. read `confidence`, then `estimateMean`
+          off it).
+        - **A field across a REFERENCE** → a [[tx.Traverse]] (`through` the
+          reference property, its `step` reading off the traversed-to subject);
+          to show a referenced resource's display name, traverse and read
+          [[rdfs.label]].
+
+        The node bound to `input` depends on the band: instance-level bands
+        (Distribution, StatRow, VersionDelta) evaluate against the PAGE
+        instance; series and diagram bands evaluate against each sub-resource
+        reached through the band's `track` / `source` / `entries` / `relation`
+        property. Either way `input` is the node, and every property is a real
+        reference validated at author time.
+      pro.hasRequiredRule:
+        carrier-is-expression-rule:
+          pro.text: >-
+            Every band `*Path` carrier MUST be a [[tx.Expression]] evaluated
+            against the band's node (bound to `input`) — never a
+            `/`-separated path string. Use a [[tx.PropertyRead]] for a direct
+            or embedded field (nested for embeds) and a [[tx.Traverse]] for a
+            reference step.
+          pro.rationale: >-
+            A string path matched by stripped local name is a magic string: it
+            fails silently to undefined at render time and is invisible to
+            validation. A typed expression resolves every step through the
+            object model, so `kanonak validate` (the LookBandPath rule) reports
+            an out-of-scope or misspelled property as an error rather than
+            rendering an empty band.
+      pro.hasValidExample:
+        stat-and-distribution:
+          pro.value: |
+            # `confidence` is an embedded Estimate on the page instance;
+            # reach its `estimateMean` with a NESTED PropertyRead.
+            Thesis:
+              derivation.look:
+                type: look.ResourceView
+                bands:
+                  - type: look.StatRow
+                    look.stats:
+                      - look.statLabel: "μ"
+                        look.statPath:
+                          type: tx.PropertyRead
+                          tx.readSource:
+                            type: tx.PropertyRead
+                            tx.readSource: { type: tx.VarRef, tx.varName: input }
+                            tx.readProp: confidence
+                          tx.readProp: estimateMean
+          pro.description: >-
+            A StatRow cell reading `estimateMean` out of the embedded
+            `confidence` estimate — a nested PropertyRead, the embedded-field
+            shape.
+        badge-via-traverse:
+          pro.value: |
+            # `strength` is a REFERENCE; show the referenced resource's label.
+            - type: look.ReferenceList
+              look.entries: [supports]
+              look.badgePath:
+                type: tx.Traverse
+                tx.traverseSource: { type: tx.VarRef, tx.varName: input }
+                tx.through: strength
+                tx.step:
+                  type: tx.PropertyRead
+                  tx.readSource: { type: tx.VarRef, tx.varName: input }
+                  tx.readProp: rdfs.label
+          pro.description: >-
+            A ReferenceList badge that follows each evidence item's `strength`
+            reference and reads the target's `rdfs.label` — the reference-step
+            shape (Traverse + a read of the traversed-to subject).
+      pro.hasInvalidExample:
+        string-path:
+          pro.value: |
+            - type: look.Distribution
+              look.alphaPath: "confidence/betaAlpha"   # WRONG: string path
+              look.betaPath: "confidence/betaBeta"
+          pro.description: >-
+            Invalid as of look@2.0.0 — a `/`-separated string path. The slot is
+            a tx.Expression; author a nested tx.PropertyRead (read `confidence`,
+            then `betaAlpha`) instead. A string here is silently dropped (the
+            slot is an object property) and the band renders empty.
+
+    diagrams:
+      rdfs.label: Diagrams Read the Graph
+      pro.summary: |
+        Three bands draw pictures, and they share one discipline: **nothing
+        is drawn that the graph does not already state.** Nodes are the
+        resources' own identity tiles, labels resolve through the display
+        lenses, and every indicator is read from the ontology — direction
+        from the triple and from [[rdfs.domain]] / [[rdfs.range]], a reply
+        from [[owl.inverseOf]], an undirected edge from
+        [[owl.SymmetricProperty]], cardinality from [[sh.minCount]] /
+        [[sh.maxCount]] on a targeting shape or from
+        [[owl.FunctionalProperty]]. The look layer only says WHICH relations
+        to show, and how they look where the ontology is silent.
+
+        | Band | Source | Draws |
+        |------|--------|-------|
+        | [[look.Diagram]] | the page instance's relations (`facets` → `relation`, `encode`) | a cluster, a hub-and-spoke, or a DAG (`edges`), with `channels` mapping a value to thickness / hue |
+        | [[look.Sequence]] | a prose property on the page instance (`source`) + `connectors` | lifelines and messages, ordered by the prose's `[[references]]`, joined by the graph |
+        | [[look.EntityRelationship]] | the ontology itself | classes, attributes, relationships, cardinalities, inheritance |
+
+        A **Sequence** is the one to reach for when someone asks for a
+        sequence diagram, and it is deliberately NOT a data model of steps.
+        The prose supplies the ORDER and the PARTICIPANTS (every
+        `[[reference]]`, in document order); the graph supplies the EDGES
+        and their DIRECTION (a message is drawn for each declared connector
+        that actually holds between two consecutively-referenced
+        participants, in the direction the triple states — so passive voice
+        cannot mislead); the band's `connectors` overlay supplies the
+        SELECTION (which object properties count as messages). The three
+        never overlap, and the domain ontology imports nothing about
+        sequences. A `[[property]]` reference placed between two participant
+        references narrows that pair to that edge. A pair the graph does not
+        join draws nothing — the graph is the filter — and `kanonak validate`
+        (the SequenceNarrative rule) reports it, so prose↔graph drift is an
+        author-time diagnostic, not a missing arrow.
+
+        The **EntityRelationship** band has no slots at all: on a
+        [[ck.Package]] page it draws every class the package declares; on a
+        class page — whose look comes from [[rdfs.Class]], since a class's
+        own [[deriv.look]] describes its INSTANCES — it draws that class and
+        the classes its object properties reach.
+      pro.hasRequiredRule:
+        diagram-reads-the-graph-rule:
+          pro.text: >-
+            A diagram band MUST NOT be given data of its own. Do not model
+            "steps", "messages", "edges" or "cardinality" so that a picture
+            can be drawn: a [[look.Sequence]] reads object properties the
+            ontology already declares, in the order a prose property's
+            `[[references]]` tell it; a [[look.EntityRelationship]] reads
+            [[sh.minCount]] / [[sh.maxCount]] and [[owl.FunctionalProperty]]
+            for cardinality. If a diagram is wrong, the graph is wrong — fix
+            the triple, the shape, or the prose.
+          pro.rationale: >-
+            A diagram with its own data is a second copy of the model that
+            drifts from the first. Reading the graph makes the picture a
+            proof of the data — and lets `kanonak validate` report drift
+            between the narrative and the triples, which no hand-drawn
+            diagram can do.
+        sequence-source-and-connectors-rule:
+          pro.text: >-
+            A [[look.Sequence]] MUST declare `look.source` naming a property
+            whose [[rdfs.range]] is [[prose.Markdown]], and `look.connectors`
+            listing one or more [[look.Connector]] whose `look.relation` is an
+            object property between the participants. Direction is taken from
+            the triple, never from the sentence.
+          pro.rationale: >-
+            Order can only come from prose (a list has order but no
+            narrative; a set has neither), and a message can only be a triple
+            that holds. Both are checked at validate time — a non-prose
+            source, a missing connector list, a relation that is not a
+            property, and an unknown `lineStyle` / `nodeTier` are each an
+            error on the declaring class.
+      pro.hasRecommendedRule:
+        sequence-beside-its-prose-rule:
+          pro.text: >-
+            A [[look.Sequence]] SHOULD be placed beside a [[look.Markdown]]
+            band over the SAME `look.source` property, so the narrative and
+            the diagram render from one statement.
+          pro.rationale: >-
+            The prose is the diagram's annotation. Rendering both from one
+            property means they cannot disagree, and a reader can follow the
+            numbered messages back into the sentences that name them.
+        derive-indicators-declare-only-the-rest-rule:
+          pro.text: >-
+            Prefer the ontology's own structure to a look slot: declare
+            [[owl.inverseOf]] to get a dotted reply, [[owl.SymmetricProperty]]
+            to get an undirected edge, a SHACL shape or
+            [[owl.FunctionalProperty]] to get a cardinality. Use `lineStyle`
+            (`solid` / `dotted` / `open` / `thick`) only for what OWL cannot
+            say — an asynchronous or a critical-path message — and
+            `look.nodeTier` on the band or [[look.diagramTier]] on the
+            participants' class only to size the node tiles.
+          pro.rationale: >-
+            Structure declared once serves every consumer — the ER diagram,
+            the sequence, `kanonak validate --conformance`, generated code —
+            while a look slot serves one picture. Reserving the overlay for
+            what the ontology cannot express keeps the two from contradicting
+            each other.
+      pro.hasValidExample:
+        sequence-from-a-narrative:
+          pro.value: |
+            Service:
+              type: rdfs.Class
+              look.displayLabel: serviceName            # lifeline and message labels use the lens
+
+            calls:      { type: owl.ObjectProperty, rdfs.domain: Service, rdfs.range: Service, rdfs.label: calls }
+            respondsTo: { type: owl.ObjectProperty, rdfs.domain: Service, rdfs.range: Service, rdfs.label: responds to,
+                          owl.inverseOf: calls }        # → the dotted reply, derived
+            notifies:   { type: owl.ObjectProperty, rdfs.domain: Service, rdfs.range: Service, rdfs.label: notifies }
+            narrative:  { type: owl.DatatypeProperty, rdfs.domain: Flow, rdfs.range: prose.Markdown, rdfs.label: Narrative }
+
+            Flow:
+              type: rdfs.Class
+              derivation.look:
+                type: look.ResourceView
+                look.bands:
+                  - type: look.Markdown                 # the prose …
+                    look.source: narrative
+                  - type: look.Sequence                 # … and the diagram, from ONE property
+                    look.source: narrative
+                    look.nodeTier: chip
+                    look.connectors:
+                      - { look.relation: calls }
+                      - { look.relation: respondsTo }
+                      - { look.relation: notifies, look.lineStyle: open }   # async: the one thing OWL cannot say
+
+            payment-service: { type: Service, serviceName: Payment Service, calls: fraud-service, notifies: audit-service }
+            fraud-service:   { type: Service, serviceName: Fraud Service, respondsTo: payment-service }
+            audit-service:   { type: Service, serviceName: Audit Service }
+
+            checkout-flow:
+              type: Flow
+              narrative: |
+                The [[payment-service]] asks the [[fraud-service]] to screen the order,
+                and the [[fraud-service]] answers the [[payment-service]] with a verdict.
+                On success the [[payment-service]] tells the [[audit-service]] to record it.
+          pro.description: >-
+            Three messages — payment → fraud (`calls`), fraud → payment
+            (`responds to`, dotted because it is the `owl.inverseOf` a
+            connector), payment → audit (`notifies`, open arrowhead) — every
+            one a triple that holds, in the order the prose names the
+            participants. "The fraud service answers the payment service"
+            draws fraud → payment because that is the direction of the
+            `respondsTo` statement, whatever voice the sentence uses.
+        entity-relationship-on-package-and-class:
+          pro.value: |
+            my-package:
+              type: Package
+              derivation.look:
+                type: look.PackageView
+                look.bands:
+                  - type: look.EntityRelationship     # the whole package's schema
+
+            rdfs.Class:                                # augment the imported class: every class PAGE
+              derivation.look:
+                type: look.ResourceView
+                look.bands:
+                  - type: look.EntityRelationship     # this class and the classes it reaches
+
+            service-shape:                             # cardinality comes from here, not from the band
+              type: sh.NodeShape
+              sh.targetClass: Service
+              sh.property:
+                - { type: sh.PropertyShape, sh.path: serviceName, sh.minCount: 1, sh.maxCount: 1 }
+          pro.description: >-
+            No slots to author: the package page draws every class the
+            package declares, each class page draws its neighbourhood, and
+            the `1..1` on `serviceName` is read from the SHACL shape that
+            `kanonak validate --conformance` also enforces.
+      pro.hasInvalidExample:
+        steps-modeled-for-the-picture:
+          pro.value: |
+            Step:
+              type: rdfs.Class
+            stepFrom:  { type: owl.ObjectProperty, rdfs.domain: Step, rdfs.range: Service }
+            stepTo:    { type: owl.ObjectProperty, rdfs.domain: Step, rdfs.range: Service }
+            stepOrder: { type: owl.DatatypeProperty, rdfs.domain: Step, rdfs.range: xsd.integer }
+
+            checkout-flow:
+              type: Flow
+              steps:
+                - { type: Step, stepFrom: payment-service, stepTo: fraud-service, stepOrder: 1 }
+                - { type: Step, stepFrom: fraud-service, stepTo: payment-service, stepOrder: 2 }
+          pro.description: >-
+            Avoid — a `Step` class invented so a sequence can be drawn. It
+            duplicates relations the services already have (`calls`,
+            `respondsTo`) and will drift from them. Write the narrative as
+            prose with `[[references]]` and let a `look.Sequence` read the
+            existing object properties.
+        cardinality-on-the-band:
+          pro.value: |
+            - type: look.EntityRelationship
+              look.cardinality:                       # no such slot, and there must not be one
+                - { look.relation: serviceName, look.min: 1, look.max: 1 }
+          pro.description: >-
+            Avoid — the band has no cardinality slot by design. Declare a
+            `sh.PropertyShape` with `sh.minCount` / `sh.maxCount` (or make the
+            property `owl.FunctionalProperty`); the diagram and the conformance
+            validator then read the same constraint.
+
+    visual-identity:
+      rdfs.label: Visual Identity
+      pro.summary: |
+        A resource's icon is declared with [[look.semanticSvg]]: one
+        responsive SVG with four visibility tiers — chip, icon, card, full —
+        so the same concept reads as a favicon, a sidebar tile, a grid card,
+        and a hero figure without per-context variants. Each tier is a
+        [[tx.Expression]] (typically a [[tx.Concat]] over SVG string literals
+        interleaved with [[tx.PropertyRead]] / [[tx.DisplayLabel]]), so every
+        substitution resolves through the object model and is validated at
+        author time. The floor on [[rdfs.Resource]] supplies a first-letter
+        glyph, so a class needs this only to override the default.
+      pro.hasRecommendedRule:
+        semantic-svg-tiers-rule:
+          pro.text: >-
+            A custom [[look.semanticSvg]] SHOULD author its tiers as
+            [[tx.Expression]] values, never as raw string templates, so each
+            embedded property reference is resolved and validated rather than
+            leaking unrendered.
+          pro.rationale: >-
+            A typed expression fails at `kanonak validate` time when a
+            referenced property is wrong; a string template fails silently at
+            render time, leaking an unsubstituted placeholder.
+
+    display-lenses:
+      rdfs.label: Display Lenses
+      pro.summary: |
+        Cards, nav links, hero titles, and SVG glyphs all read a resource's
+        display name and summary through two lenses: [[look.displayLabel]]
+        and [[look.displaySummary]]. The defaults on [[rdfs.Resource]] are
+        [[rdfs.label]] and [[rdfs.comment]]. A class whose name or summary
+        lives in a domain-specific property (say `teamName`) declares the
+        lens once, and every renderer reads the right value — no need to
+        duplicate the value into `rdfs.label`.
+      pro.hasRecommendedRule:
+        display-lens-rule:
+          pro.text: >-
+            When a class's display name or one-line summary is NOT in
+            [[rdfs.label]] / [[rdfs.comment]], it SHOULD declare
+            [[look.displayLabel]] / [[look.displaySummary]] pointing at the
+            property that holds it, rather than duplicating the value.
+          pro.rationale: >-
+            The lens keeps one value in one place and teaches every renderer
+            to find it; duplicating into rdfs.label invites the two copies to
+            drift apart.
+      pro.hasValidExample:
+        team-name-lens:
+          pro.value: |
+            my-publisher.org/org/Team:
+              look.displayLabel: org.teamName
+              look.displaySummary: org.teamCharter
+          pro.description: >-
+            The `Team` class tells every renderer that a team's display name
+            comes from `teamName` and its summary from `teamCharter`.
+
+    the-cascade-and-floor:
+      rdfs.label: The Cascade and the Floor
+      pro.summary: |
+        Looks cascade. A resource's look, semanticSvg, display lenses, and
+        tokens each resolve by walking outward from the resource — the
+        closest declaration wins — and bottoming out at the **universal
+        floor** on [[rdfs.Resource]] (published as
+        `kanonak.org/universal-look`). So you only declare what differs from
+        your superclass, and a class that declares nothing still renders a
+        sensible page. Class-hierarchy overrides merge per facet; a
+        per-instance override replaces.
+
+        Tokens resolve through five levels, closest first:
+
+        | Level | Declared on | Use it for |
+        |-------|-------------|------------|
+        | instance | the resource itself | a deliberate one-off |
+        | variant | a matching [[look.InstanceVariant]] on its View | presentation that follows *state* |
+        | class | any class in its type chain | the normal place to style |
+        | publisher | your [[ck.Publisher]] resource | the site-wide palette |
+        | floor | [[rdfs.Resource]] | the defaults you inherit |
+
+        Set the palette at the **publisher** level and refine per class — a
+        class override beats the site palette, and the site palette beats the
+        floor. Two things worth knowing before you theme: the stock floor is
+        a DARK theme, so a light palette must set every colour token or land
+        half-applied; and every rendered stylesheet carries a provenance
+        header naming which level supplied each token, which is the fastest
+        way to answer "why is this colour not what I set?".
+      pro.hasRequiredRule:
+        floor-guarantees-a-render-rule:
+          pro.text: >-
+            Every resource MUST render even when its class declares no look:
+            the universal floor on [[rdfs.Resource]] provides the default
+            page, glyph, and lenses. A class declares a look only to refine
+            that default.
+          pro.rationale: >-
+            A guaranteed floor is what makes the system safe to adopt
+            incrementally — you style what matters and inherit the rest,
+            rather than authoring a full page for every class up front.
+      pro.hasRecommendedRule:
+        theme-at-the-publisher-rule:
+          pro.text: >-
+            A site-wide palette SHOULD be declared as [[deriv.tokens]] on the
+            publisher's [[ck.Publisher]] resource, not repeated per class and
+            not by overriding the [[rdfs.Resource]] floor. Override the floor
+            only to change what an UNSTYLED resource inherits everywhere,
+            including resources from packages you import.
+          pro.rationale: >-
+            The publisher level exists so one declaration themes a site while
+            leaving each class free to refine it. Repeating a palette per
+            class is duplication waiting to drift. Overriding the floor does
+            work — it is where `look-tokens` puts the defaults — but it is a
+            blunter instrument: it restyles every resource the render closure
+            reaches, so a change intended for your own pages also lands on
+            imported vocabularies rendered alongside them.
