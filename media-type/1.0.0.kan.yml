@@ -1,0 +1,162 @@
+media-type:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: Media Type
+  comment: >-
+    The schema for IANA media types — the vocabulary the generated
+    `media-types` code list at codes.kanonak.org is typed with. A media type
+    names what a sequence of bytes is (`image/svg+xml`, `application/json`),
+    so a locator, an asset or a format can say what it resolves to as a
+    reference rather than a string.
+  prose.documentation: >-
+    A media type (RFC 6838) is a two-part name — a top-level type and a
+    subtype — registered with IANA. The IANA Media Types registry is the
+    source of truth; the `media-types` package at `codes.kanonak.org` is that
+    registry projected by its producer, and this package is the schema. A
+    [[MediaType]] entry's code is the full `type/subtype` string; its
+    [[topLevelType]] is one of the eleven registered top-level types; its
+    [[template]] is IANA's registration record and [[specification]] the
+    RFCs or documents that define it. A type the registry has obsoleted or
+    deprecated carries `owl.deprecated`, and `prov.supersededBy` when the
+    registry names the replacement (`application/javascript` was obsoleted
+    in favour of `text/javascript`).
+  prov.conformsTo:
+    label: RFC 6838 — Media Type Specifications and Registration Procedures
+    prov.sourceUrl: https://www.rfc-editor.org/rfc/rfc6838
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: core-prose
+          match: ^
+          version: 1.0.0
+          alias: prose
+        - package: provenance
+          match: ^
+          version: 1.0.0
+          alias: prov
+        - package: code-lists
+          match: ^
+          version: 1.0.0
+          alias: cl
+
+MediaType:
+  type: rdfs.Class
+  subClassOf: cl.Entry
+  label: Media Type
+  comment: >-
+    A registered IANA media type. The code is the full `type/subtype` name
+    (`image/svg+xml`); the resource name derives from it with the
+    separators folded to hyphens (`image-svg-xml`).
+
+TopLevelType:
+  type: rdfs.Class
+  label: Top-Level Type
+  comment: >-
+    The registered top-level media types — the part before the slash. A
+    closed enumeration; RFC 6838 requires a standards-track RFC to add one.
+  owl.oneOf: [ Application, Audio, Example, Font, Haptics, Image, Message, Model, Multipart, Text, Video ]
+
+Application:
+  type: TopLevelType
+  label: application
+  comment: Data for a particular application, or discrete data that fits no other type.
+
+Audio:
+  type: TopLevelType
+  label: audio
+  comment: Audio data.
+
+Example:
+  type: TopLevelType
+  label: example
+  comment: Reserved for use in documentation and examples; never registered for real use.
+
+Font:
+  type: TopLevelType
+  label: font
+  comment: Font data (RFC 8081).
+
+Haptics:
+  type: TopLevelType
+  label: haptics
+  comment: Haptic (touch) data.
+
+Image:
+  type: TopLevelType
+  label: image
+  comment: Image data.
+
+Message:
+  type: TopLevelType
+  label: message
+  comment: An encapsulated message, such as an email or an HTTP message.
+
+Model:
+  type: TopLevelType
+  label: model
+  comment: Model data — 3D models and similar.
+
+Multipart:
+  type: TopLevelType
+  label: multipart
+  comment: Data consisting of several parts of independent types.
+
+Text:
+  type: TopLevelType
+  label: text
+  comment: Textual data.
+
+Video:
+  type: TopLevelType
+  label: video
+  comment: Video data.
+
+topLevelType:
+  type: owl.ObjectProperty
+  label: Top-Level Type
+  comment: The top-level type the media type is registered under.
+  domain: MediaType
+  range: TopLevelType
+
+template:
+  type: owl.DatatypeProperty
+  label: Registration Template
+  comment: The URL of IANA's registration record for the media type.
+  domain: MediaType
+  range: xsd.anyURI
+
+specification:
+  type: owl.DatatypeProperty
+  label: Specification
+  comment: >-
+    The RFCs, Internet-Drafts or other documents the registry cites as
+    defining the media type.
+  domain: MediaType
+  range: xsd.anyURI
+
+registeredOn:
+  type: owl.DatatypeProperty
+  label: Registered On
+  comment: The date of the registration, where the registry records one.
+  domain: MediaType
+  range: xsd.date
+
+updatedOn:
+  type: owl.DatatypeProperty
+  label: Updated On
+  comment: The date the registration was last updated, where the registry records one.
+  domain: MediaType
+  range: xsd.date

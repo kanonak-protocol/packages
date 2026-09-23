@@ -49,11 +49,13 @@ code-lists:
 
 
     **Provenance is in-band.** Each generated package holds one [[CodeList]]
-    resource naming the [[source]] (a `prov.Standard` with its URL), the
-    [[sourceVersion]], the [[sourceDigest]] of the exact bytes read, the
-    [[producer]] that projected it, and the [[entryClass]] and [[entryCount]].
-    A reader can verify the package against the source without trusting the
-    pipeline.
+    resource naming each [[source]] it was read from (a `prov.Standard` with
+    its URL, the [[sourceVersion]] the source declared, and the
+    [[sourceDigest]] of the exact bytes read), the [[producer]] that
+    projected it, and the [[entryClass]] and [[entryCount]]. A list may have
+    several sources (a current and a historic list); the first is the one
+    the package version derives from. A reader can verify the package
+    against its sources without trusting the pipeline.
 
 
     **Every entry looks the same.** An [[Entry]] carries its [[code]] (the
@@ -135,9 +137,12 @@ source:
   type: owl.ObjectProperty
   label: Source
   comment: >-
-    The source of truth the code list was projected from — normally an
-    embedded prov.Standard carrying the registry's URL. A reader follows
-    it to verify the entries against the original.
+    A source of truth the code list was projected from — an embedded
+    prov.Standard carrying the registry's URL, the version it declared and
+    the digest of its bytes. Most lists have one; a list with a current and
+    a historic file has two, the first being the one the package version
+    derives from. A reader follows it to verify the entries against the
+    original.
   domain: CodeList
   range: prov.Source
 
@@ -146,8 +151,9 @@ sourceVersion:
   label: Source Version
   comment: >-
     The source's own version marker, verbatim — a registry file date, a
-    list version number. The package version is derived from it.
-  domain: CodeList
+    list version number. The package version is derived from the first
+    source's.
+  domain: prov.Source
   range: xsd.string
 
 sourceDigest:
@@ -157,7 +163,7 @@ sourceDigest:
     The digest of the exact source bytes the entries were projected from,
     in the same `sha256:` form the lock file uses, so the projection can be
     verified and reproduced.
-  domain: CodeList
+  domain: prov.Source
   range: xsd.string
 
 producer:
@@ -195,8 +201,6 @@ CodeListShape:
   type: sh.NodeShape
   sh.targetClass: CodeList
   sh.property:
-    - { sh.path: source, sh.class: prov.Source, sh.minCount: 1, sh.maxCount: 1 }
-    - { sh.path: sourceVersion, sh.datatype: xsd.string, sh.minCount: 1, sh.maxCount: 1 }
-    - { sh.path: sourceDigest, sh.datatype: xsd.string, sh.minCount: 1, sh.maxCount: 1 }
+    - { sh.path: source, sh.class: prov.Source, sh.minCount: 1 }
     - { sh.path: producer, sh.datatype: xsd.string, sh.minCount: 1, sh.maxCount: 1 }
     - { sh.path: entryCount, sh.datatype: xsd.integer, sh.minCount: 1, sh.maxCount: 1 }

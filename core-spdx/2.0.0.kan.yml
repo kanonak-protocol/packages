@@ -1,0 +1,107 @@
+core-spdx:
+  type: Package
+  publisher: kanonak.org
+  version: 2.0.0
+  label: SPDX
+  comment: >-
+    The schema for SPDX licence identifiers and licence exceptions — the
+    vocabulary the generated `spdx-licenses` code list at codes.kanonak.org
+    is typed with. Schema only: the licences themselves are projected from
+    the SPDX License List by its producer, never hand-typed. Version 1.0.0's
+    hand-authored licence individuals and its permission, condition and
+    limitation terms (which SPDX does not define) are gone; reference a
+    licence as an entry of the code list instead.
+  prose.documentation: >-
+    SPDX (the Software Package Data Exchange) maintains the License List — a
+    short, stable identifier for every commonly used licence (`MIT`,
+    `Apache-2.0`, `CC-BY-SA-4.0`) and for licence exceptions
+    (`LLVM-exception`). Identifiers are the currency of licence metadata in
+    package manifests, SBOMs and, for Kanonak, the licence of a media asset
+    or a package. A [[License]] entry carries its SPDX identifier as its code,
+    the licence's full name as its label, whether it is [[isOsiApproved]] and
+    [[isFsfLibre]], and [[textUrl]] links to the licence text; a retired
+    identifier carries `owl.deprecated`. An [[Exception]] is an exception
+    clause that modifies a licence, referenced by the `WITH` operator in an
+    SPDX expression.
+  prov.conformsTo:
+    label: SPDX License List
+    prov.sourceUrl: https://spdx.org/licenses/
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: core-prose
+          match: ^
+          version: 1.0.0
+          alias: prose
+        - package: provenance
+          match: ^
+          version: 1.0.0
+          alias: prov
+        - package: code-lists
+          match: ^
+          version: 1.0.0
+          alias: cl
+
+License:
+  type: rdfs.Class
+  subClassOf: cl.Entry
+  label: License
+  comment: >-
+    A licence on the SPDX License List. The code is the SPDX identifier
+    exactly as SPDX writes it (`Apache-2.0`); the label is the licence's
+    full name.
+
+Exception:
+  type: rdfs.Class
+  subClassOf: cl.Entry
+  label: License Exception
+  comment: >-
+    A licence exception on the SPDX list — an additional permission that
+    modifies a licence, combined with it by `WITH` in an SPDX expression
+    (`GPL-2.0-only WITH Classpath-exception-2.0`). The code is the SPDX
+    exception identifier.
+
+isOsiApproved:
+  type: owl.DatatypeProperty
+  label: OSI Approved
+  comment: Whether the Open Source Initiative has approved the licence as open source.
+  domain: License
+  range: xsd.boolean
+
+isFsfLibre:
+  type: owl.DatatypeProperty
+  label: FSF Libre
+  comment: >-
+    Whether the Free Software Foundation lists the licence as free. Present
+    only where SPDX records it.
+  domain: License
+  range: xsd.boolean
+
+textUrl:
+  type: owl.DatatypeProperty
+  label: Text URL
+  comment: >-
+    URLs of the licence or exception text, as SPDX records them (its
+    `seeAlso`). Named distinctly because rdfs.seeAlso is a resource
+    reference, and these are external URLs.
+  domain: [ License, Exception ]
+  range: xsd.anyURI
+
+detailsUrl:
+  type: owl.DatatypeProperty
+  label: Details URL
+  comment: The SPDX machine-readable record (JSON) for the licence or exception, carrying its full text.
+  domain: [ License, Exception ]
+  range: xsd.anyURI

@@ -1,0 +1,95 @@
+currency:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: Currency
+  comment: >-
+    The schema for ISO 4217 currencies — the vocabulary the generated
+    `currencies` code list at codes.kanonak.org is typed with. An amount of
+    money is meaningless without its currency, and a currency is a coded
+    entry with a lifecycle (the Deutsche Mark was withdrawn in 2002), so it
+    is a reference, not a string.
+  prose.documentation: >-
+    ISO 4217 assigns each currency a three-letter code (`USD`, `EUR`,
+    `JPY`), a three-digit numeric code, and the number of minor units (the
+    cents in a dollar). The maintenance agency publishes a current list and
+    a historic list of withdrawn currencies with their withdrawal dates;
+    the `currencies` package at `codes.kanonak.org` is both, projected by
+    its producer, and this package is the schema. A [[Currency]] entry's
+    code is the alphabetic code; it carries its [[numericCode]],
+    [[minorUnits]] where the standard defines them, and [[isFund]] for the
+    codes that denote funds rather than money (`USN`, `CHE`). A withdrawn
+    currency carries `owl.deprecated` and its [[withdrawnOn]] date as the
+    standard writes it — a month, a year, or a range.
+  prov.conformsTo:
+    label: ISO 4217 — Codes for the representation of currencies
+    prov.sourceUrl: https://www.iso.org/iso-4217-currency-codes.html
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: core-prose
+          match: ^
+          version: 1.0.0
+          alias: prose
+        - package: provenance
+          match: ^
+          version: 1.0.0
+          alias: prov
+        - package: code-lists
+          match: ^
+          version: 1.0.0
+          alias: cl
+
+Currency:
+  type: rdfs.Class
+  subClassOf: cl.Entry
+  label: Currency
+  comment: >-
+    A currency (or fund) with an ISO 4217 code. The code is the alphabetic
+    code (`EUR`); the label is the currency's name as the standard gives it.
+
+numericCode:
+  type: owl.DatatypeProperty
+  label: Numeric Code
+  comment: The three-digit ISO 4217 numeric code, kept as written (`008` for the lek).
+  domain: Currency
+  range: xsd.string
+
+minorUnits:
+  type: owl.DatatypeProperty
+  label: Minor Units
+  comment: >-
+    The number of digits after the decimal separator (2 for a dollar's
+    cents, 0 for the yen, 3 for the dinar). Absent where the standard gives
+    none.
+  domain: Currency
+  range: xsd.integer
+
+isFund:
+  type: owl.DatatypeProperty
+  label: Is Fund
+  comment: Whether the code denotes a fund or unit of account rather than a circulating currency.
+  domain: Currency
+  range: xsd.boolean
+
+withdrawnOn:
+  type: owl.DatatypeProperty
+  label: Withdrawn On
+  comment: >-
+    When the currency was withdrawn, as the standard writes it — usually a
+    year and month (`2002-02`), sometimes a year or a range. Accompanies
+    owl.deprecated.
+  domain: Currency
+  range: xsd.string
