@@ -15,9 +15,9 @@ language-tag:
     optionally an extended language, a script, a region and variants. The
     IANA Language Subtag Registry is the source of truth for the subtags and
     for a small set of whole tags registered before the grammar settled
-    (grandfathered) or registered redundantly. The `language-tags` package is
-    that registry projected into Kanonak by its producer; this package is the
-    schema the projection is typed with.
+    (grandfathered) or registered redundantly. The `language-tags` package at
+    `codes.kanonak.org` is that registry projected into Kanonak by its
+    producer; this package is the schema the projection is typed with.
 
 
     The two classes to know are [[LanguageTag]] — anything that can stand as a

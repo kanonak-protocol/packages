@@ -18,7 +18,7 @@ code-lists:
     slowly changing list of coded entries with labels and a lifecycle
     (entries get added, deprecated, and replaced). Kanonak packages need to
     reference those entries as resources, not carry them as strings, so each
-    list becomes a package under `kanonak.org` — and because the list is
+    list becomes a package under `codes.kanonak.org` — and because the list is
     governed elsewhere, the package is **generated**, never authored.
 
 
@@ -27,13 +27,16 @@ code-lists:
     source in the format the source is expressed in (record-jar, CSV, JSON,
     XML) and projects it into a package through the SDK's `PackageBuilder`.
     Format readers are shared; the mapping from one source's records to one
-    list's entries is the plugin. The producers live in the `producers`
-    workspace of the packages repository and run on demand — never on a
+    list's entries is the plugin. The producers and the generated packages
+    live in the `kanonak-protocol/code-lists` repository, published as their
+    own publisher at `codes.kanonak.org` — kanonak.org keeps the protocol and
+    its vocabularies, including this one; a projection of someone else's data
+    lives with its own publisher. The producers run on demand — never on a
     schedule, so a source that revises often does not become a stream of
     package versions nobody asked for. A run fetches the source, compares
     its digest with the last projection, projects on change, validates, and
     opens a pull request adding the new version. A person decides when to
-    run it and merges; the ordinary publish deploys. Nothing is ever
+    run it and merges; the site deploy publishes. Nothing is ever
     overwritten or deleted.
 
 
@@ -162,7 +165,7 @@ producer:
   label: Producer
   comment: >-
     The name of the producer plugin that projected this list, as registered
-    in the producers workspace of the packages repository.
+    in the producers workspace of the code-lists repository.
   domain: CodeList
   range: xsd.string
 
