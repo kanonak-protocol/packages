@@ -1,0 +1,194 @@
+core-kanonak:
+  type: Package
+  publisher: kanonak.org
+  version: 2.2.0
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+
+Publisher:
+  type: rdfs.Class
+  label: Publisher
+  comment: A package publisher identified by domain
+
+Package:
+  type: rdfs.Class
+  label: Package
+  comment: A Kanonak package with version and dependencies
+
+EphemeralPackage:
+  type: rdfs.Class
+  subClassOf: Package
+  label: Ephemeral Package
+  comment: >-
+    A just-in-time, content-addressed Package that carries the output of a
+    computation (a materialized view, a query result, an agent invocation
+    payload) rather than authored, versioned content. The representation
+    layer for passing information between systems that speak the Kanonak
+    Protocol. Three traits distinguish it from an ordinary Package:
+    it is produced per-invocation (run the operation twice and you get two
+    of them); it is versionless (semver is meaningless for an artifact with
+    no lineage — its identity is the content hash of its body, not a
+    declared version); and it holds references to stable resources by URI
+    rather than copies of them, so the data that matters lives in what it
+    points at. It is a dependency-graph leaf: nothing imports it and it is
+    never fed to version resolution. The package itself is the ephemeral
+    container; the resources inside it are the response, stated directly in
+    the shape the request asked for, with the package's own import closure
+    making that shape self-describing to any receiver.
+
+contentHash:
+  type: owl.DatatypeProperty
+  domain: EphemeralPackage
+  range: xsd.string
+  label: Content Hash
+  comment: >-
+    The content-addressed identity of this EphemeralPackage — the SHA-256
+    (prefixed `sha256:`) of its body in canonical form. Recorded as a
+    property rather than the package name so the colon-bearing hash never
+    has to be parsed as part of an address; the package name carries a
+    short, address-safe digest derived from it. Same computation + same
+    inputs produce the same hash, so identical results are dedupable and
+    safely cacheable by this value. The hash covers the body (the response
+    resources) only — never the header, `resolvedAt`, or `id` — so two
+    identical computations run at different times still match.
+
+expiresAt:
+  type: owl.DatatypeProperty
+  domain: EphemeralPackage
+  range: xsd.dateTime
+  label: Expires At
+  comment: >-
+    The instant after which this EphemeralPackage's contents should no
+    longer be relied upon — an advisory cache horizon for a snapshot
+    response, or a hard authorization expiry for a plan or grant. Absent
+    when the response carries no expiry.
+
+resolvedAt:
+  type: owl.DatatypeProperty
+  domain: EphemeralPackage
+  range: xsd.dateTime
+  label: Resolved At
+  comment: >-
+    The instant this EphemeralPackage was materialized — when the
+    computation that produced it ran. Provenance for a per-invocation
+    artifact whose content hash alone does not record when two identical
+    results were each produced.
+
+id:
+  type: owl.DatatypeProperty
+  domain: EphemeralPackage
+  range: xsd.string
+  label: Invocation Id
+  comment: >-
+    Optional per-invocation identifier, distinct from the content hash that
+    forms the package's identity. Two identical computations share a content
+    hash but are separate invocations; an audit or correlation trail that
+    must tell them apart carries this id. Absent when content identity
+    suffices.
+
+Import:
+  type: rdfs.Class
+  label: Import
+  comment: >-
+    A package import specification. An import is one of two things, chosen
+    by `mode`: a DEPENDENCY (the default) — schema this document needs to
+    mean anything (the classes its `type`s name, the properties it uses and
+    their ranges, the `subClassOf` chain), which is fetched with the
+    document, is part of its closure, and must not form a cycle — or a
+    LINK — a package this document merely addresses resources in (an
+    object-property value naming an entity there), which is dereferenced
+    on demand, never enters the closure, is exempt from the cycle rule,
+    and resolves version-agnostically unless pinned with `=`. A reference
+    to a resource is not a dependency on its package; any graph with
+    mutual references (spouse and spouse, part and whole) is representable
+    only because the two are distinct.
+
+PublisherImport:
+  type: rdfs.Class
+  label: Publisher Import
+  comment: A group of package imports from a single publisher
+
+publisher:
+  type: owl.ObjectProperty
+  label: Publisher
+  comment: >
+    The publisher of a package or import group. Used on Package,
+    Import, and PublisherImport instances. No `domain` is asserted —
+    the property describes a relationship that may be reused across
+    package-metadata structures and over-constraining the domain
+    invites incorrect entailments through `rdfs2`.
+  range: Publisher
+
+version:
+  type: owl.DatatypeProperty
+  label: Version
+  comment: >
+    The semantic version of a package or import constraint. Used on
+    Package and Import instances. No `domain` is asserted (see
+    `publisher` for the rationale).
+  range: xsd.string
+
+imports:
+  type: owl.ObjectProperty
+  label: Imports
+  comment: List of package imports grouped by publisher
+  domain: Package
+  range: PublisherImport
+
+packages:
+  type: owl.ObjectProperty
+  label: Packages
+  comment: List of package imports from this publisher
+  domain: PublisherImport
+  range: Import
+
+package:
+  type: owl.ObjectProperty
+  label: Package
+  comment: The package being imported
+  domain: Import
+  range: Package
+
+match:
+  type: owl.DatatypeProperty
+  label: Match
+  comment: Version match operator (*, ~, ^, =)
+  domain: Import
+  range: xsd.string
+
+alias:
+  type: owl.DatatypeProperty
+  label: Alias
+  comment: Optional namespace alias for the import
+  domain: Import
+  range: xsd.string
+
+mode:
+  type: owl.DatatypeProperty
+  label: Mode
+  comment: >-
+    What the import is: `dependency` (the default when omitted) or `link`.
+    A dependency is schema and is resolved, fetched and cycle-checked as
+    part of this document's closure. A link is data: the document names
+    resources in the linked package through the import's alias exactly as
+    it would through a dependency, but the package is only dereferenced —
+    on demand by a reader, and one hop out (the target package alone,
+    never its closure) by `kanonak validate`, which reports a link that
+    does not dereference. Links carry no version unless the import is
+    pinned with `=`; `match: *` is the natural form for a link, where for
+    a dependency it is the anti-pattern. Any other value is a parse error.
+  domain: Import
+  range: xsd.string
