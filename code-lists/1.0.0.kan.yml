@@ -1,0 +1,199 @@
+code-lists:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: Code Lists
+  comment: >-
+    The vocabulary for code lists — governed, externally maintained sets of
+    coded entries (language tags, licence identifiers, currency codes, media
+    types, time zones) that are projected into Kanonak packages from their
+    source of truth by a producer, never hand-typed. One CodeList record per
+    generated package states where its entries came from and which revision
+    of the source they reflect; every entry carries the same few facts, so
+    one renderer, one deprecation rule and one lookup serve the whole family.
+  prose.documentation: >-
+    A **code list** is reference data that someone else governs: the IANA
+    language subtag registry, the SPDX licence list, ISO 4217 currencies, the
+    IANA media-type and time-zone registries. Each is an authoritative,
+    slowly changing list of coded entries with labels and a lifecycle
+    (entries get added, deprecated, and replaced). Kanonak packages need to
+    reference those entries as resources, not carry them as strings, so each
+    list becomes a package under `kanonak.org` — and because the list is
+    governed elsewhere, the package is **generated**, never authored.
+
+
+    **One way in.** Every code list is produced by a *producer*: a small
+    plugin, implementing the SDK's package-producer contract, that reads the
+    source in the format the source is expressed in (record-jar, CSV, JSON,
+    XML) and projects it into a package through the SDK's `PackageBuilder`.
+    Format readers are shared; the mapping from one source's records to one
+    list's entries is the plugin. The producers live in the `producers`
+    workspace of the packages repository and run on demand — never on a
+    schedule, so a source that revises often does not become a stream of
+    package versions nobody asked for. A run fetches the source, compares
+    its digest with the last projection, projects on change, validates, and
+    opens a pull request adding the new version. A person decides when to
+    run it and merges; the ordinary publish deploys. Nothing is ever
+    overwritten or deleted.
+
+
+    **The version is the source's own.** A generated package's version is
+    derived from the source's version marker — the registry's file date
+    (`2026-09-17` becomes `2026.9.17`), a list version (`3.27` becomes
+    `3.27.0`) — never from when the producer ran. The same source bytes
+    always produce byte-identical output, and the pipeline proves it by
+    projecting twice.
+
+
+    **Provenance is in-band.** Each generated package holds one [[CodeList]]
+    resource naming the [[source]] (a `prov.Standard` with its URL), the
+    [[sourceVersion]], the [[sourceDigest]] of the exact bytes read, the
+    [[producer]] that projected it, and the [[entryClass]] and [[entryCount]].
+    A reader can verify the package against the source without trusting the
+    pipeline.
+
+
+    **Every entry looks the same.** An [[Entry]] carries its [[code]] (the
+    string the source uses — the BCP 47 tag, the SPDX identifier, the
+    currency code), an `rdfs.label`, optional [[altLabel]] alternatives, and
+    when it is retired, [[owl.deprecated]] plus [[prov.supersededBy]] pointing
+    at its replacement. Domain-specific facts are layered on by each list's
+    own vocabulary (for language tags, the `language-tag` package). The
+    uniform floor is what lets one renderer, one deprecation warning and one
+    lookup work across the whole family.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: core-prose
+          match: ^
+          version: 1.0.0
+          alias: prose
+        - package: core-shacl
+          match: ^
+          version: 1.0.0
+          alias: sh
+        - package: provenance
+          match: ^
+          version: 1.0.0
+          alias: prov
+
+CodeList:
+  type: rdfs.Class
+  label: Code List
+  comment: >-
+    The provenance record of one projected code list — exactly one per
+    generated package. It names the source the entries were read from, the
+    source's own version and the digest of the bytes read, and the producer
+    that projected them, so the package can be verified against its source
+    and regenerated identically.
+
+Entry:
+  type: rdfs.Class
+  label: Entry
+  comment: >-
+    One coded entry of a code list. Every entry carries a code and a label;
+    a retired entry carries owl.deprecated and, when the source names a
+    replacement, prov.supersededBy. Each code list's own vocabulary
+    subclasses Entry to add its domain-specific facts.
+
+code:
+  type: owl.DatatypeProperty
+  label: Code
+  comment: >-
+    The entry's code exactly as the source writes it — the BCP 47 tag, the
+    SPDX licence identifier, the ISO 4217 currency code. The resource name
+    is derived from it; the code is the authoritative string.
+  domain: Entry
+  range: xsd.string
+
+altLabel:
+  type: owl.DatatypeProperty
+  label: Alternative Label
+  comment: >-
+    An alternative name for the entry beyond its rdfs.label — a source often
+    lists several ("Spanish" and "Castilian"). The first source description
+    becomes the label; the rest become alternative labels. No domain is
+    asserted, following the convention for broadly applicable properties.
+  range: xsd.string
+
+source:
+  type: owl.ObjectProperty
+  label: Source
+  comment: >-
+    The source of truth the code list was projected from — normally an
+    embedded prov.Standard carrying the registry's URL. A reader follows
+    it to verify the entries against the original.
+  domain: CodeList
+  range: prov.Source
+
+sourceVersion:
+  type: owl.DatatypeProperty
+  label: Source Version
+  comment: >-
+    The source's own version marker, verbatim — a registry file date, a
+    list version number. The package version is derived from it.
+  domain: CodeList
+  range: xsd.string
+
+sourceDigest:
+  type: owl.DatatypeProperty
+  label: Source Digest
+  comment: >-
+    The digest of the exact source bytes the entries were projected from,
+    in the same `sha256:` form the lock file uses, so the projection can be
+    verified and reproduced.
+  domain: CodeList
+  range: xsd.string
+
+producer:
+  type: owl.DatatypeProperty
+  label: Producer
+  comment: >-
+    The name of the producer plugin that projected this list, as registered
+    in the producers workspace of the packages repository.
+  domain: CodeList
+  range: xsd.string
+
+entryClass:
+  type: owl.ObjectProperty
+  label: Entry Class
+  comment: The class (or classes) the list's entries are instances of.
+  domain: CodeList
+  range: rdfs.Class
+
+entryCount:
+  type: owl.DatatypeProperty
+  label: Entry Count
+  comment: >-
+    How many entries the package holds. A quick integrity check against
+    the source, and a signal of the list's size before fetching it.
+  domain: CodeList
+  range: xsd.integer
+
+EntryShape:
+  type: sh.NodeShape
+  sh.targetClass: Entry
+  sh.property:
+    - { sh.path: code, sh.datatype: xsd.string, sh.minCount: 1, sh.maxCount: 1 }
+
+CodeListShape:
+  type: sh.NodeShape
+  sh.targetClass: CodeList
+  sh.property:
+    - { sh.path: source, sh.class: prov.Source, sh.minCount: 1, sh.maxCount: 1 }
+    - { sh.path: sourceVersion, sh.datatype: xsd.string, sh.minCount: 1, sh.maxCount: 1 }
+    - { sh.path: sourceDigest, sh.datatype: xsd.string, sh.minCount: 1, sh.maxCount: 1 }
+    - { sh.path: producer, sh.datatype: xsd.string, sh.minCount: 1, sh.maxCount: 1 }
+    - { sh.path: entryCount, sh.datatype: xsd.integer, sh.minCount: 1, sh.maxCount: 1 }

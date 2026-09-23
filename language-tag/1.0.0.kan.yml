@@ -1,0 +1,260 @@
+language-tag:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: Language Tag
+  comment: >-
+    The vocabulary for BCP 47 language tags and the subtags they are built
+    from — the schema behind the generated `language-tags` code list. A
+    LanguageTag is a complete tag that can label text in a language; a
+    Subtag is a registered building block (a script, a region, a variant).
+    A primary language subtag is both.
+  prose.documentation: >-
+    BCP 47 identifies a language with a *tag* such as `en`, `zh-Hant` or
+    `sl-rozaj`, composed from registered *subtags*: a primary language,
+    optionally an extended language, a script, a region and variants. The
+    IANA Language Subtag Registry is the source of truth for the subtags and
+    for a small set of whole tags registered before the grammar settled
+    (grandfathered) or registered redundantly. The `language-tags` package is
+    that registry projected into Kanonak by its producer; this package is the
+    schema the projection is typed with.
+
+
+    The two classes to know are [[LanguageTag]] — anything that can stand as a
+    complete tag, and therefore anything a language-tagged string may point
+    at — and [[Subtag]] — a registered component. A [[LanguageSubtag]] is
+    both, so `en` alone is a valid tag. A [[ScriptSubtag]] such as `Hant`, a
+    [[RegionSubtag]] such as `US` or `001`, an [[ExtlangSubtag]] and a
+    [[VariantSubtag]] are components only. [[GrandfatheredTag]] and
+    [[RedundantTag]] are the registry's whole-tag entries. Because the
+    registry holds subtags, not the tags people compose from them, a document
+    that needs `zh-Hant-TW` declares it in its own package as a LanguageTag
+    composed via [[primaryLanguage]], [[script]] and [[region]] from the
+    registry's entries — the composition is validated, and the registry stays
+    a finite list.
+
+
+    Lifecycle follows the code-lists floor: a retired entry carries
+    `owl.deprecated` and [[deprecatedOn]], and the registry's preferred value
+    becomes `prov.supersededBy` on the entry — so a validator can say "`iw` is
+    deprecated; use `he`" with a real reference, not a string.
+  prov.conformsTo:
+    label: BCP 47 — Tags for Identifying Languages
+    prov.sourceUrl: https://www.rfc-editor.org/info/bcp47
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-rdf
+          match: ^
+          version: 1.0.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.0.0
+          alias: owl
+        - package: core-xsd
+          match: ^
+          version: 1.0.0
+          alias: xsd
+        - package: core-prose
+          match: ^
+          version: 1.0.0
+          alias: prose
+        - package: provenance
+          match: ^
+          version: 1.0.0
+          alias: prov
+        - package: code-lists
+          match: ^
+          version: 1.0.0
+          alias: cl
+
+LanguageTag:
+  type: rdfs.Class
+  subClassOf: cl.Entry
+  label: Language Tag
+  comment: >-
+    A complete BCP 47 tag — something that can label text in a language. A
+    primary language subtag alone (`en`), a grandfathered or redundant
+    registered tag (`i-klingon`, `zh-Hant`), or a tag composed from registry
+    subtags in a consumer's own package (`zh-Hant-TW`). The code is the tag
+    string.
+
+Subtag:
+  type: rdfs.Class
+  subClassOf: cl.Entry
+  label: Subtag
+  comment: >-
+    A registered BCP 47 subtag — a building block of a tag. The code is the
+    subtag exactly as registered, including case (`Hant`, `US`).
+
+LanguageSubtag:
+  type: rdfs.Class
+  subClassOf: [ Subtag, LanguageTag ]
+  label: Language Subtag
+  comment: >-
+    A primary language subtag (`en`, `zh`, `cmn`). A subtag, and also a
+    complete tag on its own — the common case for tagging text.
+
+ExtlangSubtag:
+  type: rdfs.Class
+  subClassOf: Subtag
+  label: Extended Language Subtag
+  comment: >-
+    An extended language subtag (`yue` after `zh`), always preceded by the
+    primary language its prefix names. Every extlang is also registered as a
+    primary language, which is its preferred form.
+
+ScriptSubtag:
+  type: rdfs.Class
+  subClassOf: Subtag
+  label: Script Subtag
+  comment: A script subtag (`Latn`, `Hant`, `Cyrl`), four letters, title case.
+
+RegionSubtag:
+  type: rdfs.Class
+  subClassOf: Subtag
+  label: Region Subtag
+  comment: >-
+    A region subtag — a two-letter country code (`US`, `GB`) or a three-digit
+    UN M.49 area code (`001` world, `419` Latin America).
+
+VariantSubtag:
+  type: rdfs.Class
+  subClassOf: Subtag
+  label: Variant Subtag
+  comment: >-
+    A variant subtag (`rozaj`, `1901`, `oxendict`) qualifying a language or
+    script — an orthography, a dialect, a transliteration. Its prefix names
+    the tags it may follow.
+
+GrandfatheredTag:
+  type: rdfs.Class
+  subClassOf: LanguageTag
+  label: Grandfathered Tag
+  comment: >-
+    A whole tag registered under RFC 1766 or RFC 3066 before the current
+    grammar (`i-klingon`, `art-lojban`). Most are deprecated in favour of a
+    tag the grammar can compose; the registry names the replacement.
+
+RedundantTag:
+  type: rdfs.Class
+  subClassOf: LanguageTag
+  label: Redundant Tag
+  comment: >-
+    A whole tag registered under earlier rules that the current grammar can
+    compose from subtags (`zh-Hant`, `sgn-BE-FR`). Kept as a registered entry
+    for continuity.
+
+SubtagScope:
+  type: rdfs.Class
+  label: Subtag Scope
+  comment: >-
+    The registry's scope of a language subtag when it is not an individual
+    language: a macrolanguage, a collection of languages, a special code
+    (`mul`, `und`, `zxx`, `mis`), or private use. A closed enumeration.
+  owl.oneOf: [ Macrolanguage, Collection, Special, PrivateUse ]
+
+Macrolanguage:
+  type: SubtagScope
+  label: Macrolanguage
+  comment: A language code that covers several closely related individual languages (`zh`, `ar`).
+
+Collection:
+  type: SubtagScope
+  label: Collection
+  comment: A code for a group of languages that is not itself a language (`gem` Germanic).
+
+Special:
+  type: SubtagScope
+  label: Special
+  comment: A special-purpose code — multiple languages, undetermined, no linguistic content, uncoded.
+
+PrivateUse:
+  type: SubtagScope
+  label: Private Use
+  comment: A code reserved for private agreement between parties.
+
+primaryLanguage:
+  type: owl.ObjectProperty
+  label: Primary Language
+  comment: The primary language subtag a composed tag starts with.
+  domain: LanguageTag
+  range: LanguageSubtag
+
+extlang:
+  type: owl.ObjectProperty
+  label: Extended Language
+  comment: The extended language subtag of a composed tag, if any.
+  domain: LanguageTag
+  range: ExtlangSubtag
+
+script:
+  type: owl.ObjectProperty
+  label: Script
+  comment: The script subtag of a composed tag, if any.
+  domain: LanguageTag
+  range: ScriptSubtag
+
+region:
+  type: owl.ObjectProperty
+  label: Region
+  comment: The region subtag of a composed tag, if any.
+  domain: LanguageTag
+  range: RegionSubtag
+
+variants:
+  type: owl.ObjectProperty
+  label: Variants
+  comment: The variant subtags of a composed tag, in order.
+  domain: LanguageTag
+  range: VariantSubtag
+
+added:
+  type: owl.DatatypeProperty
+  label: Added
+  comment: The date the entry was added to the registry.
+  domain: [ Subtag, LanguageTag ]
+  range: xsd.date
+
+deprecatedOn:
+  type: owl.DatatypeProperty
+  label: Deprecated On
+  comment: >-
+    The date the registry deprecated the entry. Accompanies owl.deprecated;
+    the replacement, when the registry names one, is prov.supersededBy.
+  domain: [ Subtag, LanguageTag ]
+  range: xsd.date
+
+prefix:
+  type: owl.DatatypeProperty
+  label: Prefix
+  comment: >-
+    A tag this subtag is registered to follow (`de` for the variant `1901`,
+    `sl-rozaj` for `njiva`). A pattern over tags, so a string rather than a
+    reference; a variant may list several.
+  domain: [ ExtlangSubtag, VariantSubtag ]
+  range: xsd.string
+
+suppressScript:
+  type: owl.ObjectProperty
+  label: Suppress Script
+  comment: >-
+    The script that is implied and should not be written for this language
+    (`Latn` for `en`), per the registry.
+  domain: [ LanguageSubtag, ExtlangSubtag ]
+  range: ScriptSubtag
+
+macrolanguage:
+  type: owl.ObjectProperty
+  label: Macrolanguage
+  comment: The macrolanguage this individual language belongs to (`zh` for `cmn`).
+  domain: [ LanguageSubtag, ExtlangSubtag ]
+  range: LanguageSubtag
+
+scope:
+  type: owl.ObjectProperty
+  label: Scope
+  comment: The registry scope of a language subtag that is not an individual language.
+  domain: LanguageSubtag
+  range: SubtagScope
