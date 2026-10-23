@@ -758,11 +758,13 @@ kanonak-protocol-spec:
             hold every version a range can resolve to: `^` takes the highest line
             in its major, `~` the line of its minor, and `*` the pinned version.
             An `=` import that names a line's version takes it from the line as
-            well. With them a range resolves from the lock even below the
-            package's newest major, and the bytes of the version it takes are
-            checked against that line's integrity. A lock without lines stays
-            conformant, but a range its pinned version does not satisfy cannot
-            resolve from it.
+            well. One that names an older patch, such as `= 2.0.1` where its line
+            is 2.0.3, names a version the lines don't list, and resolves as it
+            does from a lock without lines. With the lines a range resolves from
+            the lock even below the package's newest major, and the bytes of the
+            version it takes are checked against that line's integrity. A lock
+            without lines stays conformant, but a range its pinned version does
+            not satisfy cannot resolve from it.
       hasValidExample:
         lock-lines-resolution:
           pro.value: |
