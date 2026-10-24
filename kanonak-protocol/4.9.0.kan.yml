@@ -521,8 +521,9 @@ kanonak-protocol-spec:
             `resolved` URL and the sha256 `integrity` of its bytes, and no
             `lines`. It is recorded once, when the version is published, and
             never changes. A version published before its publisher served
-            release locks gets one recorded once, from the versions the
-            publisher held when that version was published.
+            release locks gets one recorded once, from the versions each
+            package's publisher had published when that version was
+            published.
           rationale: >-
             A range resolved again later gives whatever is newest then, so
             the closure a version was validated against survives only as a
