@@ -390,6 +390,17 @@ kanonak-protocol-spec:
             this protocol: a client written before it still reads the
             document, and takes the field's default. NuGet's service index
             requires the same of its clients.
+        discovery-version-rule:
+          pro.text: >-
+            A client MUST refuse a discovery document whose `version` it
+            doesn't know, naming the version and the document's URL.
+          rationale: >-
+            Since `unknown-fields-rule` makes every new field a minor, a new
+            `version` is only ever for a change a client written before it
+            can't read, such as a field whose meaning changes. A client that
+            read that format as the one it knows would read the change wrong,
+            and say nothing. Stated before a second format exists, it binds
+            every client written against the first.
         versions-template-shape-rule:
           pro.text: >-
             The versions resource is a `kanonak.lock`, in the shape
@@ -414,12 +425,18 @@ kanonak-protocol-spec:
             `https://{publisher}/kanonak.lock`, and for a package that lock
             doesn't list, the lock at `https://{publisher}/{package}/kanonak.lock`.
             `featured_packages` defaults to none.
+            A client reads only a 404 as absent, for the discovery document
+            or a versions resource. Any other failure, or no answer, is an
+            error naming the URL, and a 401 is answered by authenticating, as
+            `gated-discovery-rule` says.
           rationale: >-
             The defaults are the paths publishers served before these fields
             existed, so a publisher serving at them stays conformant without
             setting anything. A default a reader can't see is still a
             default the reader has to know, so a publisher whose document
-            others learn from, as kanonak.org's, sets every field.
+            others learn from, as kanonak.org's, sets every field. A client
+            that read a failure as absent would fetch a publisher whose
+            sources live elsewhere at the defaults, and say nothing.
         gated-discovery-rule:
           pro.text: >-
             A publisher that authenticates its requesters serves its
