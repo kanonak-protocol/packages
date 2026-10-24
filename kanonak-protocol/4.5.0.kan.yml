@@ -353,6 +353,15 @@ kanonak-protocol-spec:
         publisher, where a version's source is, where a package's versions
         are, and which packages are its entry points. Every other resource
         is found from it.
+      prose.documentation: >-
+        **A known risk, with no rule yet.** A client may be configured with
+        its own package URL template, overriding the publisher's, to fetch
+        every version through a mirror. A template that applies to every
+        publisher, as a mirror's does, also receives the names of a gated
+        publisher's packages each time a client fetches one, whether or not
+        the mirror can serve them. Which templates may take a gated
+        publisher's requests waits until it's decided. Go's `GOPRIVATE` keeps
+        private module paths away from public proxies for the same reason.
       hasRequiredRule:
         discovery-fields-rule:
           pro.text: >-
@@ -372,6 +381,15 @@ kanonak-protocol-spec:
             URL is, so any client builds the same URL from it. A versions
             resource lists every version of a package, so no `{version}`
             can name one.
+        unknown-fields-rule:
+          pro.text: >-
+            A client MUST ignore every field of the discovery document it
+            doesn't understand, and read the ones it does.
+          rationale: >-
+            A field added to the document later is then a minor version of
+            this protocol: a client written before it still reads the
+            document, and takes the field's default. NuGet's service index
+            requires the same of its clients.
         versions-template-shape-rule:
           pro.text: >-
             The versions resource is a `kanonak.lock`, in the shape
@@ -457,6 +475,16 @@ kanonak-protocol-spec:
             resource changes with each publish. A shared cache that stored a
             gated response could serve it to a requester the publisher never
             authorized.
+        conditional-versions-rule:
+          pro.text: >-
+            A publisher SHOULD send an `ETag` with each versions resource, and
+            a client refreshing one it holds SHOULD send that value in
+            `If-None-Match`, so a versions resource that hasn't changed costs
+            a `304 Not Modified` and no body.
+          rationale: >-
+            A client reads a package's versions again each time it writes a
+            lock, and most packages haven't changed since its last read.
+            Cargo's sparse index is refreshed the same way.
       hasValidExample:
         kanonak-org-discovery:
           pro.value: |
