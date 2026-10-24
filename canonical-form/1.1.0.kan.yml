@@ -1,5 +1,5 @@
 # =============================================================================
-# canonical-form @ 1.0.3
+# canonical-form @ 1.1.0
 #
 # Clarification release: the temporal carriers follow XSD 1.1 Part 2's rules
 # (kanonak-protocol/runtime#36). 1.0.2 and before named the normalizations but

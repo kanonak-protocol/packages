@@ -1,5 +1,5 @@
 # =============================================================================
-# core-owl @ 2.2.0
+# core-owl @ 2.3.0
 #
 # 2.2.0 — owl.Class now explicitly `subClassOf rdfs.Class` (per OWL 2:
 # `owl:Class rdfs:subClassOf rdfs:Class`), replacing a bare self-referential
