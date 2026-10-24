@@ -898,21 +898,26 @@ kanonak-protocol-spec:
             the link stay readable, as they're read today.
         builtin-import-rule:
           pro.text: >-
-            A package that names a built-in term, such as `Class`,
-            `subClassOf`, `label` or `Package`, SHOULD import the term's
-            package, its home, as it imports the package of any other term it
-            names, or link it with `=` where the home depends on the package
-            (`home-link-rule`). A version that names a built-in term with
-            neither an import nor a link of its home is read at whichever
-            version of the home the client holds, so its canonical form can't
-            be reproduced from its text alone.
+            A package that names a term of core-rdf, core-owl or core-kanonak
+            without an alias, such as `Class`, `subClassOf`, `label` or
+            `Package`, SHOULD import that term's package, its home, as it
+            imports the package of any other term it names, or link it with
+            `=` where the home depends on the package (`home-link-rule`). A
+            version that names such a term with neither an import nor a link
+            of its home reads it at the highest version of the home its
+            closure states, and only where its closure states none at
+            whichever version of the home the client holds, when its
+            canonical form can't be reproduced from its text alone.
           rationale: >-
             A built-in term is defined in a package like any other: core-rdf
             homes `Class` and `label`, core-owl `ObjectProperty`, and
             core-kanonak `Package`. The canonical form names it at a version
             (`canonical-scalar-representation-rule`), and only an import or a
             link states which (`stated-version-rule`). With neither, the
-            client supplies the version, and one version of the package hashes
+            highest version of the home the closure states still comes from
+            the text. Only a home outside the closure, as core-kanonak is for
+            core-rdf, core-owl and core-xsd, leaves the client to supply the
+            version (`home-link-rule`), and one version of the package hashing
             differently from one client to the next.
         compatible-operator-rule:
           pro.text: Use compatible version operator (~) to allow patch updates within the same minor version
@@ -1047,22 +1052,22 @@ kanonak-protocol-spec:
     version-resolution:
       label: Version Resolution
       pro.summary: >-
-        What runs takes the highest version each import admits, and what is
-        derived from a version reads the versions its text states
+        What runs takes the highest version each import admits, and what
+        identifies or validates a version reads the versions its text states
       hasRequiredRule:
         highest-compatible-rule:
           pro.text: >-
             When resolving an import for what runs, such as installing it,
             writing a lock, or loading what a package imports to run it,
             Kanonak MUST select the highest version that satisfies the version
-            operator constraints. What is derived from a version reads the
-            versions its text states instead (`stated-version-rule`).
+            operator constraints. What identifies or validates a version reads
+            the versions its text states instead (`stated-version-rule`).
           rationale: Automatic version resolution ensures packages get the latest compatible updates while respecting semantic versioning constraints. This enables bug fixes and patches without manual intervention while preventing breaking changes.
         stated-version-rule:
           pro.text: >-
-            What is derived from a version, such as its canonical form and
-            hash, its validation, and anything generated from it, MUST read
-            each import at the version the import states, whatever its
+            What identifies or validates a version, its canonical form and hash
+            and its validation, MUST read each import at the version the
+            import states, whatever its
             operator, and each of those versions' imports the same way, and
             MUST resolve nothing. A reference to a term of an imported package
             names that version. Where a version's closure states one package
@@ -1082,7 +1087,10 @@ kanonak-protocol-spec:
             never stated. Read at the stated versions, one version gives one
             hash and one validation, wherever and whenever. The range still
             says which versions the package may run with, and a lock still
-            takes the highest of them (`highest-compatible-rule`).
+            takes the highest of them (`highest-compatible-rule`). The rule
+            governs a version's identity and validation only: code generated
+            from a version may be made against the closure the version
+            resolved when it was published, recorded once.
         major-zero-special-case-rule:
           pro.text: For major version 0 (pre-1.0), the caret operator (^) MUST behave like tilde (~), allowing only patch updates
           rationale: Semantic versioning treats 0.x.y as unstable where breaking changes can occur in minor versions. Caret operator for ^0.x.y allows only patches (0.x.z) to prevent unexpected breaking changes during pre-release development.
