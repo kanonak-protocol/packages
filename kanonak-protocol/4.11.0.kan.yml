@@ -357,10 +357,10 @@ kanonak-protocol-spec:
         A publisher's discovery document, `/.well-known/kanonak.json`, is
         the one entry point a client reads: it says the domain is a Kanonak
         publisher, where a version's source is, where a package's versions
-        are, where a version's release lock and its signature are, and which
-        packages are its entry points. Every other resource is found from
-        it, but the publisher's keys, which are public even where everything
-        else is gated.
+        are, where a version's release lock is, with its signature beside
+        it, and which packages are its entry points. Every other resource is
+        found from it, but the publisher's keys, which are public even where
+        everything else is gated.
       prose.documentation: >-
         **A known risk, with no rule yet.** A client may be configured with
         its own package URL template, overriding the publisher's, to fetch
@@ -382,9 +382,7 @@ kanonak-protocol-spec:
             `versions_url_template`, where a package's versions are, filled
             with `{publisher}` and optionally `{package}`;
             `release_lock_url_template`, where a version's release lock is,
-            filled with `{publisher}`, `{package}` and `{version}`;
-            `release_lock_signature_url_template`, where its signature is,
-            filled the same way; and
+            filled with `{publisher}`, `{package}` and `{version}`; and
             `featured_packages`, the bare names of the publisher's
             entry-point packages. Each template MUST be an `https` URL, and
             MUST use no placeholder but the ones its field fills.
@@ -438,8 +436,6 @@ kanonak-protocol-spec:
             doesn't list, the lock at `https://{publisher}/{package}/kanonak.lock`.
             `release_lock_url_template` defaults to
             `https://{publisher}/{package}/{version}/kanonak.lock`.
-            `release_lock_signature_url_template` defaults to
-            `https://{publisher}/{package}/{version}/kanonak.lock.jws`.
             `featured_packages` defaults to none.
             A client reads only a 404 as absent, for the discovery document,
             a versions resource, a release lock or its signature. Any other failure, or no answer, is an
@@ -485,13 +481,18 @@ kanonak-protocol-spec:
             `jwks` holds the keys that sign the entity configuration itself,
             and its `metadata` holds a `kanonak_publisher` entry whose `jwks`
             (RFC 7517) holds the keys that sign its release locks, apart from
-            those. A key it no longer signs with stays listed, so a release
-            lock signed before a rotation still verifies. A key that leaked
-            is removed, and each release lock it signed is signed again with
-            a current key.
+            those. A publisher whose `kanonak_publisher` metadata lists a key
+            MUST sign every release lock it serves, those it recorded before
+            it started signing included. A key it no longer signs with stays
+            listed, so a release lock signed before a rotation still
+            verifies. A key that leaked is removed, and each release lock it
+            signed is signed again with a current key.
           rationale: >-
             Public keys give nothing away, so a gated publisher can still let
             anyone check what it published, through any copy of its versions.
+            A client reads from the publisher itself whether it signs, so a
+            mirror can't make a signed publisher's release locks look
+            unsigned (`unsigned-release-lock-rule`).
             OpenID Federation's well-known entity configuration is where an
             open network of domains already publishes keys and the statements
             other domains make about them, so a publisher's signing keys are
@@ -501,28 +502,71 @@ kanonak-protocol-spec:
             hot keys rotate without changing what identifies the publisher.
         release-lock-verification-rule:
           pro.text: >-
-            A client that verifies a release lock MUST check its signature, a
-            JWS from the version's `release_lock_signature_url_template`,
-            against the release lock's bytes, with the key the JWS header's
-            `kid` names in the `kanonak_publisher` metadata of the publisher's
-            entity configuration, after checking that configuration's own
-            signature with a key in its top-level `jwks`. The first time it
-            reads a publisher's entity configuration, it records the RFC 7638
-            thumbprint of the key that signed it. A later configuration signed
-            by a key without that thumbprint is refused, naming both, unless a
-            trust chain to a trust anchor the client trusts (OpenID
-            Federation) vouches for the new key, or the client's user accepts
-            it. A version whose release lock has no signature, its signature
-            answering 404, is unsigned, and is read as one.
+            A client that verifies a release lock MUST first check the
+            publisher's entity configuration, read from the publisher itself
+            (`publisher-keys-rule`): its signature, with a key in its
+            top-level `jwks`, and its `exp`, refusing one past it, as OpenID
+            Federation does. The first time it reads a publisher's entity
+            configuration, it records the RFC 7638 thumbprint of the key that
+            signed it. A later configuration signed by a key without that
+            thumbprint is refused, naming both, unless a trust chain to a
+            trust anchor the client trusts (OpenID Federation) vouches for
+            the new key, or the client's user accepts it. It then checks the
+            release lock's signature, the JWS at the URL it read the release
+            lock from with `.jws` appended to its path, against the release
+            lock's bytes, with the key the JWS header's `kid` names in the
+            configuration's `kanonak_publisher` metadata. It refuses a JWS
+            whose `alg` isn't `ES256`, or whose `typ` isn't
+            `kanonak-release-lock+jws`, naming what it found.
           rationale: >-
             A release lock holds the sha256 of every version in a closure, so
             one signature check makes every byte of the closure checkable
-            from wherever it was read, a mirror's copy included. The
-            client's first fetch over HTTPS is as far as it can trust a
-            domain it knows nothing else about, so the key it learns then is
-            the one it holds the publisher to, as SSH holds a host to its
-            key. A changed key is then a change someone vouches for, never one
-            taken silently.
+            from wherever it was read, a mirror's copy included, and the
+            signature is read from the same place. The client's first fetch
+            over HTTPS is as far as it can trust a domain it knows nothing
+            else about, so the key it learns then is the one it holds the
+            publisher to, as SSH holds a host to its key. A changed key is
+            then a change someone vouches for, never one taken silently. A
+            verifier that takes the algorithm from the header accepts `none`,
+            or an HMAC keyed with the public key (RFC 8725, 3.1), and an
+            explicit `typ` keeps one kind of JWS from passing as another only
+            where the verifier refuses the wrong one (RFC 8725, 3.11).
+        unsigned-release-lock-rule:
+          pro.text: >-
+            A client that verifies reads a release lock as unsigned only when
+            its publisher signs nothing: it serves no entity configuration,
+            answering 404, or its `kanonak_publisher` metadata lists no key.
+            Where the publisher lists a key, a signature that answers 404 is
+            refused, naming its URL. A publisher whose thumbprint the client
+            recorded, and that now signs nothing, is refused, naming it,
+            unless the client's user accepts it.
+          rationale: >-
+            Whoever serves the release lock answers the request for its
+            signature too, so if a 404 there meant unsigned, a mirror could
+            answer 404 for every signature it holds, and the client would
+            read each release lock as unsigned, without a word. Whether a
+            publisher signs is read from the publisher itself, so only the
+            publisher can make its release locks unsigned. A publisher that
+            stops signing is a change someone vouches for, as a changed key
+            is.
+        offline-verification-rule:
+          pro.text: >-
+            A client with no route to the publisher, as in an air gap,
+            verifies against an entity configuration it was given with the
+            release locks, past its `exp`, only when the key that signed it
+            has the thumbprint the client recorded for the publisher, or the
+            client's user accepts it. A consumer rebuilding from its own lock
+            (`revocation-rule`) checks the sha256 values that lock holds, and
+            needs no signature.
+          rationale: >-
+            An entity configuration's `exp` bounds how long a client relies on
+            its keys before asking again, so a key the publisher removed stops
+            being trusted. A client with no route to the publisher can't ask
+            again. A configuration signed by the identity it already holds
+            the publisher to is the most it can know, and a key removed since
+            still passes there, which is what verifying offline costs. A
+            consumer's own lock was checked against the bytes it fetched when
+            it was written, so a rebuild from it needs nothing more.
         revocation-rule:
           pro.text: >-
             Revoking a requester's access refuses its next request, and
@@ -593,21 +637,27 @@ kanonak-protocol-spec:
           pro.text: >-
             A publisher that serves release locks SHOULD sign each with one of
             the keys its entity configuration publishes (`publisher-keys-rule`),
-            and serve the signature at the version's
-            `release_lock_signature_url_template`: a JWS (RFC 7515) in compact
+            and serve the signature beside it, at the release lock's URL with
+            `.jws` appended to its path: a JWS (RFC 7515) in compact
             serialization with a detached payload (RFC 7515, Appendix F),
             whose payload is the release lock's bytes exactly as served,
             signed with ES256 (RFC 7518). Its header's `typ` is
             `kanonak-release-lock+jws`, and its `kid` names the key. A release
-            lock is signed once, when it is recorded, and signed again only
-            when the key that signed it is withdrawn.
+            lock is signed once, when it is recorded or, for one recorded
+            before its publisher signed, when the publisher starts signing,
+            and signed again only when the key that signed it is withdrawn. A
+            copy of a release lock is served with its signature beside it, at
+            the copy's URL with `.jws` appended to its path.
           rationale: >-
             Without a signature, a release lock's sha256 values are only as
             trustworthy as the place it was fetched from, so a consumer
             reading through a mirror has to fetch every lock from the
             publisher itself, or take the mirror's word. Detached, the
             signature leaves the release lock's bytes as they are, so a client
-            that doesn't verify reads them unchanged. One algorithm, which
+            that doesn't verify reads them unchanged. Beside the release lock,
+            the signature goes wherever the release lock is copied, and a
+            client reading through a mirror finds it with no template of its
+            own, as Maven Central serves each artifact's `.asc` beside it. One algorithm, which
             every JOSE library implements, lets any client verify any
             publisher. An explicit `typ` keeps the signature from being
             accepted as any other JWS the same key could make (RFC 8725).
@@ -679,9 +729,11 @@ kanonak-protocol-spec:
               }
           description: >-
             shapes 2.1.0's release lock, signed with example.com's current
-            release-lock key. The empty middle segment is the detached
-            payload: the release lock's bytes, read from its own URL or from
-            any copy of it. The entity configuration is signed with
+            release-lock key, beside the release lock at
+            `https://example.com/shapes/2.1.0/kanonak.lock`. The empty middle
+            segment is the detached payload: the release lock's bytes, read
+            from its own URL or from any copy of it, whose signature is beside
+            that copy. The entity configuration is signed with
             `identity-1`, and lists `locks-2025`, which signed the locks of
             the year before, beside `locks-2026`.
         versions-per-package:
@@ -739,6 +791,17 @@ kanonak-protocol-spec:
             authentication, they reach only the clients that can already
             fetch from the publisher, so a copy read through a mirror can't be
             checked.
+        stripped-signature:
+          pro.value: |
+            https://mirror.example.net/example.com/shapes/2.1.0/kanonak.lock      200
+            https://mirror.example.net/example.com/shapes/2.1.0/kanonak.lock.jws  404
+
+            https://example.com/.well-known/openid-federation lists "locks-2026" in kanonak_publisher.
+          description: >-
+            Invalid: example.com lists a release-lock key, so it signs every
+            release lock it serves, and a client that verifies refuses this
+            copy, naming the signature's URL, rather than read it as
+            unsigned.
         plain-http-template:
           pro.value: |
             "package_url_template": "http://example.com/{package}/{version}.kan.yml"
