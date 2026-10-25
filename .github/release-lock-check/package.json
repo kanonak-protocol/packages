@@ -1,0 +1,8 @@
+{
+  "name": "release-lock-check",
+  "private": true,
+  "description": "The Kanonak CLI the release-lock check runs, pinned by its package-lock.json.",
+  "dependencies": {
+    "@kanonak-protocol/cli": "^8.6.0"
+  }
+}
