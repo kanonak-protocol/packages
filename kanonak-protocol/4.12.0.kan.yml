@@ -1123,9 +1123,12 @@ kanonak-protocol-spec:
             what runs, because a range promises forward compatibility: a
             version's author writes against the newest version its range
             admits, so the version is judged against that version, never
-            against its floor. From 4.8.0 to 4.11.0 validation read the
-            stated versions, and published versions that were right about
-            what they run with failed it.
+            against its floor. So a version's validation can change when an
+            import publishes, as when a newer minor of one import adds a name
+            another import defines: an unqualified reference to that name then
+            needs the qualified form (`qualified-disambiguation-rule`). From
+            4.8.0 to 4.11.0 validation read the stated versions, and published
+            versions that were right about what they run with failed it.
         stated-version-rule:
           pro.text: >-
             What identifies a version, its canonical form and hash, MUST read
