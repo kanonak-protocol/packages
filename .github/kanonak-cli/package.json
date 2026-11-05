@@ -1,0 +1,8 @@
+{
+  "name": "kanonak-cli",
+  "private": true,
+  "description": "The Kanonak CLI packages' checks run, pinned by its package-lock.json, so a new CLI reaches them only by a reviewed change here.",
+  "dependencies": {
+    "@kanonak-protocol/cli": "^8.16.0"
+  }
+}

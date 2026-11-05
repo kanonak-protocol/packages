@@ -1,0 +1,35 @@
+name: Published versions
+
+# A version kanonak.org serves never changes and is never dropped: versions
+# published after it import it, and a consumer's lock holds its sha256. So a
+# change here keeps every version the origin serves, with the bytes it serves,
+# wherever in this repository it lives. `kanonak publish --check` compares this
+# workspace with https://kanonak.org by namespace and sha256, as the deploy's
+# own publish does before it writes, and writes nothing. To fix a refusal,
+# restore each version it names with the bytes the origin serves.
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22.23.4'
+
+      - name: Install the Kanonak CLI
+        # Its package-lock.json names it exactly: a new CLI reaches this check
+        # only by a reviewed change to the lock.
+        run: npm ci --prefix .github/kanonak-cli
+
+      - name: Every version kanonak.org serves is here, unchanged
+        run: .github/kanonak-cli/node_modules/.bin/kanonak publish --workspace . --check
