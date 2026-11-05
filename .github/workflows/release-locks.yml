@@ -28,7 +28,7 @@ jobs:
       - name: Install the Kanonak CLI
         # Its package-lock.json names it exactly: a new CLI reaches this check
         # only by a reviewed change to the lock.
-        run: npm ci --prefix .github/release-lock-check
+        run: npm ci --prefix .github/kanonak-cli
 
       - name: Every published version has its release lock
-        run: .github/release-lock-check/node_modules/.bin/kanonak release-lock --check
+        run: .github/kanonak-cli/node_modules/.bin/kanonak release-lock --check
