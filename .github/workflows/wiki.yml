@@ -1,0 +1,62 @@
+name: Wiki
+
+# Every push to main writes kanonak.org's packages into this repository's wiki, each at its newest version: a page per
+# resource and per package, and Home for the publisher, by `kanonak wiki` from the CLI .github/kanonak-cli pins. The
+# wiki is a copy of the packages, never a place to write: each run replaces it whole, so a resource renamed or removed
+# leaves no page behind, and each page's footer names what it was drawn from. `kanonak wiki` draws every page before it
+# writes one, so a run that fails pushes nothing.
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "**/*.kan.yml"
+      - ".github/kanonak-cli/**"
+      - ".github/workflows/wiki.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wiki
+  cancel-in-progress: false
+
+jobs:
+  wiki:
+    name: Wiki
+    # Only main's pages: a run dispatched from another branch would publish what isn't merged.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22.23.4'
+
+      - name: Install the Kanonak CLI
+        run: npm ci --prefix .github/kanonak-cli
+
+      - name: Draw every page
+        run: .github/kanonak-cli/node_modules/.bin/kanonak wiki --workspace . --publisher kanonak.org --out "$RUNNER_TEMP/pages"
+
+      - name: Replace the wiki with them
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git clone --quiet --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" "$RUNNER_TEMP/wiki" || {
+            echo "::error::${GITHUB_REPOSITORY}'s wiki has no repository to push to. GitHub makes it only when its first page is created in the browser: open https://github.com/${GITHUB_REPOSITORY}/wiki, create the first page, then run this workflow again."
+            exit 1
+          }
+          cd "$RUNNER_TEMP/wiki"
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -R "$RUNNER_TEMP/pages/." .
+          git add --all
+          if git diff --cached --quiet; then
+            echo "The wiki already holds these pages."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit --quiet -m "Pages drawn from ${GITHUB_REPOSITORY}@${GITHUB_SHA}"
+          git push --quiet origin HEAD
+          echo "Pushed $(git ls-files | wc -l) files to the wiki."
