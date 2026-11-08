@@ -111,7 +111,7 @@ packages:
   kanonak.org/ontology-conventions:
     version: 1.5.0
     resolved: https://kanonak.org/ontology-conventions/1.5.0.kan.yml
-    integrity: sha256:31de1dad30bc80a264206e68ca29959fc17eaf77b745ee1b2b76023abb42687d
+    integrity: sha256:7198ee1c3084f1ee3e4f5808c3303f1ed133e9c30fd6cbda463ee839fd023477
     dependencies:
       kanonak.org/core-kanonak: 2.4.0
       kanonak.org/core-owl: 2.4.0

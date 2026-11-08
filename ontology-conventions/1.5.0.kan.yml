@@ -74,7 +74,7 @@ ontology-conventions-spec:
 
     A specific INSTANCE
        -> an INDIVIDUAL.  type: <SomeClass>.
-          Is it a fixed, named member of the model (a category, a status)?
+          Is it a fixed, named member of the model (a status, a currency)?
             -> mark the class owl.oneOf -> it is an ENUMERATION (schema).
                See "Enumerations vs Data Individuals".
           Is it content that changes over time (a record, a row, a snapshot)?
@@ -464,8 +464,8 @@ ontology-conventions-spec:
         Individuals fall into two groups that look identical in the graph — both
         are instances of a class — so the protocol tells them apart only by an
         **explicit marker**, never by a heuristic. A **closed set of named
-        members** that is part of the model (a fixed list of categories,
-        statuses, operation kinds) is an **enumeration**: mark the class with
+        members** that is part of the model (a fixed list of statuses,
+        currencies, payment methods) is an **enumeration**: mark the class with
         [[owl.oneOf]] listing exactly its individuals. A **closed set of literal
         values** allowed on one property is a property enumeration: constrain
         the property with [[sh.in]] (see the shapes convention). Everything
@@ -531,7 +531,7 @@ ontology-conventions-spec:
             Avoid — servers are operational data that change over time, not a
             fixed part of the model. Leave `Server` unmarked and let its
             instances be data. Reserve [[owl.oneOf]] for genuinely fixed sets
-            (statuses, categories, units).
+            (statuses, currencies, units).
 
     constraining-properties-with-shapes:
       rdfs.label: Constraining Properties with Shapes
