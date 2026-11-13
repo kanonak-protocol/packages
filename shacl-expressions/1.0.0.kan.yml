@@ -1,0 +1,78 @@
+shacl-expressions:
+  type: Package
+  publisher: kanonak.org
+  version: 1.0.0
+  label: SHACL Expressions
+  comment: >-
+    An expression constraint for kanonak.org/core-shacl: a node shape holds a
+    kanonak.org/transformations expression that each of its focus nodes must
+    satisfy, so a package can state a relation between its values, such as a
+    sum of two of them bounded by a third, or a name beginning with the code of
+    a value it references, and have it checked. It is kept apart from
+    core-shacl, as SHACL Advanced Features' sh:expression is kept apart from
+    SHACL Core, so only a package that writes an expression carries the
+    transformations vocabulary in its closure.
+
+
+    An expression constraint is evaluated once for each focus node its shape
+    selects, by any of the shape's targets, with the focus node bound as
+    `input`, the binding tx.VarRef names the current instance by. Nothing else
+    is bound. The focus node conforms where the expression yields true. Where
+    it yields anything else, or can't be evaluated, the focus node violates
+    it, with the shape's message and at the shape's severity, so an expression
+    that fails is never read as a pass.
+
+
+    The expression reads only the focus node and what its values reference,
+    transitively, resolved in the closure validation reads, and reading any
+    other resource is an error. A tx.UriLiteral is a constant to compare a
+    value with: a tx.PropertyRead straight from one reads a resource the shape
+    names rather than one the focus node reaches, so it is refused where the
+    package declaring the shape is validated. So a shape's verdict on a focus
+    node depends only on that node and what it references.
+
+
+    Adding an expression constraint to a shape, or changing one, can refuse
+    data the version before accepted, and no check can show that it doesn't,
+    so it is a backward-incompatible change, as adding or changing a pattern
+    is.
+  imports:
+    - publisher: kanonak.org
+      packages:
+        - package: core-kanonak
+          match: ^
+          version: 2.4.0
+        - package: core-rdf
+          match: ^
+          version: 1.2.0
+          alias: rdfs
+        - package: core-owl
+          match: ^
+          version: 2.4.0
+          alias: owl
+        - package: core-shacl
+          match: ^
+          version: 1.8.0
+          alias: sh
+        - package: transformations
+          match: ^
+          version: 3.21.0
+          alias: tx
+
+expression:
+  type: owl.ObjectProperty
+  label: Expression
+  comment: >-
+    A transformations expression every focus node of the shape must satisfy,
+    evaluated with the focus node bound as `input`. A shape may hold several,
+    and each is checked on its own.
+  domain: sh.NodeShape
+  range: tx.Expression
+
+ExpressionConstraintComponent:
+  type: sh.ConstraintComponent
+  label: Expression Constraint Component
+  comment: >-
+    An expression constraint's violation: the expression yielded something
+    other than true for the focus node, or couldn't be evaluated. Mirrors
+    sh:ExpressionConstraintComponent.
