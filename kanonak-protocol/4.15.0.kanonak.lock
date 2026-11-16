@@ -69,7 +69,7 @@ packages:
   kanonak.org/kanonak-protocol:
     version: 4.15.0
     resolved: https://kanonak.org/kanonak-protocol/4.15.0.kan.yml
-    integrity: sha256:ecb072541ada95cfc638e8de5f1fb015f4db02e7151af85ad4b727654aab3253
+    integrity: sha256:557096f8ca16b174e4d9bc00ec641e8c3305bdc6fd01cc6dc7a75a906d8814d3
     dependencies:
       kanonak.org/core-kanonak: 2.4.0
       kanonak.org/core-prose: 1.4.0

@@ -1686,8 +1686,9 @@ kanonak-protocol-spec:
             An ObjectProperty value SHOULD reference a resource of the
             property's range: one of the resource's declared types SHOULD be
             the range, a subclass of it, or a subclass of a member of the
-            range's owl:unionOf. A resource that is a class names a kind of
-            the range, so the class itself SHOULD be one of those instead.
+            range's owl:unionOf. A resource that is a class is also in range
+            where the class itself is one of those, since it names a kind of
+            the range.
             rdfs:Resource admits any resource, and owl:Thing any individual, as
             OWL makes every individual a Thing. A range that is rdf:List or
             rdfs:Container describes the collection rather than its members,
@@ -1702,10 +1703,11 @@ kanonak-protocol-spec:
             property whose values are kinds of a class, such as the kinds of
             message something sends, is ranged at that class and names its
             subclasses. Their declared type is rdfs:Class, which no such range
-            admits, so a class is held to the range by what it is a subclass
-            of. It's a SHOULD, so a validator warns, since published versions
-            reference outside their ranges and a requirement would make them
-            fail.
+            admits, so a class is also in range by what it is a subclass of,
+            while a property ranged at rdfs:Class still admits any class by
+            its declared type. It's a SHOULD, so a validator warns, since
+            published versions reference outside their ranges and a
+            requirement would make them fail.
       hasValidExample:
         local-reference:
           pro.value: |
